@@ -1,0 +1,830 @@
+
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
+import { DAYS, TIME_SLOTS } from '../../constants';
+import { generateTimetable } from '../../services/geminiService';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry } from '../../types';
+
+
+const SectionCard = ({ title, children, actions }: { title: string, children?: React.ReactNode, actions?: React.ReactNode }) => (
+    React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md mb-6" },
+        React.createElement("div", { className: "flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4" },
+            React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, title),
+            actions && React.createElement("div", null, actions)
+        ),
+        ...React.Children.toArray(children)
+    )
+);
+
+const DataTable = ({ headers, data, renderRow }) => (
+    React.createElement("div", { className: "overflow-x-auto" },
+        React.createElement("table", { className: "w-full text-sm text-left" },
+            React.createElement("thead", { className: "bg-gray-100 dark:bg-slate-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs" },
+                React.createElement("tr", null, headers.map(h => React.createElement("th", { key: h, className: "px-6 py-3" }, h)))
+            ),
+            React.createElement("tbody", { className: "text-gray-700 dark:text-gray-200" }, data.length > 0 ? data.map(renderRow) : React.createElement("tr", null, React.createElement("td", { colSpan: headers.length, className: "text-center p-8 text-gray-500 dark:text-gray-400" }, "No data available.")))
+        )
+    )
+);
+
+// FIX: Added a default value to the 'children' prop to satisfy the TypeScript type checker
+// when using React.createElement, which was incorrectly flagging it as a required prop.
+const Modal = ({ isOpen, onClose, title, children = null }) => {
+    if (!isOpen) return null;
+
+    return (
+        React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4", "aria-modal": true, role: "dialog" },
+            React.createElement("div", { className: "bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" },
+                React.createElement("div", { className: "flex justify-between items-center p-4 border-b border-gray-200 dark:border-slate-700" },
+                    React.createElement("h2", { className: "text-lg font-bold text-gray-800 dark:text-gray-100" }, title),
+                    React.createElement("button", { onClick: onClose, className: "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" },
+                        React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" },
+                            React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M6 18L18 6M6 6l12 12" })
+                        )
+                    )
+                ),
+                React.createElement("div", { className: "p-6 overflow-y-auto" }, children)
+            )
+        )
+    );
+};
+
+// FIX: Added a default value to the 'children' prop to satisfy the TypeScript type checker
+// when using React.createElement, which was incorrectly flagging it as a required prop.
+const FormField = ({ label, children = null }) => React.createElement("div", { className: "mb-4" }, React.createElement("label", { className: "block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1" }, label), children);
+const TextInput = (props) => React.createElement("input", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
+const SelectInput = (props) => React.createElement("select", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
+
+const ClassForm = ({ initialData, onSave }) => {
+    const [data, setData] = useState(initialData || { name: '', branch: '', year: 1, section: '', studentCount: 0 });
+    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
+        React.createElement(FormField, { label: "Name (e.g., CSE-3-A)" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Branch (e.g., CSE)" }, React.createElement(TextInput, { type: "text", name: "branch", value: data.branch, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Year" }, React.createElement(TextInput, { type: "number", name: "year", value: data.year, onChange: handleChange, required: true, min: 1 })),
+        React.createElement(FormField, { label: "Section" }, React.createElement(TextInput, { type: "text", name: "section", value: data.section, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Student Count" }, React.createElement(TextInput, { type: "number", name: "studentCount", value: data.studentCount, onChange: handleChange, required: true, min: 1 })),
+        React.createElement("button", { type: "submit", className: "w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" }, React.createElement(SaveIcon, null), "Save")
+    );
+};
+
+const FacultyForm = ({ initialData, onSave }) => {
+    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', ') } : { name: '', department: '', specialization: '' });
+    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.value });
+    const handleSave = (e) => {
+        e.preventDefault();
+        onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean) });
+    };
+    return React.createElement("form", { onSubmit: handleSave },
+        React.createElement(FormField, { label: "Name" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Department" }, React.createElement(TextInput, { type: "text", name: "department", value: data.department, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Specializations (comma-separated)" }, React.createElement(TextInput, { type: "text", name: "specialization", value: data.specialization, onChange: handleChange })),
+        React.createElement("button", { type: "submit", className: "w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" }, React.createElement(SaveIcon, null), "Save")
+    );
+};
+
+const SubjectForm = ({ initialData, onSave, faculty }) => {
+    const [data, setData] = useState(initialData || { name: '', code: '', type: 'theory', hoursPerWeek: 3, assignedFacultyId: '' });
+    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
+        React.createElement(FormField, { label: "Name" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Code" }, React.createElement(TextInput, { type: "text", name: "code", value: data.code, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Type" }, React.createElement(SelectInput, { name: "type", value: data.type, onChange: handleChange }, React.createElement("option", { value: "theory" }, "Theory"), React.createElement("option", { value: "lab" }, "Lab"))),
+        React.createElement(FormField, { label: "Hours Per Week" }, React.createElement(TextInput, { type: "number", name: "hoursPerWeek", value: data.hoursPerWeek, onChange: handleChange, required: true, min: 1 })),
+        React.createElement(FormField, { label: "Assigned Faculty" }, React.createElement(SelectInput, { name: "assignedFacultyId", value: data.assignedFacultyId, onChange: handleChange, required: true },
+            React.createElement("option", { value: "", disabled: true }, "Select Faculty"),
+            faculty.map(f => React.createElement("option", { key: f.id, value: f.id }, f.name))
+        )),
+        React.createElement("button", { type: "submit", className: "w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" }, React.createElement(SaveIcon, null), "Save")
+    );
+};
+
+const RoomForm = ({ initialData, onSave }) => {
+    const [data, setData] = useState(initialData || { number: '', type: 'classroom', capacity: 0 });
+    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
+        React.createElement(FormField, { label: "Number (e.g., CS-101)" }, React.createElement(TextInput, { type: "text", name: "number", value: data.number, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Type" }, React.createElement(SelectInput, { name: "type", value: data.type, onChange: handleChange }, React.createElement("option", { value: "classroom" }, "Classroom"), React.createElement("option", { value: "lab" }, "Lab"))),
+        React.createElement(FormField, { label: "Capacity" }, React.createElement(TextInput, { type: "number", name: "capacity", value: data.capacity, onChange: handleChange, required: true, min: 1 })),
+        React.createElement("button", { type: "submit", className: "w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" }, React.createElement(SaveIcon, null), "Save")
+    );
+};
+
+const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData }) => {
+    
+    const ActionButtons = ({ onEdit, onDelete }) => (
+        React.createElement("div", { className: "flex gap-2" },
+            React.createElement("button", { onClick: onEdit, className: "text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 p-1", "aria-label": "Edit" }, React.createElement(EditIcon, null)),
+            React.createElement("button", { onClick: onDelete, className: "text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1", "aria-label": "Delete" }, React.createElement(DeleteIcon, null))
+        )
+    );
+
+    return (
+        React.createElement(React.Fragment, null,
+             React.createElement("div", { className: "bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 p-4 rounded-2xl mb-6 flex flex-wrap items-center justify-between gap-4" },
+                React.createElement("div", null,
+                    React.createElement("h3", { className: "text-md font-bold text-indigo-800 dark:text-indigo-200" }, "Manage Data"),
+                    React.createElement("p", { className: "text-sm text-indigo-600 dark:text-indigo-300 mt-1" }, "Add, edit, or delete items. You can reset to the original sample data if needed.")
+                ),
+                React.createElement("button", { onClick: handleResetData, className: "bg-indigo-200 hover:bg-indigo-300 dark:bg-indigo-800/50 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 transition shadow-sm text-sm" }, "Reset to Sample Data")
+            ),
+            React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
+                React.createElement("div", null,
+                    React.createElement(SectionCard, {
+                        title: "Classes & Sections",
+                        actions: React.createElement("button", { onClick: () => openModal('add', 'class'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Class")
+                    },
+                        React.createElement(DataTable, {
+                            headers: ['Name', 'Students', 'Actions'], data: classes, renderRow: (c) => (
+                                React.createElement("tr", { key: c.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-6 py-4" }, c.name),
+                                    React.createElement("td", { className: "px-6 py-4" }, c.studentCount),
+                                    React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'class', c), onDelete: () => handleDelete('class', c.id) }))
+                                ))
+                        })
+                    ),
+                    React.createElement(SectionCard, {
+                        title: "Subjects",
+                        actions: React.createElement("button", { onClick: () => openModal('add', 'subject'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Subject")
+                    },
+                        React.createElement(DataTable, {
+                            headers: ['Name', 'Type', 'Hours/Week', 'Actions'], data: subjects, renderRow: (s) => (
+                                React.createElement("tr", { key: s.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-6 py-4" }, s.name),
+                                    React.createElement("td", { className: "px-6 py-4 capitalize" }, s.type),
+                                    React.createElement("td", { className: "px-6 py-4" }, s.hoursPerWeek),
+                                    React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'subject', s), onDelete: () => handleDelete('subject', s.id) }))
+                                ))
+                        })
+                    )
+                ),
+                React.createElement("div", null,
+                    React.createElement(SectionCard, {
+                        title: "Faculty Members",
+                        actions: React.createElement("button", { onClick: () => openModal('add', 'faculty'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Faculty")
+                    },
+                        React.createElement(DataTable, {
+                            headers: ['Name', 'Department', 'Actions'], data: faculty, renderRow: (f) => (
+                                React.createElement("tr", { key: f.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-6 py-4" }, f.name),
+                                    React.createElement("td", { className: "px-6 py-4" }, f.department),
+                                    React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'faculty', f), onDelete: () => handleDelete('faculty', f.id) }))
+                                ))
+                        })
+                    ),
+                    React.createElement(SectionCard, {
+                        title: "Rooms & Labs",
+                        actions: React.createElement("button", { onClick: () => openModal('add', 'room'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Room")
+                    },
+                        React.createElement(DataTable, {
+                            headers: ['Number', 'Type', 'Capacity', 'Actions'], data: rooms, renderRow: (r) => (
+                                React.createElement("tr", { key: r.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-6 py-4" }, r.number),
+                                    React.createElement("td", { className: "px-6 py-4 capitalize" }, r.type),
+                                    React.createElement("td", { className: "px-6 py-4" }, r.capacity),
+                                    React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'room', r), onDelete: () => handleDelete('room', r.id) }))
+                                ))
+                        })
+                    )
+                )
+            )
+        )
+    );
+};
+
+const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, faculty }: { constraints: Constraints, onConstraintsChange: (newConstraints: Constraints) => void, classes: Class[], subjects: Subject[], faculty: Faculty[] }) => {
+    const uniqueDepartments = useMemo(() => [...new Set(faculty.map(f => f.department))], [faculty]);
+
+    const setConstraints = (updater) => {
+        const newConstraints = typeof updater === 'function' ? updater(constraints) : updater;
+        onConstraintsChange(newConstraints);
+    };
+
+    const handleAddConstraint = (type: 'nonConsecutive' | 'preferredTime' | 'facultyAvailability') => {
+        let newConstraint;
+        if (type === 'nonConsecutive') {
+            newConstraint = {
+                id: Date.now(),
+                type,
+                classId: classes[0]?.id || '',
+                subjectId1: '',
+                subjectId2: ''
+            };
+        } else if (type === 'preferredTime') {
+            newConstraint = {
+                id: Date.now(),
+                type,
+                classId: classes[0]?.id || '',
+                details: ''
+            };
+        } else if (type === 'facultyAvailability') {
+            newConstraint = {
+                id: Date.now(),
+                type,
+                facultyId: faculty[0]?.id || '',
+                day: DAYS[0],
+                timeSlot: TIME_SLOTS[0],
+            };
+        }
+
+        if (newConstraint) {
+            setConstraints(prev => ({
+                ...prev,
+                classSpecific: [...(prev.classSpecific || []), newConstraint]
+            }));
+        }
+    };
+
+    const handleConstraintChange = (id: number, field: string, value: string) => {
+        setConstraints(prev => ({
+            ...prev,
+            classSpecific: prev.classSpecific.map(c =>
+                c.id === id ? { ...c, [field]: value } : c
+            )
+        }));
+    };
+
+    const handleRemoveConstraint = (id: number) => {
+        setConstraints(prev => ({
+            ...prev,
+            classSpecific: prev.classSpecific.filter(c => c.id !== id)
+        }));
+    };
+
+    const classOptions = useMemo(() => classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name)), [classes]);
+    const subjectOptions = useMemo(() => subjects.map(s => React.createElement("option", { key: s.id, value: s.id }, s.name)), [subjects]);
+    const facultyOptions = useMemo(() => faculty.map(f => React.createElement("option", { key: f.id, value: f.id }, f.name)), [faculty]);
+    const dayOptions = useMemo(() => DAYS.map(d => React.createElement("option", { key: d, value: d }, d.charAt(0).toUpperCase() + d.slice(1))), []);
+    const timeSlotOptions = useMemo(() => TIME_SLOTS.filter(t => t !== '12:50-01:35').map(t => React.createElement("option", { key: t, value: t }, t)), []);
+
+
+    return React.createElement(React.Fragment, null,
+        React.createElement(SectionCard, { title: "General Scheduling Rules" },
+            React.createElement("div", { className: "space-y-6 max-w-lg" },
+                React.createElement("div", null,
+                    React.createElement("label", { className: "font-semibold text-gray-600 dark:text-gray-300" }, "Max Consecutive Classes for Faculty"),
+                    React.createElement("input", {
+                        type: "number",
+                        value: constraints.maxConsecutiveClasses,
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => setConstraints(c => ({...c, maxConsecutiveClasses: parseInt(e.target.value, 10)})),
+                        className: "mt-1 w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200"
+                    })
+                ),
+                React.createElement("div", null,
+                    React.createElement("label", { className: "font-semibold text-gray-600 dark:text-gray-300" }, "Max Concurrent Classes per Department"),
+                    React.createElement("div", { className: "mt-2 space-y-2" },
+                        uniqueDepartments.map(dept => (
+                            React.createElement("div", { key: dept, className: "flex items-center justify-between" },
+                                React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, dept),
+                                React.createElement("input", {
+                                    type: "number",
+                                    value: constraints.maxConcurrentClassesPerDept[dept] || '',
+                                    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                                        const value = parseInt(e.target.value, 10);
+                                        setConstraints(c => ({
+                                            ...c,
+                                            maxConcurrentClassesPerDept: {
+                                                ...c.maxConcurrentClassesPerDept,
+                                                [dept]: isNaN(value) ? 0 : value
+                                            }
+                                        }));
+                                    },
+                                    className: "w-20 p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200"
+                                })
+                            )
+                        ))
+                    )
+                ),
+                 React.createElement("div", null,
+                    React.createElement("label", { className: "font-semibold text-gray-600 dark:text-gray-300" }, "Working Days"),
+                    React.createElement("div", { className: "mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3" },
+                        DAYS.map(day => (
+                            React.createElement("label", { key: day, className: "flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700/50 cursor-pointer" },
+                                React.createElement("input", {
+                                    type: "checkbox",
+                                    checked: constraints.workingDays.includes(day),
+                                    onChange: e => {
+                                        const newDays = e.target.checked ? [...constraints.workingDays, day] : constraints.workingDays.filter(d => d !== day);
+                                        setConstraints(c => ({ ...c, workingDays: newDays }));
+                                    },
+                                    className: "h-4 w-4 text-indigo-500 bg-gray-200 dark:bg-slate-600 border-gray-300 dark:border-slate-500 rounded focus:ring-indigo-500"
+                                }),
+                                React.createElement("span", { className: "capitalize text-gray-600 dark:text-gray-300" }, day)
+                            )
+                        ))
+                    )
+                )
+            )
+        ),
+        React.createElement(SectionCard, { title: "Specific Constraints" },
+            React.createElement("div", { className: "space-y-4" },
+                 React.createElement("p", { className: "text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4" }, "Define specific rules for classes, faculty availability, or scheduling preferences."),
+                (constraints.classSpecific || []).map(constraint => {
+                     const deleteButton = React.createElement("button", {
+                        onClick: () => handleRemoveConstraint(constraint.id),
+                        className: "ml-auto text-red-500 hover:text-red-700 p-1 rounded-full",
+                        "aria-label": "Delete constraint"
+                    }, React.createElement(DeleteIcon, null));
+
+                    if (constraint.type === 'nonConsecutive') {
+                        return React.createElement("div", { key: constraint.id, className: "flex flex-wrap items-center gap-2 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                             React.createElement("select", {
+                                value: constraint.classId,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'classId', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, React.createElement("option", { value: "" }, "Select Class"), classOptions),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "subjects"),
+                            React.createElement("select", {
+                                value: constraint.subjectId1,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'subjectId1', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, React.createElement("option", { value: "" }, "Select Subject"), subjectOptions),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "&"),
+                            React.createElement("select", {
+                                value: constraint.subjectId2,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'subjectId2', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, React.createElement("option", { value: "" }, "Select Subject"), subjectOptions),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "should not be consecutive."),
+                            deleteButton
+                        );
+                    } else if (constraint.type === 'preferredTime') {
+                         return React.createElement("div", { key: constraint.id, className: "flex flex-wrap items-center gap-2 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                             React.createElement("select", {
+                                value: constraint.classId,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'classId', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, React.createElement("option", { value: "" }, "Select Class"), classOptions),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "prefers"),
+                            React.createElement("input", {
+                                type: "text",
+                                placeholder: "e.g., morning slots on Mondays",
+                                value: constraint.details,
+                                onChange: (e: React.ChangeEvent<HTMLInputElement>) => handleConstraintChange(constraint.id, 'details', e.target.value),
+                                className: "flex-grow p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }),
+                            deleteButton
+                        );
+                    } else if (constraint.type === 'facultyAvailability') {
+                         return React.createElement("div", { key: constraint.id, className: "flex flex-wrap items-center gap-2 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                             React.createElement("select", {
+                                value: constraint.facultyId,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'facultyId', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, React.createElement("option", { value: "" }, "Select Faculty"), facultyOptions),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "is unavailable on"),
+                             React.createElement("select", {
+                                value: constraint.day,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'day', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, dayOptions),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "at"),
+                            React.createElement("select", {
+                                value: constraint.timeSlot,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'timeSlot', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, timeSlotOptions),
+                            deleteButton
+                        );
+                    }
+                    return null;
+                }),
+                React.createElement("div", { className: "flex flex-wrap gap-4 pt-4 border-t border-gray-200 dark:border-slate-700 mt-4" },
+                    React.createElement("button", {
+                        onClick: () => handleAddConstraint('nonConsecutive'),
+                        className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition"
+                    }, React.createElement(AddIcon, null), "Add Non-Consecutive Rule"),
+                    React.createElement("button", {
+                        onClick: () => handleAddConstraint('preferredTime'),
+                        className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition"
+                    }, React.createElement(AddIcon, null), "Add Time Preference Rule"),
+                    React.createElement("button", {
+                        onClick: () => handleAddConstraint('facultyAvailability'),
+                        className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition"
+                    }, React.createElement(AddIcon, null), "Add Faculty Availability Rule")
+                )
+            )
+        )
+    );
+};
+
+const GenerateTab = ({ onGenerate, isLoading, error }) => (
+    React.createElement("div", { className: "text-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-8 rounded-2xl shadow-lg max-w-2xl mx-auto" },
+        React.createElement("h3", { className: "text-2xl font-bold text-gray-800 dark:text-gray-100" }, "Generate Timetable"),
+        React.createElement("p", { className: "text-gray-500 dark:text-gray-400 my-4" }, "Click the button below to use the AI to generate an optimal, conflict-free timetable based on your setup and constraints."),
+
+        error && React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-left my-4" }, error),
+
+        React.createElement("button", {
+            onClick: onGenerate,
+            disabled: isLoading,
+            className: "w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-lg flex items-center justify-center gap-3 transition-transform transform hover:scale-105 disabled:bg-indigo-400 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/30"
+        },
+            isLoading ? (
+                React.createElement(React.Fragment, null,
+                    React.createElement(LoadingIcon, null),
+                    "Generating..."
+                )
+            ) : (
+                React.createElement(React.Fragment, null,
+                    React.createElement(GenerateIcon, null),
+                    "Start AI Generation"
+                )
+            )
+        )
+    )
+);
+
+const ViewTab = ({ timetable }: { timetable: TimetableEntry[] }) => {
+    const [viewBy, setViewBy] = useState('class');
+    const [selectedValues, setSelectedValues] = useState<string[]>([]);
+
+    const options = useMemo(() => {
+        if (!timetable.length) return [];
+        switch (viewBy) {
+            case 'class':
+                return [...new Set(timetable.map(e => e.className))].sort().map(c => ({ value: c, label: c }));
+            case 'faculty':
+                return [...new Set(timetable.map(e => e.faculty))].sort().map(f => ({ value: f, label: f }));
+            case 'room':
+                 return [...new Set(timetable.map(e => e.room))].sort().map(r => ({ value: r, label: r }));
+            default:
+                return [];
+        }
+    }, [viewBy, timetable]);
+
+    useEffect(() => {
+        if(options.length > 0) {
+            setSelectedValues([options[0].value]);
+        } else {
+            setSelectedValues([]);
+        }
+    }, [options]);
+
+    const filteredTimetable = useMemo(() => timetable.filter(entry => {
+        if (!selectedValues.length) return true;
+        switch (viewBy) {
+            case 'class': return entry.className === selectedValues[0];
+            case 'faculty': return selectedValues.includes(entry.faculty);
+            case 'room': return selectedValues.includes(entry.room);
+            default: return true;
+        }
+    }), [timetable, selectedValues, viewBy]);
+
+    const getEntries = useCallback((day: string, time: string) => {
+        return filteredTimetable.filter(e => e.day.toLowerCase() === day.toLowerCase() && e.time === time);
+    }, [filteredTimetable]);
+
+    const handleExport = () => {
+        if (!timetable || timetable.length === 0) {
+            alert("No timetable data to export.");
+            return;
+        }
+
+        const headers = ["Day", "Time", "Class Name", "Subject", "Faculty", "Room", "Type"];
+        const csvRows = [headers.join(',')];
+
+        const sortedTimetable = [...timetable].sort((a, b) => {
+            const dayCompare = DAYS.indexOf(a.day.toLowerCase()) - DAYS.indexOf(b.day.toLowerCase());
+            if (dayCompare !== 0) return dayCompare;
+            const timeCompare = TIME_SLOTS.indexOf(a.time) - TIME_SLOTS.indexOf(b.time);
+            if (timeCompare !== 0) return timeCompare;
+            return a.className.localeCompare(b.className);
+        });
+
+        for (const entry of sortedTimetable) {
+            const values = [
+                entry.day,
+                entry.time,
+                entry.className,
+                entry.subject,
+                entry.faculty,
+                entry.room,
+                entry.type
+            ].map(value => `"${String(value).replace(/"/g, '""')}"`); // Quote and escape quotes
+            csvRows.push(values.join(','));
+        }
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "timetable.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    if (!timetable.length) {
+        return (
+            React.createElement("div", { className: "text-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-8 rounded-2xl shadow-lg max-w-2xl mx-auto" },
+                React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, "No Timetable Generated"),
+                React.createElement("p", { className: "text-gray-500 dark:text-gray-400 my-4" }, "Go to the 'Generate' tab to create a timetable.")
+            )
+        );
+    }
+    
+    const isMultiSelect = viewBy === 'faculty' || viewBy === 'room';
+
+    const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        if (isMultiSelect) {
+            const values = Array.from(e.target.selectedOptions, option => option.value);
+            setSelectedValues(values);
+        } else {
+            setSelectedValues([e.target.value]);
+        }
+    };
+
+    return (
+        React.createElement(SectionCard, { title: "Generated Timetable" },
+            React.createElement("div", { className: "flex flex-wrap gap-4 mb-6 items-center" },
+                 React.createElement("select", { value: viewBy, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setViewBy(e.target.value), className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-white" },
+                     React.createElement("option", { value: "class" }, "Class"),
+                     React.createElement("option", { value: "faculty" }, "Faculty"),
+                     React.createElement("option", { value: "room" }, "Room")
+                 ),
+                 React.createElement("div", { className: "flex-grow" },
+                    React.createElement("label", { className: "text-sm text-gray-500 dark:text-gray-400 mb-1 block" }, 
+                        isMultiSelect ? 'Select one or more (Ctrl/Cmd + Click)' : 'Select one'
+                    ),
+                    React.createElement("select", { 
+                        value: isMultiSelect ? selectedValues : (selectedValues[0] || ''), 
+                        onChange: handleSelectionChange, 
+                        multiple: isMultiSelect,
+                        className: `w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-white ${isMultiSelect ? 'h-32' : ''}`
+                    },
+                        options.map(o => React.createElement("option", { key: o.value, value: o.value }, o.label))
+                    )
+                ),
+                React.createElement("button", { 
+                    onClick: handleExport,
+                    title: "Export timetable to CSV",
+                    className: "ml-auto bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-200 font-semibold py-2 px-4 border border-gray-200 dark:border-slate-700 rounded-lg flex items-center gap-2 transition shadow-sm"
+                }, React.createElement(DownloadIcon, null), "Export CSV")
+            ),
+            (isMultiSelect && selectedValues.length === 0)
+            ? React.createElement("div", { className: "text-center p-8 bg-gray-50 dark:bg-slate-900/50 rounded-lg border border-gray-200 dark:border-slate-700" },
+                React.createElement("h4", { className: "font-semibold text-lg text-gray-700 dark:text-gray-200" }, `Select a ${viewBy} to view the schedule`),
+                React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-2" },
+                    `Please select at least one ${viewBy} from the list above to display the corresponding timetable.`
+                )
+              )
+            : React.createElement("div", { className: "overflow-x-auto" },
+                React.createElement("table", { className: "w-full border-collapse text-sm" },
+                    React.createElement("thead", null,
+                        React.createElement("tr", { className: "bg-gray-100 dark:bg-slate-900/50" },
+                            React.createElement("th", { className: "p-3 font-semibold text-left text-gray-600 dark:text-gray-300 border-b-2 border-gray-200 dark:border-slate-700" }, "Time"),
+                            DAYS.map(day => React.createElement("th", { key: day, className: "p-3 font-semibold text-center capitalize text-gray-600 dark:text-gray-300 border-b-2 border-gray-200 dark:border-slate-700" }, day))
+                        )
+                    ),
+                    React.createElement("tbody", null,
+                        TIME_SLOTS.map(time => (
+                            React.createElement("tr", { key: time, className: "hover:bg-gray-100/50 dark:hover:bg-slate-800/50 transition-colors" },
+                                React.createElement("td", { className: "p-3 text-gray-800 dark:text-gray-200 font-medium border-b border-gray-200 dark:border-slate-700" }, time),
+                                DAYS.map(day => {
+                                    const entries = getEntries(day, time);
+                                    const renderEntryDetails = (entry: TimetableEntry) => {
+                                        let mainText = entry.subject;
+                                        let subText = '';
+                                        if (viewBy === 'class') {
+                                            subText = entry.faculty;
+                                        } else if (viewBy === 'faculty') {
+                                            subText = `${entry.className} (${entry.room})`;
+                                        } else if (viewBy === 'room') {
+                                            subText = `${entry.className} (${entry.faculty})`;
+                                        }
+                                        return [
+                                            React.createElement("div", { key: "main", className: "font-bold" }, mainText),
+                                            React.createElement("div", { key: "sub", className: "opacity-80" }, subText)
+                                        ];
+                                    };
+                                    return (
+                                        React.createElement("td", { key: day, className: "p-2 border-b border-gray-200 dark:border-slate-700 text-center align-top" },
+                                            entries.length > 0 ? (
+                                                React.createElement("div", { className: "space-y-1" },
+                                                    entries.map((entry, index) => 
+                                                        React.createElement("div", { 
+                                                            key: `${entry.className}-${entry.subject}-${index}`, 
+                                                            className: `p-2 rounded-lg text-white text-xs ${entry.type === 'lab' ? 'bg-purple-600' : 'bg-indigo-600'}` 
+                                                        },
+                                                           ...renderEntryDetails(entry)
+                                                        )
+                                                    )
+                                                )
+                                            ) : (
+                                                time === '12:50-01:35' ? React.createElement("div", { className: "text-gray-400 dark:text-gray-500 text-xs" }, "Lunch") : null
+                                            )
+                                        )
+                                    );
+                                })
+                            )
+                        ))
+                    )
+                )
+            )
+        )
+    );
+};
+
+const getEntityUrl = (baseUrl: string, type: string, id: string | null = null): string => {
+    let entityPath;
+    switch (type) {
+        case 'class': entityPath = 'classes'; break;
+        case 'faculty': entityPath = 'faculty'; break;
+        default: entityPath = `${type}s`;
+    }
+    return id ? `${baseUrl}/${entityPath}/${id}` : `${baseUrl}/${entityPath}`;
+};
+
+export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, constraints, setConstraints, setClasses, setFaculty, setSubjects, setRooms, apiBaseUrl }) => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('setup');
+  
+  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [modalState, setModalState] = useState({ isOpen: false, mode: 'add', type: '', data: null });
+
+  const openModal = (mode, type, data = null) => setModalState({ isOpen: true, mode, type, data });
+  const closeModal = () => setModalState({ isOpen: false, mode: 'add', type: '', data: null });
+
+  const handleSave = async (type, data) => {
+      const isAdding = modalState.mode === 'add';
+      const url = getEntityUrl(apiBaseUrl, type, isAdding ? null : data.id);
+      const method = isAdding ? 'POST' : 'PUT';
+
+      try {
+          const response = await fetch(url, {
+              method: method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+          });
+          if (!response.ok) throw new Error(`Failed to save ${type}`);
+          
+          const savedItem = await response.json();
+          const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms }[type];
+
+          if (isAdding) {
+              setter(prev => [...prev, savedItem]);
+          } else {
+              setter(prev => prev.map(item => item.id === savedItem.id ? savedItem : item));
+          }
+          closeModal();
+      } catch (e) {
+          console.error(`Error saving ${type}:`, e);
+          alert(`An error occurred while saving the ${type}. Please try again.`);
+      }
+  };
+
+  const handleDelete = async (type, id) => {
+      if (window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+          try {
+              const url = getEntityUrl(apiBaseUrl, type, id);
+              const response = await fetch(url, { method: 'DELETE' });
+              if (!response.ok) throw new Error(`Failed to delete ${type}`);
+
+              const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms }[type];
+              setter(prev => prev.filter(item => item.id !== id));
+          } catch (e) {
+              console.error(`Error deleting ${type}:`, e);
+              alert(`An error occurred while deleting the ${type}. Please try again.`);
+          }
+      }
+  };
+
+  const handleResetData = async () => {
+    if (window.confirm('This will replace all current data with the original sample data. Are you sure?')) {
+        try {
+            const response = await fetch(`${apiBaseUrl}/reset`, { method: 'POST' });
+            if (!response.ok) throw new Error('Failed to reset data');
+            const { data } = await response.json();
+            setClasses(data.classes);
+            setFaculty(data.faculty);
+            setSubjects(data.subjects);
+            setRooms(data.rooms);
+            setConstraints(data.constraints);
+            setTimetable([]);
+            alert('Data has been reset to the original sample data.');
+        } catch (e) {
+            console.error('Error resetting data:', e);
+            alert('An error occurred while resetting data.');
+        }
+    }
+  };
+  
+  const handleConstraintsChange = useCallback(async (newConstraints) => {
+      setConstraints(newConstraints);
+      try {
+          await fetch(`${apiBaseUrl}/constraints`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newConstraints)
+          });
+      } catch (e) {
+          console.error("Failed to save constraints:", e);
+      }
+  }, [apiBaseUrl, setConstraints]);
+
+  const handleGenerate = useCallback(async () => {
+    setError(null);
+    if (classes.length === 0 || subjects.length === 0 || faculty.length === 0 || rooms.length === 0) {
+        setError("Please add classes, subjects, faculty, and rooms before generating a timetable.");
+        return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const result = await generateTimetable(classes, faculty, subjects, rooms, constraints);
+      setTimetable(result);
+      setActiveTab('view');
+    } catch (err) {
+      setError((err as Error).message || "An unknown error occurred.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [classes, faculty, subjects, rooms, constraints]);
+
+  const renderModalContent = () => {
+      const { mode, type, data } = modalState;
+      const title = `${mode === 'add' ? 'Add New' : 'Edit'} ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+
+      let formComponent;
+      switch(type) {
+          case 'class':
+              formComponent = React.createElement(ClassForm, { initialData: data, onSave: (d) => handleSave('class', d) });
+              break;
+          case 'faculty':
+              formComponent = React.createElement(FacultyForm, { initialData: data, onSave: (d) => handleSave('faculty', d) });
+              break;
+          case 'subject':
+              formComponent = React.createElement(SubjectForm, { initialData: data, onSave: (d) => handleSave('subject', d), faculty: faculty });
+              break;
+          case 'room':
+              formComponent = React.createElement(RoomForm, { initialData: data, onSave: (d) => handleSave('room', d) });
+              break;
+          default:
+              formComponent = null;
+      }
+      return React.createElement(Modal, { isOpen: modalState.isOpen, onClose: closeModal, title: title }, formComponent);
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'setup':
+        return React.createElement(SetupTab, { classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData });
+      case 'constraints':
+        return React.createElement(ConstraintsTab, { constraints: constraints, onConstraintsChange: handleConstraintsChange, classes: classes, subjects: subjects, faculty: faculty });
+      case 'generate':
+        return React.createElement(GenerateTab, { onGenerate: handleGenerate, isLoading: isLoading, error: error });
+      case 'view':
+        return React.createElement(ViewTab, { timetable: timetable });
+      default:
+        return null;
+    }
+  };
+
+  const TabButton = ({ tab, label, icon }) => (
+    React.createElement("button", {
+      onClick: () => setActiveTab(tab),
+      className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${
+        activeTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'
+      }`
+    }, icon, label)
+  );
+
+  return (
+    React.createElement("div", { className: "min-h-screen bg-transparent p-4 sm:p-6 lg:p-8" },
+      renderModalContent(),
+      React.createElement("header", { className: "flex flex-wrap justify-between items-center mb-6 gap-4" },
+        React.createElement("div", null,
+          React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-white" }, "AI Timetable Scheduler"),
+          React.createElement("p", { className: "text-gray-500 dark:text-gray-400" }, "Manage and generate academic schedules with ease.")
+        ),
+        React.createElement("div", { className: "flex gap-2" },
+            React.createElement("button", { onClick: toggleTheme, className: "bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-200 font-semibold p-2.5 border border-gray-200 dark:border-slate-700 rounded-lg flex items-center gap-2 transition shadow-sm" },
+                theme === 'dark' ? React.createElement(SunIcon, null) : React.createElement(MoonIcon, null)
+            ),
+            React.createElement("button", { onClick: () => navigate(-1), className: "bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-200 font-semibold py-2 px-4 border border-gray-200 dark:border-slate-700 rounded-lg flex items-center gap-2 transition shadow-sm" },
+                React.createElement(BackIcon, null), " Dashboard"
+            ),
+            React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-200 font-semibold py-2 px-4 border border-gray-200 dark:border-slate-700 rounded-lg flex items-center gap-2 transition shadow-sm" },
+                React.createElement(LogoutIcon, null), " Logout"
+            )
+        )
+      ),
+      React.createElement("nav", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-2 rounded-xl shadow-md flex flex-wrap gap-2 mb-8" },
+        React.createElement(TabButton, { tab: "setup", label: "Setup", icon: React.createElement(SetupIcon, null) }),
+        React.createElement(TabButton, { tab: "constraints", label: "Constraints", icon: React.createElement(ConstraintsIcon, null) }),
+        React.createElement(TabButton, { tab: "generate", label: "Generate", icon: React.createElement(GenerateIcon, null) }),
+        React.createElement(TabButton, { tab: "view", label: "View Timetable", icon: React.createElement(ViewIcon, null) })
+      ),
+      React.createElement("main", null, renderContent())
+    )
+  );
+};
