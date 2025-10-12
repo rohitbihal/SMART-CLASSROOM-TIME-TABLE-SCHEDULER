@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -209,8 +210,7 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
     );
 };
 
-const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance, user, faculty }) => {
-    const teacherName = faculty.find(f => f.specialization.includes(user.username) || f.name.toLowerCase().includes(user.role))?.name || "Dr. Rajesh Kumar";
+const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -313,19 +313,42 @@ const AdminDashboard = (props) => {
 
 const TeacherDashboard = (props) => {
     const [activeTab, setActiveTab] = useState('timetable');
-    const teacherTimetable = useMemo(() => (props.timetable || []).filter(e => e.faculty === "Dr. Rajesh Kumar"), [props.timetable]);
-    const teacherClasses = useMemo(() => [...new Set(teacherTimetable.map(e => e.className))].map(name => props.classes.find(c => c.name === name)).filter(Boolean), [teacherTimetable, props.classes]);
-    const [selectedClassId, setSelectedClassId] = useState(teacherClasses[0]?.id || '');
+
+    const myFacultyProfile = useMemo(() => 
+        props.faculty.find(f => f.email === props.user.username), 
+    [props.faculty, props.user.username]);
+
+    const teacherTimetable = useMemo(() => {
+        if (!myFacultyProfile) return [];
+        return (props.timetable || []).filter(e => e.faculty === myFacultyProfile.name);
+    }, [props.timetable, myFacultyProfile]);
+    
+    const teacherClasses = useMemo(() => {
+        if (!teacherTimetable) return [];
+        const classNames = [...new Set(teacherTimetable.map(e => e.className))];
+        return classNames.map(name => props.classes.find(c => c.name === name)).filter(Boolean);
+    }, [teacherTimetable, props.classes]);
+
+    const [selectedClassId, setSelectedClassId] = useState('');
     const [channel, setChannel] = useState('query');
-    useEffect(() => { if (teacherClasses.length > 0 && !selectedClassId) setSelectedClassId(teacherClasses[0].id) }, [teacherClasses, selectedClassId]);
+    
+    useEffect(() => {
+        if (teacherClasses.length > 0 && !selectedClassId) {
+            setSelectedClassId(teacherClasses[0].id);
+        }
+    }, [teacherClasses, selectedClassId]);
     
     const renderContent = () => {
         switch(activeTab) {
             case 'timetable': return React.createElement(TimetableGrid, { timetable: teacherTimetable, role: "teacher" });
-            case 'attendance': return React.createElement(AttendanceManager, { ...props, classes: teacherClasses });
+            case 'attendance': 
+                if (teacherClasses.length === 0) {
+                     return React.createElement(PlaceholderContent, { title: "Attendance Unavailable", icon: React.createElement(AttendanceIcon, {className:"h-12 w-12"}), message: "You are not assigned to any classes with a timetable. Attendance marking will be available once your schedule is generated." });
+                }
+                return React.createElement(AttendanceManager, { ...props, classes: teacherClasses });
             case 'chat': 
                 if (teacherClasses.length === 0) {
-                    return React.createElement(PlaceholderContent, { title: "Chat Unavailable", icon: React.createElement(ChatIcon, null), message: "You are not assigned to any classes with a timetable. Chat will be available once your schedule is generated." });
+                    return React.createElement(PlaceholderContent, { title: "Chat Unavailable", icon: React.createElement(ChatIcon, {className:"h-12 w-12"}), message: "You are not assigned to any classes with a timetable. Chat will be available once your schedule is generated." });
                 }
                 return React.createElement(React.Fragment, null,
                     React.createElement("div", { className: "flex gap-4 mb-4" },
@@ -344,7 +367,7 @@ const TeacherDashboard = (props) => {
     };
     
     return React.createElement("div", { className: "p-4 md:p-8 min-h-screen bg-transparent" },
-        React.createElement(Header, { title: "Teacher Dashboard", subtitle: `Welcome, ${props.user.username}`, ...props }),
+        React.createElement(Header, { title: "Teacher Dashboard", subtitle: `Welcome, ${myFacultyProfile?.name || props.user.username}`, ...props }),
         React.createElement(Tabs, null,
             React.createElement(TabButton, { isActive: activeTab === 'timetable', onClick: () => setActiveTab('timetable'), children: [React.createElement(SchedulerIcon, {className: 'h-5 w-5'}), "My Timetable"] }),
             React.createElement(TabButton, { isActive: activeTab === 'ims', onClick: () => setActiveTab('ims'), children: [React.createElement(IMSIcon, {className: 'h-5 w-5'}), "IMS"] }),

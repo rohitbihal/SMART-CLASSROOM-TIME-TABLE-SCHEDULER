@@ -16,6 +16,18 @@ const { GoogleGenAI, Type } = require("@google/genai");
 
 dotenv.config();
 
+// --- Environment Variable Check ---
+// Check for critical environment variables on startup.
+if (!process.env.MONGO_URI) {
+    console.error("FATAL ERROR: MONGO_URI is not defined in the environment variables. The application cannot connect to the database. Please add this variable to your .env file or your hosting provider's configuration.");
+    process.exit(1); // Exit the process with an error code
+}
+if (!process.env.API_KEY) {
+    // This is a warning because the app can still function without the AI part.
+    console.warn("WARNING: API_KEY is not defined. The AI timetable generation feature will not work.");
+}
+
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -24,14 +36,9 @@ app.use(express.json({ limit: '10mb' }));
 // This will serve files like index.html from the root directory.
 app.use(express.static(__dirname));
 
-// --- Mongoose Connection ---
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB connected successfully.'))
-    .catch(err => console.error('MongoDB connection error:', err));
-
 // --- Mongoose Schemas ---
 const classSchema = new mongoose.Schema({ id: String, name: String, branch: String, year: Number, section: String, studentCount: Number });
-const facultySchema = new mongoose.Schema({ id: String, name: String, department: String, specialization: [String] });
+const facultySchema = new mongoose.Schema({ id: String, name: String, department: String, specialization: [String], email: { type: String, required: false } });
 const subjectSchema = new mongoose.Schema({ id: String, name: String, code: String, type: String, hoursPerWeek: Number, assignedFacultyId: String });
 const roomSchema = new mongoose.Schema({ id: String, number: String, type: String, capacity: Number });
 const studentSchema = new mongoose.Schema({ id: String, name: String, email: String, classId: String, roll: String });
@@ -56,7 +63,7 @@ const MOCK_CLASSES = [
     { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60 },
 ];
 const MOCK_FACULTY = [
-    { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'] },
+    { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu' },
     { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'] },
 ];
 const MOCK_SUBJECTS = [
@@ -84,6 +91,48 @@ const MOCK_DATA = {
     rooms: MOCK_ROOMS,
     students: MOCK_STUDENTS,
 };
+
+// --- DB SEEDING FUNCTION ---
+async function seedDatabase(force = false) {
+    try {
+        if (!force) {
+            const classCount = await Class.countDocuments();
+            if (classCount > 0) {
+                console.log('Database already contains data. Skipping seed.');
+                return;
+            }
+            console.log('Database is empty. Seeding with mock data...');
+        } else {
+            console.log('Forcing database seed/reset...');
+        }
+
+        await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
+
+        await Class.insertMany(MOCK_DATA.classes);
+        await Faculty.insertMany(MOCK_DATA.faculty);
+        await Subject.insertMany(MOCK_DATA.subjects);
+        await Room.insertMany(MOCK_DATA.rooms);
+        await Student.insertMany(MOCK_DATA.students);
+        
+        console.log('Database seeded successfully.');
+    } catch (error) {
+        console.error('Error seeding database:', error);
+    }
+}
+
+
+// --- Mongoose Connection ---
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => {
+        console.log('MongoDB connected successfully.');
+        seedDatabase(); // Seed on startup if the database is empty.
+    })
+    .catch(err => {
+        console.error('Initial MongoDB connection error:', err)
+        // If the initial connection fails, the app should not start.
+        // The check at the top already handles a missing URI, this catches auth errors etc.
+        process.exit(1);
+    });
 
 // --- API Routes ---
 
@@ -150,14 +199,7 @@ app.use('/api/student', createRouterFor('student'));
 // POST to reset data to mock data
 app.post('/api/reset-data', async (req, res) => {
     try {
-        await Promise.all(Object.values(mongoose.connection.collections).map(c => c.deleteMany({})));
-        
-        await Class.insertMany(MOCK_DATA.classes);
-        await Faculty.insertMany(MOCK_DATA.faculty);
-        await Subject.insertMany(MOCK_DATA.subjects);
-        await Room.insertMany(MOCK_DATA.rooms);
-        await Student.insertMany(MOCK_DATA.students);
-
+        await seedDatabase(true); // force=true to wipe and re-seed
         res.status(200).json({ message: 'Database reset to mock data successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Error resetting data', error });
