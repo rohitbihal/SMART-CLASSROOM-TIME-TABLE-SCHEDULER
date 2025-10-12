@@ -1,7 +1,6 @@
 import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types';
 
 // NOTE: The base URL for the backend server.
-// This URL must point to your live Render service and include the /api path.
 const API_BASE_URL = 'https://smart-classroom-and-time-table-scheduler.onrender.com/api';
 
 /**
@@ -13,14 +12,18 @@ export const generateTimetable = async (
   faculty: Faculty[], 
   subjects: Subject[], 
   rooms: Room[], 
-  constraints: Constraints
+  constraints: Constraints,
+  token: string // Auth token is now required
 ): Promise<TimetableEntry[]> => {
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+
     const response = await fetch(`${API_BASE_URL}/generate-timetable`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
       body: JSON.stringify({ classes, faculty, subjects, rooms, constraints }),
     });
 
@@ -31,7 +34,6 @@ export const generateTimetable = async (
 
     const timetable = await response.json();
     
-    // Basic validation to ensure we received an array
     if (!Array.isArray(timetable)) {
       console.error("Backend returned non-array for timetable:", timetable);
       throw new Error("The server returned an invalid data format for the timetable.");
@@ -41,7 +43,6 @@ export const generateTimetable = async (
     
   } catch (error) {
     console.error("Error fetching timetable from server:", error);
-    // Re-throw the error so the UI component can catch it and display a message.
     throw new Error(`Failed to generate timetable. Please check your connection and constraints. Error: ${error.message}`);
   }
 };

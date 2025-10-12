@@ -625,7 +625,7 @@ const ViewTab = ({ timetable }: { timetable: TimetableEntry[] }) => {
     );
 };
 
-export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, students, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData }) => {
+export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, students, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('setup');
   
@@ -677,7 +677,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     setError(null);
     
     try {
-      const result = await generateTimetable(classes, faculty, subjects, rooms, constraints);
+      const result = await generateTimetable(classes, faculty, subjects, rooms, constraints, token);
       
       if (!Array.isArray(result)) {
         console.error("API returned non-array for timetable:", result);
@@ -686,7 +686,6 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
 
       setTimetable(result);
       
-      // Save all data to localStorage for other components to use
       const sharedData = { classes, faculty, subjects, rooms, students, constraints, timetable: result };
       localStorage.setItem('smartCampusShared', JSON.stringify(sharedData));
 
@@ -700,7 +699,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     } finally {
       setIsLoading(false);
     }
-  }, [classes, faculty, subjects, rooms, students, constraints]);
+  }, [classes, faculty, subjects, rooms, students, constraints, token]);
 
   const handleInitiateGenerate = useCallback(() => {
     setError(null);

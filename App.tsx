@@ -7,13 +7,10 @@ import { LoadingIcon } from './components/Icons';
 import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance } from './types';
 
 // NOTE: The base URL for the backend server.
-// For local development, this will be 'http://localhost:3001/api'.
-// This URL must point to your live Render service and include the /api path.
 const API_BASE_URL = 'https://smart-classroom-and-time-table-scheduler.onrender.com/api';
 
 const getInitialConstraints = (): Constraints => {
-    // Initial constraints can still be defined on the client-side.
-    const initialDepts = ['CSE']; // Default or derive from faculty later
+    const initialDepts = ['CSE'];
     return {
         maxConsecutiveClasses: 3,
         workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
@@ -31,14 +28,34 @@ const FullScreenLoader = ({ message }) => (
     )
 );
 
+// Helper for authenticated API calls
+// FIX: Add 'any' type to options to allow for properties like 'headers', resolving a TypeScript error.
+const fetchWithAuth = async (url, options: any = {}, token) => {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+    };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(url, { ...options, headers });
+    if (response.status === 401 || response.status === 403) {
+        // Token is invalid or expired, force logout
+        sessionStorage.clear();
+        window.location.hash = '/login';
+        throw new Error('Session expired. Please log in again.');
+    }
+    return response;
+};
+
 export const App = () => {
   const [user, setUser] = useState(() => {
     const savedUser = sessionStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
+  const [token, setToken] = useState(() => sessionStorage.getItem('token'));
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
   
-  // App-wide state, now initialized as empty and fetched from the server.
   const [isLoading, setIsLoading] = useState(true);
   const [classes, setClasses] = useState<Class[]>([]);
   const [faculty, setFaculty] = useState<Faculty[]>([]);
@@ -46,7 +63,7 @@ export const App = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [constraints, setConstraints] = useState<Constraints>(getInitialConstraints());
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]); // Chat remains client-side for now
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   
   const [attendance, setAttendance] = useState<Attendance>(() => {
     try {
@@ -55,12 +72,15 @@ export const App = () => {
     } catch { return {}; }
   });
   
-  // Fetch initial data from the backend server
   useEffect(() => {
       const fetchData = async () => {
+          if (!token) {
+              setIsLoading(false);
+              return; // Don't fetch if not logged in
+          }
           try {
               setIsLoading(true);
-              const response = await fetch(`${API_BASE_URL}/data`);
+              const response = await fetchWithAuth(`${API_BASE_URL}/data`, {}, token);
               if (!response.ok) {
                   throw new Error(`HTTP error! status: ${response.status}`);
               }
@@ -72,13 +92,12 @@ export const App = () => {
               setStudents(data.students || []);
           } catch (error) {
               console.error("Failed to fetch initial data from server:", error);
-              // Optionally, set an error state to show in the UI
           } finally {
               setIsLoading(false);
           }
       };
       fetchData();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -95,14 +114,20 @@ export const App = () => {
         localStorage.setItem('smartCampusShared', JSON.stringify(sharedData));
     } catch (error) { console.error("Failed to save attendance data:", error); }
   }, [attendance]);
+  
+  const handleLogin = (loggedInUser, authToken) => {
+    setUser(loggedInUser);
+    setToken(authToken);
+    sessionStorage.setItem('user', JSON.stringify(loggedInUser));
+    sessionStorage.setItem('token', authToken);
+  };
 
-  useEffect(() => {
-    if (user) sessionStorage.setItem('user', JSON.stringify(user));
-    else sessionStorage.removeItem('user');
-  }, [user]);
-
-  const handleLogin = (username, role) => setUser({ username, role });
-  const handleLogout = () => setUser(null);
+  const handleLogout = () => {
+    setUser(null);
+    setToken(null);
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+  };
 
   const handleSendMessage = (text: string, classId: string, channel: string) => {
     if (!user || !text.trim()) return;
@@ -114,16 +139,19 @@ export const App = () => {
   };
 
   const handleSaveEntity = async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => {
+    if (user?.role !== 'admin') {
+      alert("You don't have permission to perform this action.");
+      return;
+    }
     const isAdding = !data.id;
     const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;
     const method = isAdding ? 'POST' : 'PUT';
     
     try {
-        const response = await fetch(url, {
+        const response = await fetchWithAuth(url, {
             method: method,
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(isAdding ? { ...data, id: `id_${Date.now()}` } : data),
-        });
+        }, token);
         if (!response.ok) throw new Error(`Failed to save ${type}`);
         const savedItem = await response.json();
         
@@ -135,18 +163,24 @@ export const App = () => {
         }
     } catch (error) {
         console.error(`Error saving ${type}:`, error);
+        alert(`Error saving ${type}: ${error.message}`);
     }
   };
 
   const handleDeleteEntity = async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => {
+     if (user?.role !== 'admin') {
+      alert("You don't have permission to perform this action.");
+      return;
+    }
      try {
-        const response = await fetch(`${API_BASE_URL}/${type}/${id}`, { method: 'DELETE' });
+        const response = await fetchWithAuth(`${API_BASE_URL}/${type}/${id}`, { method: 'DELETE' }, token);
         if (!response.ok) throw new Error(`Failed to delete ${type}`);
         
         const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
         setter(prev => prev.filter(item => item.id !== id));
      } catch (error) {
         console.error(`Error deleting ${type}:`, error);
+        alert(`Error deleting ${type}: ${error.message}`);
      }
   };
   
@@ -157,13 +191,16 @@ export const App = () => {
   };
 
   const handleResetData = async () => {
+    if (user?.role !== 'admin') {
+      alert("You don't have permission to perform this action.");
+      return;
+    }
     try {
         setIsLoading(true);
-        const response = await fetch(`${API_BASE_URL}/reset-data`, { method: 'POST' });
+        const response = await fetchWithAuth(`${API_BASE_URL}/reset-data`, { method: 'POST' }, token);
         if (!response.ok) throw new Error('Failed to reset data on server');
         
-        // Refetch all data after resetting
-        const dataResponse = await fetch(`${API_BASE_URL}/data`);
+        const dataResponse = await fetchWithAuth(`${API_BASE_URL}/data`, {}, token);
         const data = await dataResponse.json();
         setClasses(data.classes || []);
         setFaculty(data.faculty || []);
@@ -183,7 +220,7 @@ export const App = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && token) {
     return React.createElement(FullScreenLoader, { message: "Loading Campus Data..." });
   }
 
@@ -191,12 +228,14 @@ export const App = () => {
     user, onLogout: handleLogout, theme, toggleTheme, classes, faculty, subjects, students,
     constraints, updateConstraints: setConstraints, chatMessages, onSendMessage: handleSendMessage,
     attendance, onUpdateAttendance: handleUpdateAttendance,
-    onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity
+    onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity,
+    token
   };
 
   return (
     React.createElement(HashRouter, null,
       React.createElement(Routes, null,
+        // FIX: Removed 'apiBaseUrl' prop from LoginPage as it's not defined in the component's props.
         React.createElement(Route, { path: "/login", element: user ? React.createElement(Navigate, { to: "/" }) : React.createElement(LoginPage, { onLogin: handleLogin }) }),
         React.createElement(Route, { path: "/", element: user ? React.createElement(Dashboard, dashboardProps) : React.createElement(Navigate, { to: "/login" }) }),
         React.createElement(Route, {
@@ -207,6 +246,7 @@ export const App = () => {
                 classes, faculty, subjects, rooms, students,
                 constraints, setConstraints,
                 onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity, onResetData: handleResetData,
+                token
               })
             : React.createElement(Navigate, { to: "/" })
         }),

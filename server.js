@@ -1,10 +1,11 @@
 // To run this server:
 // 1. In your project directory, run 'npm init -y'
-// 2. Run 'npm install express mongoose cors dotenv @google/genai'
+// 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken'
 // 3. Create a '.env' file in the same directory.
-// 4. Add your MongoDB connection string and Gemini API key to the .env file:
+// 4. Add your MongoDB connection string, Gemini API key, and a JWT Secret to the .env file:
 //    MONGO_URI=mongodb+srv://rohitbihal333_db_user:zoEAsv3odCRv46XD@cluster0.zoruciu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 //    API_KEY=YOUR_GEMINI_API_KEY
+//    JWT_SECRET=a_long_random_secret_string_for_signing_tokens
 // 5. Run 'node server.js'
 
 const express = require('express');
@@ -12,6 +13,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const { GoogleGenAI, Type } = require("@google/genai");
 
 dotenv.config();
@@ -19,11 +21,14 @@ dotenv.config();
 // --- Environment Variable Check ---
 // Check for critical environment variables on startup.
 if (!process.env.MONGO_URI) {
-    console.error("FATAL ERROR: MONGO_URI is not defined in the environment variables. The application cannot connect to the database. Please add this variable to your .env file or your hosting provider's configuration.");
-    process.exit(1); // Exit the process with an error code
+    console.error("FATAL ERROR: MONGO_URI is not defined in the environment variables.");
+    process.exit(1);
+}
+if (!process.env.JWT_SECRET) {
+    console.error("FATAL ERROR: JWT_SECRET is not defined in the environment variables. This is required for secure authentication.");
+    process.exit(1);
 }
 if (!process.env.API_KEY) {
-    // This is a warning because the app can still function without the AI part.
     console.warn("WARNING: API_KEY is not defined. The AI timetable generation feature will not work.");
 }
 
@@ -33,7 +38,6 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // --- Serve Frontend Static Files ---
-// This will serve files like index.html from the root directory.
 app.use(express.static(__dirname));
 
 // --- Mongoose Schemas ---
@@ -120,24 +124,65 @@ async function seedDatabase(force = false) {
     }
 }
 
-
 // --- Mongoose Connection ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => {
         console.log('MongoDB connected successfully.');
-        seedDatabase(); // Seed on startup if the database is empty.
+        seedDatabase();
     })
     .catch(err => {
-        console.error('Initial MongoDB connection error:', err)
-        // If the initial connection fails, the app should not start.
-        // The check at the top already handles a missing URI, this catches auth errors etc.
+        console.error('Initial MongoDB connection error:', err);
         process.exit(1);
     });
 
+// --- AUTHENTICATION ---
+
+const credentials = {
+    admin: { user: 'admin@university.edu', pass: 'admin123' },
+    teacher: { user: 'teacher@university.edu', pass: 'teacher123' },
+    student: { user: 'student@university.edu', pass: 'student123' },
+};
+
+app.post('/api/auth/login', (req, res) => {
+    const { username, password, role } = req.body;
+    if (credentials[role] && credentials[role].user === username && credentials[role].pass === password) {
+        const userPayload = { username, role };
+        const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
+        res.json({ token, user: userPayload });
+    } else {
+        res.status(401).json({ message: 'Invalid credentials' });
+    }
+});
+
+// --- MIDDLEWARE ---
+
+const authMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Authorization token required' });
+    }
+    const token = authHeader.split(' ')[1];
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+};
+
+const adminOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ message: 'Forbidden: Admin access required' });
+    }
+};
+
 // --- API Routes ---
 
-// GET all data for initial app load
-app.get('/api/data', async (req, res) => {
+// GET all data for initial app load (any authenticated user)
+app.get('/api/data', authMiddleware, async (req, res) => {
     try {
         const [classes, faculty, subjects, rooms, students] = await Promise.all([
             Class.find(), Faculty.find(), Subject.find(), Room.find(), Student.find()
@@ -148,7 +193,7 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
-// Generic CRUD operations
+// Generic CRUD operations (admin only)
 const createRouterFor = (type) => {
     const router = express.Router();
     const Model = collections[type];
@@ -189,26 +234,26 @@ const createRouterFor = (type) => {
     return router;
 };
 
-app.use('/api/class', createRouterFor('class'));
-app.use('/api/faculty', createRouterFor('faculty'));
-app.use('/api/subject', createRouterFor('subject'));
-app.use('/api/room', createRouterFor('room'));
-app.use('/api/student', createRouterFor('student'));
+// Apply middleware to secure routes.
+// All data modification routes now require a valid token AND an admin role.
+app.use('/api/class', authMiddleware, adminOnly, createRouterFor('class'));
+app.use('/api/faculty', authMiddleware, adminOnly, createRouterFor('faculty'));
+app.use('/api/subject', authMiddleware, adminOnly, createRouterFor('subject'));
+app.use('/api/room', authMiddleware, adminOnly, createRouterFor('room'));
+app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student'));
 
-
-// POST to reset data to mock data
-app.post('/api/reset-data', async (req, res) => {
+// POST to reset data to mock data (admin only)
+app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
     try {
-        await seedDatabase(true); // force=true to wipe and re-seed
+        await seedDatabase(true);
         res.status(200).json({ message: 'Database reset to mock data successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Error resetting data', error });
     }
 });
 
-
-// POST to generate timetable
-app.post('/api/generate-timetable', async (req, res) => {
+// POST to generate timetable (admin only)
+app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) => {
     const { classes, faculty, subjects, rooms, constraints } = req.body;
     
     if (!process.env.API_KEY) {
@@ -216,7 +261,6 @@ app.post('/api/generate-timetable', async (req, res) => {
     }
 
     const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-        // This function is identical to the one previously in geminiService.ts
         const specificConstraintsText = (constraints.classSpecific || [])
             .map(c => {
                 if (c.type === 'nonConsecutive') {
@@ -318,7 +362,6 @@ The output MUST be a valid JSON array matching the schema.
 });
 
 // --- Frontend Catch-all Route ---
-// This must be after all API routes. It sends index.html for any request that doesn't match an API route.
 app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });

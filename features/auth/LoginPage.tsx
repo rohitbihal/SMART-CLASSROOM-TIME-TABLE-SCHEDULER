@@ -1,32 +1,50 @@
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
 
-// === From features/auth/LoginPage.tsx ===
+const API_BASE_URL = 'https://smart-classroom-and-time-table-scheduler.onrender.com/api';
+
 export const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('admin');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const credentials = {
+  const demoCredentials = {
     admin: { user: 'admin@university.edu', pass: 'admin123' },
     teacher: { user: 'teacher@university.edu', pass: 'teacher123' },
     student: { user: 'student@university.edu', pass: 'student123' },
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (username === credentials[role].user && password === credentials[role].pass) {
-      setError('');
-      onLogin(username, role);
-    } else {
-      setError('Invalid credentials. Please try again.');
+    setError('');
+    setIsLoading(true);
+    try {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, role }),
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Login failed');
+        }
+        
+        const { token, user } = await response.json();
+        onLogin(user, token);
+
+    } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+    } finally {
+        setIsLoading(false);
     }
   };
   
   const handleFillDemo = () => {
-      setUsername(credentials[role].user);
-      setPassword(credentials[role].pass);
+      setUsername(demoCredentials[role].user);
+      setPassword(demoCredentials[role].pass);
   };
 
   const UserTypeButton = ({ type, label, icon }) => (
@@ -61,7 +79,8 @@ export const LoginPage = ({ onLogin }) => {
               value: username,
               onChange: (e) => setUsername(e.target.value),
               className: "mt-1 block w-full px-4 py-3 bg-white/50 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition",
-              required: true
+              required: true,
+              disabled: isLoading
             })
           ),
           React.createElement("div", null,
@@ -72,18 +91,21 @@ export const LoginPage = ({ onLogin }) => {
               value: password,
               onChange: (e) => setPassword(e.target.value),
               className: "mt-1 block w-full px-4 py-3 bg-white/50 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition",
-              required: true
+              required: true,
+              disabled: isLoading
             })
           ),
           React.createElement("div", { className: "flex flex-col gap-4" },
             React.createElement("button", {
               type: "submit",
-              className: "w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition-transform transform hover:scale-105"
-            }, React.createElement(LoginIcon, null), " Login"),
+              className: "w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition-transform transform hover:scale-105 disabled:bg-indigo-400 disabled:cursor-not-allowed",
+              disabled: isLoading
+            }, isLoading ? 'Logging in...' : React.createElement(React.Fragment, null, React.createElement(LoginIcon, null), " Login")),
             React.createElement("button", {
                 type: "button",
                 onClick: handleFillDemo,
-                className: "w-full py-3 px-4 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition"
+                className: "w-full py-3 px-4 border border-gray-300 dark:border-slate-600 rounded-lg shadow-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition",
+                disabled: isLoading
             }, "Fill Demo Credentials")
           )
         )
