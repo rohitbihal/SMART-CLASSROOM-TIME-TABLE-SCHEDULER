@@ -48,6 +48,28 @@ const fetchWithAuth = async (url, options: any = {}, token) => {
     return response;
 };
 
+/**
+ * A component to protect routes based on user authentication and role.
+ * @param {object} props - Component props.
+ * @param {object} props.user - The current user object.
+ * @param {string[]} props.allowedRoles - An array of roles allowed to access the route.
+ * @param {React.ReactNode} props.children - The component to render if authorized.
+ * @returns {React.ReactElement} - The child component or a redirect.
+ */
+const ProtectedRoute = ({ user, allowedRoles, children }) => {
+    if (!user) {
+        // If no user is logged in, redirect to the login page.
+        return React.createElement(Navigate, { to: "/login" });
+    }
+    if (!allowedRoles.includes(user.role)) {
+        // If the user's role is not in the allowed list, redirect to the main dashboard.
+        return React.createElement(Navigate, { to: "/" });
+    }
+    // If authenticated and authorized, render the child component.
+    return children;
+};
+
+
 export const App = () => {
   const [user, setUser] = useState(() => {
     const savedUser = sessionStorage.getItem('user');
@@ -240,15 +262,16 @@ export const App = () => {
         React.createElement(Route, { path: "/", element: user ? React.createElement(Dashboard, dashboardProps) : React.createElement(Navigate, { to: "/login" }) }),
         React.createElement(Route, {
           path: "/scheduler",
-          element: user && user.role === 'admin'
-            ? React.createElement(TimetableScheduler, {
+          // FIX: Pass children explicitly in props to satisfy TypeScript's type checking for the untyped `ProtectedRoute` component.
+          element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children: 
+            React.createElement(TimetableScheduler, {
                 onLogout: handleLogout, theme: theme, toggleTheme: toggleTheme,
                 classes, faculty, subjects, rooms, students,
                 constraints, setConstraints,
                 onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity, onResetData: handleResetData,
                 token
               })
-            : React.createElement(Navigate, { to: "/" })
+          })
         }),
         React.createElement(Route, { path: "*", element: React.createElement(Navigate, { to: user ? "/" : "/login" }) })
       )

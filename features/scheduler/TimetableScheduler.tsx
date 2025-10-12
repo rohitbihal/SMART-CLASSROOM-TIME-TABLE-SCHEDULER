@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
 import { DAYS, TIME_SLOTS } from '../../constants';
@@ -16,13 +16,16 @@ const SectionCard = ({ title, children, actions }: { title: string, children?: R
     )
 );
 
-const DataTable = ({ headers, data, renderRow }) => (
+const DataTable = ({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }) => (
     React.createElement("div", { className: "overflow-x-auto" },
         React.createElement("table", { className: "w-full text-sm text-left" },
             React.createElement("thead", { className: "bg-gray-100 dark:bg-slate-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs" },
-                React.createElement("tr", null, headers.map(h => React.createElement("th", { key: h, className: "px-6 py-3" }, h)))
+                React.createElement("tr", null,
+                    headerPrefix,
+                    headers.map(h => React.createElement("th", { key: h, className: "px-6 py-3" }, h))
+                )
             ),
-            React.createElement("tbody", { className: "text-gray-700 dark:text-gray-200" }, data.length > 0 ? data.map(renderRow) : React.createElement("tr", null, React.createElement("td", { colSpan: headers.length, className: "text-center p-8 text-gray-500 dark:text-gray-400" }, "No data available.")))
+            React.createElement("tbody", { className: "text-gray-700 dark:text-gray-200" }, data.length > 0 ? data.map(renderRow) : React.createElement("tr", null, React.createElement("td", { colSpan: headers.length + (headerPrefix ? 1 : 0), className: "text-center p-8 text-gray-500 dark:text-gray-400" }, emptyMessage)))
         )
     )
 );
@@ -50,6 +53,23 @@ const Modal = ({ isOpen, onClose, title, children = null }) => {
 const FormField = ({ label, children = null }) => React.createElement("div", { className: "mb-4" }, React.createElement("label", { className: "block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1" }, label), children);
 const TextInput = (props) => React.createElement("input", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
 const SelectInput = (props) => React.createElement("select", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
+
+const SearchInput = ({ value, onChange, placeholder }) => (
+    React.createElement("div", { className: "relative mb-4" },
+        React.createElement("div", { className: "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" },
+            React.createElement("svg", { className: "h-5 w-5 text-gray-400 dark:text-gray-500", xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20", fill: "currentColor" },
+                React.createElement("path", { fillRule: "evenodd", d: "M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z", clipRule: "evenodd" })
+            )
+        ),
+        React.createElement("input", {
+            type: "text",
+            value: value,
+            onChange: (e) => onChange(e.target.value),
+            placeholder: placeholder || "Search...",
+            className: "w-full p-2 pl-10 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+        })
+    )
+);
 
 const ClassForm = ({ initialData, onSave }) => {
     const [data, setData] = useState(initialData || { name: '', branch: '', year: 1, section: '', studentCount: 0 });
@@ -106,7 +126,77 @@ const RoomForm = ({ initialData, onSave }) => {
     );
 };
 
-const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData }) => {
+const HeaderCheckbox = ({ type, items, selectedItems, onToggleSelectAll }) => {
+    const checkboxRef = useRef(null);
+    const visibleIds = useMemo(() => items.map(item => item.id), [items]);
+    const selectedVisibleIds = useMemo(() => visibleIds.filter(id => (selectedItems[type] || []).includes(id)), [visibleIds, selectedItems, type]);
+
+    const isAllSelected = visibleIds.length > 0 && selectedVisibleIds.length === visibleIds.length;
+    const isSomeSelected = selectedVisibleIds.length > 0 && selectedVisibleIds.length < visibleIds.length;
+
+    useEffect(() => {
+        if (checkboxRef.current) {
+            checkboxRef.current.indeterminate = isSomeSelected;
+        }
+    }, [isSomeSelected]);
+
+    return (
+        React.createElement("th", { scope: "col", className: "px-4 py-3" },
+            React.createElement("input", {
+                type: "checkbox",
+                ref: checkboxRef,
+                className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500",
+                checked: isAllSelected,
+                onChange: () => onToggleSelectAll(type, items)
+            })
+        )
+    );
+};
+
+const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete }) => {
+    const [classFilter, setClassFilter] = useState('');
+    const [facultyFilter, setFacultyFilter] = useState('');
+    const [subjectFilter, setSubjectFilter] = useState('');
+    const [roomFilter, setRoomFilter] = useState('');
+
+    const filteredClasses = useMemo(() => {
+        const trimmedFilter = classFilter.trim();
+        if (!trimmedFilter) return classes;
+        const lowercasedFilter = trimmedFilter.toLowerCase();
+        return classes.filter(c =>
+            c.name.toLowerCase().includes(lowercasedFilter) ||
+            c.branch.toLowerCase().includes(lowercasedFilter)
+        );
+    }, [classes, classFilter]);
+
+    const filteredFaculty = useMemo(() => {
+        const trimmedFilter = facultyFilter.trim();
+        if (!trimmedFilter) return faculty;
+        const lowercasedFilter = trimmedFilter.toLowerCase();
+        return faculty.filter(f =>
+            f.name.toLowerCase().includes(lowercasedFilter) ||
+            f.department.toLowerCase().includes(lowercasedFilter)
+        );
+    }, [faculty, facultyFilter]);
+
+    const filteredSubjects = useMemo(() => {
+        const trimmedFilter = subjectFilter.trim();
+        if (!trimmedFilter) return subjects;
+        const lowercasedFilter = trimmedFilter.toLowerCase();
+        return subjects.filter(s =>
+            s.name.toLowerCase().includes(lowercasedFilter) ||
+            s.code.toLowerCase().includes(lowercasedFilter)
+        );
+    }, [subjects, subjectFilter]);
+
+    const filteredRooms = useMemo(() => {
+        const trimmedFilter = roomFilter.trim();
+        if (!trimmedFilter) return rooms;
+        const lowercasedFilter = trimmedFilter.toLowerCase();
+        return rooms.filter(r =>
+            r.number.toLowerCase().includes(lowercasedFilter)
+        );
+    }, [rooms, roomFilter]);
     
     const ActionButtons = ({ onEdit, onDelete }) => (
         React.createElement("div", { className: "flex gap-2" },
@@ -114,6 +204,14 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
             React.createElement("button", { onClick: onDelete, className: "text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1", "aria-label": "Delete" }, React.createElement(DeleteIcon, null))
         )
     );
+    
+    const BulkDeleteButton = ({ type, count }) => {
+        if (count === 0) return null;
+        return React.createElement("button", {
+            onClick: () => onInitiateBulkDelete(type),
+            className: "flex items-center gap-2 text-sm text-red-600 dark:text-red-400 font-semibold bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900 p-2 rounded-md transition mb-4"
+        }, React.createElement(DeleteIcon, null), `Delete Selected (${count})`);
+    };
 
     return (
         React.createElement(React.Fragment, null,
@@ -130,27 +228,39 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         title: "Classes & Sections",
                         actions: React.createElement("button", { onClick: () => openModal('add', 'class'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Class")
                     },
+                        React.createElement(BulkDeleteButton, { type: "class", count: selectedItems.class.length }),
+                        React.createElement(SearchInput, { value: classFilter, onChange: setClassFilter, placeholder: "Search by name or branch..." }),
                         React.createElement(DataTable, {
-                            headers: ['Name', 'Students', 'Actions'], data: classes, renderRow: (c) => (
+                            headerPrefix: React.createElement(HeaderCheckbox, { type: "class", items: filteredClasses, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
+                            headers: ['Name', 'Students', 'Actions'], data: filteredClasses, renderRow: (c) => (
                                 React.createElement("tr", { key: c.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.class.includes(c.id), onChange: () => onToggleSelect('class', c.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, c.name),
                                     React.createElement("td", { className: "px-6 py-4" }, c.studentCount),
                                     React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'class', c), onDelete: () => handleDelete('class', c.id) }))
-                                ))
+                                )
+                            ),
+                            emptyMessage: classFilter ? "No classes match your search." : "No classes available."
                         })
                     ),
                     React.createElement(SectionCard, {
                         title: "Subjects",
                         actions: React.createElement("button", { onClick: () => openModal('add', 'subject'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Subject")
                     },
+                        React.createElement(BulkDeleteButton, { type: "subject", count: selectedItems.subject.length }),
+                        React.createElement(SearchInput, { value: subjectFilter, onChange: setSubjectFilter, placeholder: "Search by name or code..." }),
                         React.createElement(DataTable, {
-                            headers: ['Name', 'Type', 'Hours/Week', 'Actions'], data: subjects, renderRow: (s) => (
+                            headerPrefix: React.createElement(HeaderCheckbox, { type: "subject", items: filteredSubjects, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
+                            headers: ['Name', 'Type', 'Hours/Week', 'Actions'], data: filteredSubjects, renderRow: (s) => (
                                 React.createElement("tr", { key: s.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.subject.includes(s.id), onChange: () => onToggleSelect('subject', s.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, s.name),
                                     React.createElement("td", { className: "px-6 py-4 capitalize" }, s.type),
                                     React.createElement("td", { className: "px-6 py-4" }, s.hoursPerWeek),
                                     React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'subject', s), onDelete: () => handleDelete('subject', s.id) }))
-                                ))
+                                )
+                            ),
+                            emptyMessage: subjectFilter ? "No subjects match your search." : "No subjects available."
                         })
                     )
                 ),
@@ -159,27 +269,39 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         title: "Faculty Members",
                         actions: React.createElement("button", { onClick: () => openModal('add', 'faculty'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Faculty")
                     },
+                        React.createElement(BulkDeleteButton, { type: "faculty", count: selectedItems.faculty.length }),
+                        React.createElement(SearchInput, { value: facultyFilter, onChange: setFacultyFilter, placeholder: "Search by name or department..." }),
                         React.createElement(DataTable, {
-                            headers: ['Name', 'Department', 'Actions'], data: faculty, renderRow: (f) => (
+                            headerPrefix: React.createElement(HeaderCheckbox, { type: "faculty", items: filteredFaculty, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
+                            headers: ['Name', 'Department', 'Actions'], data: filteredFaculty, renderRow: (f) => (
                                 React.createElement("tr", { key: f.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.faculty.includes(f.id), onChange: () => onToggleSelect('faculty', f.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, f.name),
                                     React.createElement("td", { className: "px-6 py-4" }, f.department),
                                     React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'faculty', f), onDelete: () => handleDelete('faculty', f.id) }))
-                                ))
+                                )
+                            ),
+                            emptyMessage: facultyFilter ? "No faculty match your search." : "No faculty available."
                         })
                     ),
                     React.createElement(SectionCard, {
                         title: "Rooms & Labs",
                         actions: React.createElement("button", { onClick: () => openModal('add', 'room'), className: "flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:bg-indigo-50 dark:hover:bg-slate-700/50 p-2 rounded-md transition" }, React.createElement(AddIcon, null), "Add Room")
                     },
+                        React.createElement(BulkDeleteButton, { type: "room", count: selectedItems.room.length }),
+                        React.createElement(SearchInput, { value: roomFilter, onChange: setRoomFilter, placeholder: "Search by room number..." }),
                         React.createElement(DataTable, {
-                            headers: ['Number', 'Type', 'Capacity', 'Actions'], data: rooms, renderRow: (r) => (
+                            headerPrefix: React.createElement(HeaderCheckbox, { type: "room", items: filteredRooms, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
+                            headers: ['Number', 'Type', 'Capacity', 'Actions'], data: filteredRooms, renderRow: (r) => (
                                 React.createElement("tr", { key: r.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
+                                    React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.room.includes(r.id), onChange: () => onToggleSelect('room', r.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, r.number),
                                     React.createElement("td", { className: "px-6 py-4 capitalize" }, r.type),
                                     React.createElement("td", { className: "px-6 py-4" }, r.capacity),
                                     React.createElement("td", { className: "px-6 py-4" }, React.createElement(ActionButtons, { onEdit: () => openModal('edit', 'room', r), onDelete: () => handleDelete('room', r.id) }))
-                                ))
+                                )
+                            ),
+                            emptyMessage: roomFilter ? "No rooms match your search." : "No rooms available."
                         })
                     )
                 )
@@ -635,7 +757,12 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
 
   const [modalState, setModalState] = useState({ isOpen: false, mode: 'add', type: '', data: null });
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [bulkDeleteState, setBulkDeleteState] = useState({ isOpen: false, type: '', onConfirm: () => {} });
   
+  const [selectedItems, setSelectedItems] = useState<{ [key: string]: string[] }>({
+      class: [], faculty: [], subject: [], room: []
+  });
+
   useEffect(() => {
     try {
         const sharedData = JSON.parse(localStorage.getItem('smartCampusShared') || '{}');
@@ -670,6 +797,56 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   const handleConstraintsChange = useCallback((newConstraints) => {
       setConstraints(newConstraints);
   }, [setConstraints]);
+
+  const handleToggleSelect = (type, id) => {
+      setSelectedItems(prev => {
+          const currentSelection = prev[type] || [];
+          const newSelection = currentSelection.includes(id)
+              ? currentSelection.filter(itemId => itemId !== id)
+              : [...currentSelection, id];
+          return { ...prev, [type]: newSelection };
+      });
+  };
+
+  const handleToggleSelectAll = (type, displayedItems) => {
+      setSelectedItems(prev => {
+          const currentSelection = prev[type] || [];
+          const displayedIds = displayedItems.map(item => item.id);
+          const allSelectedOnPage = displayedIds.length > 0 && displayedIds.every(id => currentSelection.includes(id));
+          
+          if (allSelectedOnPage) {
+              // Deselect all items on the current page
+              return { ...prev, [type]: currentSelection.filter(id => !displayedIds.includes(id)) };
+          } else {
+              // Select all items on the current page
+              const newSelection = [...new Set([...currentSelection, ...displayedIds])];
+              return { ...prev, [type]: newSelection };
+          }
+      });
+  };
+  
+  const handleInitiateBulkDelete = (type) => {
+    const idsToDelete = selectedItems[type];
+    if (idsToDelete.length === 0) return;
+
+    setBulkDeleteState({
+        isOpen: true,
+        type: type,
+        onConfirm: async () => {
+            setIsLoading(true);
+            try {
+                await Promise.all(idsToDelete.map(id => onDeleteEntity(type, id)));
+            } catch (err) {
+                console.error("Bulk delete failed:", err);
+                setError(`Failed to delete some items. Please refresh and try again. Error: ${err.message}`);
+            } finally {
+                setSelectedItems(prev => ({ ...prev, [type]: [] }));
+                setIsLoading(false);
+                setBulkDeleteState({ isOpen: false, type: '', onConfirm: () => {} });
+            }
+        }
+    });
+  };
 
   const handleGenerate = useCallback(async () => {
     setIsConfirmModalOpen(false);
@@ -737,7 +914,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   const renderContent = () => {
     switch (activeTab) {
       case 'setup':
-        return React.createElement(SetupTab, { classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData });
+        return React.createElement(SetupTab, { classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems: selectedItems, onToggleSelect: handleToggleSelect, onToggleSelectAll: handleToggleSelectAll, onInitiateBulkDelete: handleInitiateBulkDelete });
       case 'constraints':
         return React.createElement(ConstraintsTab, { constraints: constraints, onConstraintsChange: handleConstraintsChange, classes: classes, subjects: subjects, faculty: faculty });
       case 'generate':
@@ -761,6 +938,27 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   return (
     React.createElement("div", { className: "min-h-screen bg-transparent p-4 sm:p-6 lg:p-8" },
       renderModalContent(),
+       React.createElement(Modal, {
+          isOpen: bulkDeleteState.isOpen,
+          onClose: () => setBulkDeleteState({ isOpen: false, type: '', onConfirm: () => {} }),
+          title: "Confirm Bulk Deletion"
+        },
+        React.createElement("div", null,
+          React.createElement("p", { className: "text-gray-600 dark:text-gray-300" },
+            `Are you sure you want to delete the selected ${selectedItems[bulkDeleteState.type]?.length} ${bulkDeleteState.type} items? This action cannot be undone.`
+          ),
+          React.createElement("div", { className: "flex justify-end gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700" },
+            React.createElement("button", {
+              onClick: () => setBulkDeleteState({ isOpen: false, type: '', onConfirm: () => {} }),
+              className: "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600 transition"
+            }, "Cancel"),
+            React.createElement("button", {
+              onClick: bulkDeleteState.onConfirm,
+              className: "bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+            }, React.createElement(DeleteIcon, null), "Delete")
+          )
+        )
+      ),
       React.createElement(Modal, {
         isOpen: isConfirmModalOpen,
         onClose: () => setIsConfirmModalOpen(false),

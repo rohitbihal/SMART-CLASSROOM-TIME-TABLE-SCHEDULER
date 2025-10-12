@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -382,25 +378,139 @@ const TeacherDashboard = (props) => {
     )
 };
 
+const UpcomingClasses = ({ upcoming }) => {
+  const getRelativeDay = (dayName) => {
+    const now = new Date();
+    const jsDayToName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const todayName = jsDayToName[now.getDay()];
+
+    if (dayName.toLowerCase() === todayName) return "Today";
+    
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const tomorrowName = jsDayToName[tomorrow.getDay()];
+
+    if (dayName.toLowerCase() === tomorrowName) return "Tomorrow";
+    
+    return dayName.charAt(0).toUpperCase() + dayName.slice(1);
+  };
+
+  return (
+    React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md h-full" },
+      React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2" }, React.createElement(SchedulerIcon, { className: "h-6 w-6" }), "Upcoming Classes"),
+      upcoming.length > 0 ? (
+        React.createElement("div", { className: "space-y-4" },
+          upcoming.map((entry, index) => (
+            React.createElement("div", { key: `${entry.day}-${entry.time}-${entry.subject}-${index}`, className: "p-4 bg-gray-50 dark:bg-slate-900/50 rounded-lg border border-gray-200 dark:border-slate-700" },
+              React.createElement("div", { className: "flex justify-between items-start" },
+                React.createElement("p", { className: "font-bold text-gray-800 dark:text-gray-100" }, entry.subject),
+                React.createElement("span", { className: `text-xs font-semibold px-2 py-1 rounded-full ${entry.type === 'lab' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300'}` }, getRelativeDay(entry.day))
+              ),
+              React.createElement("p", { className: "text-sm text-gray-500 dark:text-gray-400 mt-1" }, entry.time),
+              React.createElement("div", { className: "text-sm text-gray-600 dark:text-gray-300 mt-2 flex justify-between" },
+                React.createElement("span", null, entry.faculty),
+                React.createElement("span", null, "Room: ", entry.room)
+              )
+            )
+          ))
+        )
+      ) : (
+        React.createElement("div", { className: "text-center py-12 flex flex-col items-center justify-center h-full" },
+           React.createElement(SchedulerIcon, { className: "h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto mb-3" }),
+           React.createElement("p", { className: "text-gray-500 dark:text-gray-400" }, "No more classes scheduled for this week. Enjoy your break!")
+        )
+      )
+    )
+  );
+};
+
 const StudentDashboard = (props) => {
     const [activeTab, setActiveTab] = useState('schedule');
-    const myStudentProfile = useMemo(() => props.students.find(s => s.email === props.user.username) || props.students[0], [props.students, props.user.username]);
-    const myClass = useMemo(() => props.classes.find(c => c.id === myStudentProfile?.classId), [props.classes, myStudentProfile]);
-    const studentTimetable = useMemo(() => (props.timetable || []).filter(e => e.className === myClass?.name), [props.timetable, myClass]);
+    
+    // FIX: Removed insecure fallback. Now strictly finds the student profile matching the logged-in user.
+    const myStudentProfile = useMemo(() => props.students.find(s => s.email === props.user.username), [props.students, props.user.username]);
+    
+    // FIX: This logic now safely handles cases where the student profile might not be found.
+    const myClass = useMemo(() => myStudentProfile ? props.classes.find(c => c.id === myStudentProfile.classId) : null, [props.classes, myStudentProfile]);
+    
+    // FIX: Ensure timetable is filtered only if a class is found.
+    const studentTimetable = useMemo(() => (myClass && props.timetable) ? props.timetable.filter(e => e.className === myClass.name) : [], [props.timetable, myClass]);
+    
     const [channel, setChannel] = useState('query');
+
+    const upcomingClasses = useMemo(() => {
+        if (!studentTimetable.length) return [];
+        
+        const now = new Date();
+        const jsDayToName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const todayName = jsDayToName[now.getDay()];
+        const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+
+        const dayIndexMap = Object.fromEntries(DAYS.map((day, i) => [day.toLowerCase(), i]));
+
+        const getStartTimeInMinutes = (timeSlot) => {
+          const [start] = timeSlot.split('-');
+          const [h, m] = start.split(':').map(Number);
+          return h * 60 + m;
+        };
+
+        return studentTimetable
+          .map(entry => ({
+            ...entry,
+            dayIndex: dayIndexMap[entry.day.toLowerCase()],
+            startTimeMinutes: getStartTimeInMinutes(entry.time),
+          }))
+          .filter(entry => {
+            const entryDayIndex = entry.dayIndex;
+            const todayDayIndex = dayIndexMap[todayName];
+
+            if (todayDayIndex === undefined) return true;
+            if (entryDayIndex > todayDayIndex) return true;
+            if (entryDayIndex === todayDayIndex) return entry.startTimeMinutes > currentTimeInMinutes;
+            
+            return false;
+          })
+          .sort((a, b) => {
+            if (a.dayIndex !== b.dayIndex) return a.dayIndex - b.dayIndex;
+            return a.startTimeMinutes - b.startTimeMinutes;
+          })
+          .slice(0, 4);
+    }, [studentTimetable]);
+
+    // NEW: If the student profile is not found, display a clear, helpful message instead of potentially incorrect data.
+    if (!myStudentProfile) {
+        return React.createElement("div", { className: "p-4 md:p-8 min-h-screen bg-transparent" },
+            React.createElement(Header, { title: "Student Dashboard", subtitle: `Welcome, ${props.user.username}`, ...props }),
+            React.createElement(PlaceholderContent, {
+                title: "Profile Not Found",
+                icon: React.createElement(UsersIcon, { className: "h-12 w-12" }),
+                message: "We couldn't find your student profile. Please contact the administration to ensure your account is set up correctly."
+            })
+        );
+    }
 
     const renderContent = () => {
         switch(activeTab) {
-            case 'schedule': return React.createElement(TimetableGrid, { timetable: studentTimetable, role: "student" });
+            case 'schedule': 
+                return (
+                    React.createElement("div", { className: "grid grid-cols-1 xl:grid-cols-4 gap-8" },
+                        React.createElement("div", { className: "xl:col-span-3" },
+                            React.createElement(TimetableGrid, { timetable: studentTimetable, role: "student" })
+                        ),
+                        React.createElement("div", { className: "xl:col-span-1" },
+                            React.createElement(UpcomingClasses, { upcoming: upcomingClasses })
+                        )
+                    )
+                );
             case 'chat': 
                 if (!myClass) {
-                    return React.createElement(PlaceholderContent, { title: "Chat Unavailable", icon: React.createElement(ChatIcon, null), message: "You do not seem to be enrolled in a class. Please contact an administrator." });
+                    return React.createElement(PlaceholderContent, { title: "Chat Unavailable", icon: React.createElement(ChatIcon, { className: "h-12 w-12" }), message: "You are not currently assigned to a class. Please contact an administrator." });
                 }
                 return React.createElement(React.Fragment, null,
                     React.createElement("div", { className: "flex gap-4 mb-4" },
                         React.createElement("select", { value: channel, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, React.createElement("option", { value: "query" }, "Query"), React.createElement("option", { value: "attendance" }, "Attendance"))
                     ),
-                    React.createElement(ChatComponent, { ...props, classId: myClass?.id, channel: channel })
+                    React.createElement(ChatComponent, { ...props, classId: myClass.id, channel: channel })
                 );
             case 'ims': return React.createElement(PlaceholderContent, { title: "IMS", icon: React.createElement(IMSIcon, { className: "h-12 w-12" }) });
             case 'smart_tools': return React.createElement(PlaceholderContent, { title: "Smart Tools", icon: React.createElement(SmartToolsIcon, { className: "h-12 w-12" }) });
