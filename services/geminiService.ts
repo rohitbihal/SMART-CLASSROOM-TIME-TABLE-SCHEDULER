@@ -64,12 +64,15 @@ The output MUST be a valid JSON array matching the schema.
 };
 
 export const generateTimetable = async (classes: Class[], faculty: Faculty[], subjects: Subject[], rooms: Room[], constraints: Constraints): Promise<TimetableEntry[]> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY is not configured. Please set it up in your environment.");
+  // Safely access the API key to prevent crashes in environments where `process` is not defined.
+  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : undefined;
+
+  if (!apiKey) {
+    throw new Error("API_KEY is not configured in this environment. Timetable generation is unavailable.");
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
 
     const response = await ai.models.generateContent({
