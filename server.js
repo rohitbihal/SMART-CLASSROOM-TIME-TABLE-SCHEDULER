@@ -1,4 +1,3 @@
-
 // A simple backend for the Smart Campus Timetable Scheduler
 // To run:
 // 1. Make sure you have Node.js installed.
@@ -15,7 +14,12 @@ import { GoogleGenAI, Type } from "@google/genai";
 const app = express();
 const port = 3001;
 
-app.use(cors());
+// Use a more explicit CORS configuration to allow all origins
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type'],
+}));
 app.use(express.json());
 
 // --- In-Memory Database ---
@@ -54,9 +58,11 @@ const initializeDatabase = () => {
             maxConsecutiveClasses: 3,
             workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
             lunchBreak: "12:50-01:35",
+            chatWindow: { start: '09:00', end: '17:00' },
             classSpecific: [],
             maxConcurrentClassesPerDept: Object.fromEntries(initialDepts.map(dept => [dept, 4])),
-        }
+        },
+        chatMessages: [],
     };
 };
 initializeDatabase(); // Initialize on server start
@@ -122,6 +128,27 @@ createCrudEndpoints('rooms');
 app.put('/constraints', (req, res) => {
     db.constraints = { ...db.constraints, ...req.body };
     res.json(db.constraints);
+});
+
+// --- Chat Endpoints ---
+app.get('/chat', (req, res) => {
+    res.json(db.chatMessages);
+});
+
+app.post('/chat', (req, res) => {
+    const { author, role, text } = req.body;
+    if (!author || !role || !text) {
+        return res.status(400).json({ message: 'Missing fields for chat message.' });
+    }
+    const newMessage = {
+        id: `msg_${Date.now()}`,
+        author,
+        role,
+        text,
+        timestamp: Date.now(),
+    };
+    db.chatMessages.push(newMessage);
+    res.status(201).json(newMessage);
 });
 
 

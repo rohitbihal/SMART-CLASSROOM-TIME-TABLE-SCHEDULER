@@ -1,11 +1,9 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student } from '../../types';
 
 
 const SectionCard = ({ title, children, actions }: { title: string, children?: React.ReactNode, actions?: React.ReactNode }) => (
@@ -29,8 +27,6 @@ const DataTable = ({ headers, data, renderRow }) => (
     )
 );
 
-// FIX: Added a default value to the 'children' prop to satisfy the TypeScript type checker
-// when using React.createElement, which was incorrectly flagging it as a required prop.
 const Modal = ({ isOpen, onClose, title, children = null }) => {
     if (!isOpen) return null;
 
@@ -51,8 +47,6 @@ const Modal = ({ isOpen, onClose, title, children = null }) => {
     );
 };
 
-// FIX: Added a default value to the 'children' prop to satisfy the TypeScript type checker
-// when using React.createElement, which was incorrectly flagging it as a required prop.
 const FormField = ({ label, children = null }) => React.createElement("div", { className: "mb-4" }, React.createElement("label", { className: "block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1" }, label), children);
 const TextInput = (props) => React.createElement("input", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
 const SelectInput = (props) => React.createElement("select", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
@@ -197,7 +191,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
 const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, faculty }: { constraints: Constraints, onConstraintsChange: (newConstraints: Constraints) => void, classes: Class[], subjects: Subject[], faculty: Faculty[] }) => {
     const uniqueDepartments = useMemo(() => [...new Set(faculty.map(f => f.department))], [faculty]);
 
-    const setConstraints = (updater) => {
+    const handleConstraintUpdate = (updater: ((c: Constraints) => Constraints) | Constraints) => {
         const newConstraints = typeof updater === 'function' ? updater(constraints) : updater;
         onConstraintsChange(newConstraints);
     };
@@ -230,7 +224,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
         }
 
         if (newConstraint) {
-            setConstraints(prev => ({
+            handleConstraintUpdate(prev => ({
                 ...prev,
                 classSpecific: [...(prev.classSpecific || []), newConstraint]
             }));
@@ -238,18 +232,18 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
     };
 
     const handleConstraintChange = (id: number, field: string, value: string) => {
-        setConstraints(prev => ({
+        handleConstraintUpdate(prev => ({
             ...prev,
-            classSpecific: prev.classSpecific.map(c =>
+            classSpecific: (prev.classSpecific || []).map(c =>
                 c.id === id ? { ...c, [field]: value } : c
             )
         }));
     };
 
     const handleRemoveConstraint = (id: number) => {
-        setConstraints(prev => ({
+        handleConstraintUpdate(prev => ({
             ...prev,
-            classSpecific: prev.classSpecific.filter(c => c.id !== id)
+            classSpecific: (prev.classSpecific || []).filter(c => c.id !== id)
         }));
     };
 
@@ -268,7 +262,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                     React.createElement("input", {
                         type: "number",
                         value: constraints.maxConsecutiveClasses,
-                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => setConstraints(c => ({...c, maxConsecutiveClasses: parseInt(e.target.value, 10)})),
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) => handleConstraintUpdate(c => ({...c, maxConsecutiveClasses: parseInt(e.target.value, 10)})),
                         className: "mt-1 w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200"
                     })
                 ),
@@ -283,7 +277,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                     value: constraints.maxConcurrentClassesPerDept[dept] || '',
                                     onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                                         const value = parseInt(e.target.value, 10);
-                                        setConstraints(c => ({
+                                        handleConstraintUpdate(c => ({
                                             ...c,
                                             maxConcurrentClassesPerDept: {
                                                 ...c.maxConcurrentClassesPerDept,
@@ -307,7 +301,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                     checked: constraints.workingDays.includes(day),
                                     onChange: e => {
                                         const newDays = e.target.checked ? [...constraints.workingDays, day] : constraints.workingDays.filter(d => d !== day);
-                                        setConstraints(c => ({ ...c, workingDays: newDays }));
+                                        handleConstraintUpdate(c => ({ ...c, workingDays: newDays }));
                                     },
                                     className: "h-4 w-4 text-indigo-500 bg-gray-200 dark:bg-slate-600 border-gray-300 dark:border-slate-500 rounded focus:ring-indigo-500"
                                 }),
@@ -631,124 +625,91 @@ const ViewTab = ({ timetable }: { timetable: TimetableEntry[] }) => {
     );
 };
 
-const getEntityUrl = (baseUrl: string, type: string, id: string | null = null): string => {
-    let entityPath;
-    switch (type) {
-        case 'class': entityPath = 'classes'; break;
-        case 'faculty': entityPath = 'faculty'; break;
-        default: entityPath = `${type}s`;
-    }
-    return id ? `${baseUrl}/${entityPath}/${id}` : `${baseUrl}/${entityPath}`;
-};
-
-export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, constraints, setConstraints, setClasses, setFaculty, setSubjects, setRooms, apiBaseUrl }) => {
+export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, students, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('setup');
   
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [modalState, setModalState] = useState({ isOpen: false, mode: 'add', type: '', data: null });
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  
+  useEffect(() => {
+    try {
+        const sharedData = JSON.parse(localStorage.getItem('smartCampusShared') || '{}');
+        if (sharedData.timetable) {
+            setTimetable(sharedData.timetable);
+        }
+    } catch(e) { console.error("Could not load timetable from storage", e)}
+  }, []);
 
   const openModal = (mode, type, data = null) => setModalState({ isOpen: true, mode, type, data });
   const closeModal = () => setModalState({ isOpen: false, mode: 'add', type: '', data: null });
 
-  const handleSave = async (type, data) => {
-      const isAdding = modalState.mode === 'add';
-      const url = getEntityUrl(apiBaseUrl, type, isAdding ? null : data.id);
-      const method = isAdding ? 'POST' : 'PUT';
-
-      try {
-          const response = await fetch(url, {
-              method: method,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-          });
-          if (!response.ok) throw new Error(`Failed to save ${type}`);
-          
-          const savedItem = await response.json();
-          const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms }[type];
-
-          if (isAdding) {
-              setter(prev => [...prev, savedItem]);
-          } else {
-              setter(prev => prev.map(item => item.id === savedItem.id ? savedItem : item));
-          }
-          closeModal();
-      } catch (e) {
-          console.error(`Error saving ${type}:`, e);
-          alert(`An error occurred while saving the ${type}. Please try again.`);
-      }
+  const handleSave = (type, data) => {
+      onSaveEntity(type, data);
+      closeModal();
   };
 
-  const handleDelete = async (type, id) => {
+  const handleDelete = (type, id) => {
       if (window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
-          try {
-              const url = getEntityUrl(apiBaseUrl, type, id);
-              const response = await fetch(url, { method: 'DELETE' });
-              if (!response.ok) throw new Error(`Failed to delete ${type}`);
-
-              const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms }[type];
-              setter(prev => prev.filter(item => item.id !== id));
-          } catch (e) {
-              console.error(`Error deleting ${type}:`, e);
-              alert(`An error occurred while deleting the ${type}. Please try again.`);
-          }
+          onDeleteEntity(type, id);
       }
   };
 
-  const handleResetData = async () => {
+  const handleResetData = () => {
     if (window.confirm('This will replace all current data with the original sample data. Are you sure?')) {
-        try {
-            const response = await fetch(`${apiBaseUrl}/reset`, { method: 'POST' });
-            if (!response.ok) throw new Error('Failed to reset data');
-            const { data } = await response.json();
-            setClasses(data.classes);
-            setFaculty(data.faculty);
-            setSubjects(data.subjects);
-            setRooms(data.rooms);
-            setConstraints(data.constraints);
-            setTimetable([]);
-            alert('Data has been reset to the original sample data.');
-        } catch (e) {
-            console.error('Error resetting data:', e);
-            alert('An error occurred while resetting data.');
-        }
+        onResetData();
+        setTimetable([]);
+        alert('Data has been reset to the original sample data.');
     }
   };
   
-  const handleConstraintsChange = useCallback(async (newConstraints) => {
+  const handleConstraintsChange = useCallback((newConstraints) => {
       setConstraints(newConstraints);
-      try {
-          await fetch(`${apiBaseUrl}/constraints`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(newConstraints)
-          });
-      } catch (e) {
-          console.error("Failed to save constraints:", e);
-      }
-  }, [apiBaseUrl, setConstraints]);
+  }, [setConstraints]);
 
   const handleGenerate = useCallback(async () => {
+    setIsConfirmModalOpen(false);
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const result = await generateTimetable(classes, faculty, subjects, rooms, constraints);
+      
+      if (!Array.isArray(result)) {
+        console.error("API returned non-array for timetable:", result);
+        throw new Error("The AI service returned an invalid data format for the timetable. Please try generating again.");
+      }
+
+      setTimetable(result);
+      
+      // Save all data to localStorage for other components to use
+      const sharedData = { classes, faculty, subjects, rooms, students, constraints, timetable: result };
+      localStorage.setItem('smartCampusShared', JSON.stringify(sharedData));
+
+      setActiveTab('view');
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred while generating the timetable.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [classes, faculty, subjects, rooms, students, constraints]);
+
+  const handleInitiateGenerate = useCallback(() => {
     setError(null);
     if (classes.length === 0 || subjects.length === 0 || faculty.length === 0 || rooms.length === 0) {
         setError("Please add classes, subjects, faculty, and rooms before generating a timetable.");
         return;
     }
-    
-    setIsLoading(true);
-    try {
-      const result = await generateTimetable(classes, faculty, subjects, rooms, constraints);
-      setTimetable(result);
-      setActiveTab('view');
-    } catch (err) {
-      setError((err as Error).message || "An unknown error occurred.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classes, faculty, subjects, rooms, constraints]);
+    setIsConfirmModalOpen(true);
+  }, [classes, faculty, subjects, rooms]);
 
   const renderModalContent = () => {
       const { mode, type, data } = modalState;
@@ -781,7 +742,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
       case 'constraints':
         return React.createElement(ConstraintsTab, { constraints: constraints, onConstraintsChange: handleConstraintsChange, classes: classes, subjects: subjects, faculty: faculty });
       case 'generate':
-        return React.createElement(GenerateTab, { onGenerate: handleGenerate, isLoading: isLoading, error: error });
+        return React.createElement(GenerateTab, { onGenerate: handleInitiateGenerate, isLoading: isLoading, error: error });
       case 'view':
         return React.createElement(ViewTab, { timetable: timetable });
       default:
@@ -801,6 +762,37 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   return (
     React.createElement("div", { className: "min-h-screen bg-transparent p-4 sm:p-6 lg:p-8" },
       renderModalContent(),
+      React.createElement(Modal, {
+        isOpen: isConfirmModalOpen,
+        onClose: () => setIsConfirmModalOpen(false),
+        title: "Confirm Timetable Generation"
+      },
+        React.createElement(React.Fragment, null,
+          React.createElement("div", { className: "text-gray-600 dark:text-gray-300 space-y-4" },
+            React.createElement("p", null, "Please review your setup before starting the AI generation. This process may take a few moments."),
+            React.createElement("ul", { className: "list-disc list-inside bg-gray-100 dark:bg-slate-900/50 p-4 rounded-lg space-y-2 text-sm" },
+              React.createElement("li", null, React.createElement("strong", null, classes.length), " Classes"),
+              React.createElement("li", null, React.createElement("strong", null, faculty.length), " Faculty Members"),
+              React.createElement("li", null, React.createElement("strong", null, subjects.length), " Subjects"),
+              React.createElement("li", null, React.createElement("strong", null, rooms.length), " Rooms"),
+              React.createElement("li", null, React.createElement("strong", null, constraints.workingDays.length), " Working Days (", constraints.workingDays.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', '), ")"),
+              React.createElement("li", null, React.createElement("strong", null, constraints.maxConsecutiveClasses), " Max. Consecutive Classes for Faculty"),
+              React.createElement("li", null, React.createElement("strong", null, constraints.classSpecific?.length || 0), " Specific Rules Defined")
+            ),
+            React.createElement("p", { className: "font-semibold pt-2" }, "Are you sure you want to proceed?")
+          ),
+          React.createElement("div", { className: "flex justify-end gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700" },
+            React.createElement("button", {
+              onClick: () => setIsConfirmModalOpen(false),
+              className: "bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 font-semibold py-2 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600 transition"
+            }, "Cancel"),
+            React.createElement("button", {
+              onClick: handleGenerate,
+              className: "bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+            }, React.createElement(GenerateIcon, null), " Confirm & Generate")
+          )
+        )
+      ),
       React.createElement("header", { className: "flex flex-wrap justify-between items-center mb-6 gap-4" },
         React.createElement("div", null,
           React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-white" }, "AI Timetable Scheduler"),

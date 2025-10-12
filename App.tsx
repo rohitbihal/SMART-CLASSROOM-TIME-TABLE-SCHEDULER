@@ -1,12 +1,62 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
 import { LoadingIcon } from './components/Icons';
+import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance } from './types';
 
-const API_BASE_URL = 'http://localhost:3001';
+// --- MOCK DATA (Previously in server.js) ---
+const MOCK_CLASSES: Class[] = [
+    { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60 },
+    { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60 },
+];
+const MOCK_FACULTY: Faculty[] = [
+    { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'] },
+    { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'] },
+];
+const MOCK_SUBJECTS: Subject[] = [
+    { id: 's1', name: 'Data Structures', code: 'CS301', type: 'theory', hoursPerWeek: 4, assignedFacultyId: 'f1' },
+    { id: 's2', name: 'Algorithms', code: 'CS302', type: 'theory', hoursPerWeek: 3, assignedFacultyId: 'f1' },
+    { id: 's3', name: 'Database Systems', code: 'CS303', type: 'theory', hoursPerWeek: 3, assignedFacultyId: 'f2' },
+    { id: 's4', name: 'Data Structures Lab', code: 'CS301L', type: 'lab', hoursPerWeek: 2, assignedFacultyId: 'f1' },
+    { id: 's5', name: 'Database Systems Lab', code: 'CS303L', type: 'lab', hoursPerWeek: 2, assignedFacultyId: 'f2' },
+];
+const MOCK_ROOMS: Room[] = [
+    { id: 'r1', number: 'CS-101', type: 'classroom', capacity: 65 },
+    { id: 'r2', number: 'CS-102', type: 'classroom', capacity: 65 },
+    { id: 'r3', number: 'CS-Lab-1', type: 'lab', capacity: 60 },
+];
+const MOCK_STUDENTS: Student[] = [
+    { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu' },
+    { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02' },
+    { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01' },
+    { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02' },
+];
+
+
+const getInitialData = () => {
+    const initialDepts = [...new Set(MOCK_FACULTY.map(f => f.department))];
+    return {
+        classes: [...MOCK_CLASSES],
+        faculty: [...MOCK_FACULTY],
+        subjects: [...MOCK_SUBJECTS],
+        rooms: [...MOCK_ROOMS],
+        students: [...MOCK_STUDENTS],
+        constraints: {
+            maxConsecutiveClasses: 3,
+            workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+            lunchBreak: "12:50-01:35",
+            chatWindow: { start: '09:00', end: '17:00' },
+            classSpecific: [],
+            maxConcurrentClassesPerDept: Object.fromEntries(initialDepts.map(dept => [dept, 4])),
+        },
+        chatMessages: [],
+        attendance: {},
+    };
+};
 
 const FullScreenLoader = ({ message }) => (
     React.createElement("div", { className: "fixed inset-0 bg-gray-50 dark:bg-slate-900 flex flex-col items-center justify-center z-50" },
@@ -22,46 +72,25 @@ export const App = () => {
   });
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
   
-  // App-wide state for data
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [classes, setClasses] = useState([]);
-  const [faculty, setFaculty] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [rooms, setRooms] = useState([]);
-  const [constraints, setConstraints] = useState({
-      maxConsecutiveClasses: 3,
-      workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-      lunchBreak: "12:50-01:35",
-      classSpecific: [],
-      maxConcurrentClassesPerDept: {},
+  // App-wide state for data, initialized with mock data
+  const [isLoading, setIsLoading] = useState(false); // No initial loading needed
+  const [classes, setClasses] = useState<Class[]>(getInitialData().classes);
+  const [faculty, setFaculty] = useState<Faculty[]>(getInitialData().faculty);
+  const [subjects, setSubjects] = useState<Subject[]>(getInitialData().subjects);
+  const [rooms, setRooms] = useState<Room[]>(getInitialData().rooms);
+  const [students, setStudents] = useState<Student[]>(getInitialData().students);
+  const [constraints, setConstraints] = useState<Constraints>(getInitialData().constraints);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(getInitialData().chatMessages);
+  
+  // Initialize attendance state from localStorage for persistence.
+  const [attendance, setAttendance] = useState<Attendance>(() => {
+    try {
+        const saved = localStorage.getItem('smartCampusShared');
+        return saved ? (JSON.parse(saved).attendance || {}) : {};
+    } catch {
+        return {};
+    }
   });
-
-  // Fetch initial data from the backend
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await fetch(`${API_BASE_URL}/data`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch data: ${response.statusText}`);
-        }
-        const data = await response.json();
-        setClasses(data.classes || []);
-        setFaculty(data.faculty || []);
-        setSubjects(data.subjects || []);
-        setRooms(data.rooms || []);
-        setConstraints(data.constraints || {});
-      } catch (e) {
-        setError(`Could not connect to the backend server. Please ensure it's running on ${API_BASE_URL}. Error: ${e.message}`);
-        console.error(e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
   
   useEffect(() => {
     if (theme === 'dark') {
@@ -71,10 +100,22 @@ export const App = () => {
     }
     localStorage.setItem('app_theme', theme);
   }, [theme]);
-
+  
+  // FIX: Define toggleTheme function to handle theme switching.
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   };
+  
+  // Persist attendance data whenever it changes.
+  useEffect(() => {
+    try {
+        const sharedData = JSON.parse(localStorage.getItem('smartCampusShared') || '{}');
+        sharedData.attendance = attendance;
+        localStorage.setItem('smartCampusShared', JSON.stringify(sharedData));
+    } catch (error) {
+        console.error("Failed to save attendance data to localStorage:", error);
+    }
+  }, [attendance]);
 
   useEffect(() => {
     if (user) {
@@ -93,18 +134,75 @@ export const App = () => {
     setUser(null);
   };
 
+  const handleSendMessage = (text: string, classId: string, channel: string) => {
+    if (!user || !text.trim()) return;
+    const newMessage: ChatMessage = {
+        id: `msg_${Date.now()}`,
+        author: user.username,
+        role: user.role,
+        text,
+        timestamp: Date.now(),
+        classId,
+        channel,
+    };
+    setChatMessages(prev => [...prev, newMessage]);
+  };
+
+  const handleSaveEntity = (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => {
+    const isAdding = !data.id;
+    const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
+    
+    if (isAdding) {
+        const newItem = { ...data, id: `id_${Date.now()}` };
+        setter(prev => [...prev, newItem]);
+    } else {
+        setter(prev => prev.map(item => item.id === data.id ? data : item));
+    }
+  };
+
+  const handleDeleteEntity = (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => {
+     const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
+     setter(prev => prev.filter(item => item.id !== id));
+  };
+  
+  const handleUpdateAttendance = (classId, date, studentId, status) => {
+      setAttendance(prev => ({
+          ...prev,
+          [classId]: {
+              ...(prev[classId] || {}),
+              [date]: {
+                  ...((prev[classId] && prev[classId][date]) || {}),
+                  [studentId]: status
+              }
+          }
+      }));
+  };
+
+  const handleResetData = () => {
+    const initialData = getInitialData();
+    setClasses(initialData.classes);
+    setFaculty(initialData.faculty);
+    setSubjects(initialData.subjects);
+    setRooms(initialData.rooms);
+    setStudents(initialData.students);
+    setConstraints(initialData.constraints);
+    setChatMessages(initialData.chatMessages);
+    setAttendance(initialData.attendance);
+    localStorage.removeItem('smartCampusShared');
+  };
+
+
   if (isLoading) {
-    return React.createElement(FullScreenLoader, { message: "Loading scheduler data..." });
+    return React.createElement(FullScreenLoader, { message: "Loading..." });
   }
 
-  if (error) {
-    return React.createElement("div", { className: "fixed inset-0 bg-red-50 dark:bg-red-900/50 flex items-center justify-center p-8" },
-        React.createElement("div", { className: "text-center" },
-            React.createElement("h1", { className: "text-2xl font-bold text-red-800 dark:text-red-200" }, "Connection Error"),
-            React.createElement("p", { className: "mt-2 text-red-600 dark:text-red-300" }, error)
-        )
-    );
-  }
+  const dashboardProps = {
+    // FIX: Correctly pass handlers to props instead of using shorthand for non-existent variables.
+    user, onLogout: handleLogout, theme, toggleTheme, classes, faculty, subjects, students,
+    constraints, updateConstraints: setConstraints, chatMessages, onSendMessage: handleSendMessage,
+    attendance, onUpdateAttendance: handleUpdateAttendance,
+    onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity
+  };
 
   return (
     React.createElement(HashRouter, null,
@@ -115,7 +213,7 @@ export const App = () => {
         }),
         React.createElement(Route, {
           path: "/",
-          element: user ? React.createElement(Dashboard, { user: user, onLogout: handleLogout, theme: theme, toggleTheme: toggleTheme, classes: classes, faculty: faculty, subjects: subjects }) : React.createElement(Navigate, { to: "/login" })
+          element: user ? React.createElement(Dashboard, dashboardProps) : React.createElement(Navigate, { to: "/login" })
         }),
         React.createElement(Route, {
           path: "/scheduler",
@@ -124,12 +222,15 @@ export const App = () => {
                 onLogout: handleLogout,
                 theme: theme,
                 toggleTheme: toggleTheme,
-                classes, setClasses,
-                faculty, setFaculty,
-                subjects, setSubjects,
-                rooms, setRooms,
+                classes,
+                faculty,
+                subjects,
+                rooms,
+                students,
                 constraints, setConstraints,
-                apiBaseUrl: API_BASE_URL
+                onSaveEntity: handleSaveEntity,
+                onDeleteEntity: handleDeleteEntity,
+                onResetData: handleResetData,
               })
             : React.createElement(Navigate, { to: "/" })
         }),
