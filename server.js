@@ -11,6 +11,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const { GoogleGenAI, Type } = require("@google/genai");
 
 dotenv.config();
@@ -18,6 +19,10 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// --- Serve Frontend Static Files ---
+// This will serve files like index.html from the root directory.
+app.use(express.static(__dirname));
 
 // --- Mongoose Connection ---
 mongoose.connect(process.env.MONGO_URI)
@@ -270,6 +275,11 @@ The output MUST be a valid JSON array matching the schema.
     }
 });
 
+// --- Frontend Catch-all Route ---
+// This must be after all API routes. It sends index.html for any request that doesn't match an API route.
+app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // --- Server Start ---
 const PORT = process.env.PORT || 3001;
