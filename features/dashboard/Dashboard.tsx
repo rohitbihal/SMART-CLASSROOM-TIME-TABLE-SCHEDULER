@@ -131,13 +131,15 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
     );
 };
 
-const StudentForm = ({ student, onSave, onCancel, classId }) => {
+// FIX: Add type annotations for props to aid TypeScript's type inference and resolve errors.
+const StudentForm = ({ student, onSave, onCancel, classId }: { student: Student | null, onSave: (data: any) => void, onCancel: () => void, classId: string }) => {
     const [formData, setFormData] = useState(
         student
             ? { ...student, email: student.email || '', roll: student.roll || '' }
             : { name: '', email: '', roll: '', classId }
     );
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    // FIX: Add type annotation to the event object to resolve ambiguity for the 'value' property on the input element.
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
     return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg" },
         React.createElement("input", { name: "name", value: formData.name, onChange: handleChange, placeholder: "Student Name", className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md", required: true }),
@@ -206,7 +208,8 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
     );
 };
 
-const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }) => {
+// FIX: Add explicit types for component props to assist TypeScript inference and resolve the error on the 'select' element's 'value' prop.
+const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }: { classes: Class[], students: Student[], attendance: Attendance, onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void }) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -219,14 +222,12 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-// FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
                 classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
         React.createElement("div", { className: "space-y-2" }, studentsInClass.map(student =>
             React.createElement("div", { key: student.id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                // FIX: Pass children as a separate argument to resolve TypeScript overload issue.
                 React.createElement("p", null, student.name),
                 React.createElement("div", { className: "flex gap-2" },
                     React.createElement("button", { onClick: () => handleStatusChange(student.id, 'present'), className: `px-3 py-1 text-sm rounded-md ${attendanceForDay[student.id] === 'present' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}` }, "Present"),
@@ -240,7 +241,8 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
 // NEW: User Management Component for Admin Dashboard
 const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => {
     const [modalOpen, setModalOpen] = useState(false);
-    const [error, setError] = useState('');
+    // FIX: Explicitly type the 'error' state as a string to prevent it from being inferred as 'unknown' within the 'catch' block context.
+    const [error, setError] = useState<string>('');
 
     const facultyMap = useMemo(() => new Map(faculty.map(f => [f.id, f.name])), [faculty]);
     const studentMap = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
@@ -254,7 +256,6 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
         try {
             await onSaveUser(userData);
             setModalOpen(false);
-// FIX: Add a type guard to safely handle potential non-Error exceptions, preventing a TypeScript error when setting the error state.
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unexpected error occurred.");
         }
@@ -287,14 +288,12 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
         return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
             error && React.createElement("div", { className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
             React.createElement("div", null, 
-                // FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
                 React.createElement("label", { className: "block font-medium" }, "Role"),
                 React.createElement("select", { value: role, onChange: e => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                     React.createElement("option", { value: "teacher" }, "Teacher"), React.createElement("option", { value: "student" }, "Student")
                 )
             ),
             React.createElement("div", null,
-// FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
                  React.createElement("label", { className: "block font-medium" }, "Select Profile"),
                  React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                      React.createElement("option", { value: "", disabled: true }, "Select a profile"),
@@ -303,7 +302,6 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
                  )
             ),
             React.createElement("div", null,
-// FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
                 React.createElement("label", { className: "block font-medium" }, "Password"),
                 React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
             ),
@@ -339,7 +337,6 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
     );
 };
 
-// FIX: Add a default value to the `message` prop to make it optional, resolving TypeScript errors.
 const PlaceholderContent = ({ title, icon, message = "This feature is under development and will be available soon." }) => (
     React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border-2 border-dashed border-gray-300 dark:border-slate-700 p-8 rounded-2xl shadow-inner text-center flex flex-col items-center justify-center min-h-[400px]" },
         React.createElement("div", { className: "text-gray-400 dark:text-gray-500 mb-4" }, icon),
