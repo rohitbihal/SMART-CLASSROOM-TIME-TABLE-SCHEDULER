@@ -1,7 +1,7 @@
 import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types';
 
 // NOTE: The base URL for the backend server.
-const API_BASE_URL = 'https://smart-classroom-and-time-table-scheduler.onrender.com/api';
+const API_BASE_URL = '/api';
 
 /**
  * Sends timetable generation request to the backend server.

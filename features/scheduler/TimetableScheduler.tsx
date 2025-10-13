@@ -85,7 +85,7 @@ const ClassForm = ({ initialData, onSave }) => {
 };
 
 const FacultyForm = ({ initialData, onSave }) => {
-    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', ') } : { name: '', department: '', specialization: '' });
+    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', '), email: initialData.email || '' } : { name: '', department: '', specialization: '', email: '' });
     const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.value });
     const handleSave = (e) => {
         e.preventDefault();
@@ -93,6 +93,7 @@ const FacultyForm = ({ initialData, onSave }) => {
     };
     return React.createElement("form", { onSubmit: handleSave },
         React.createElement(FormField, { label: "Name" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
+        React.createElement(FormField, { label: "Email" }, React.createElement(TextInput, { type: "email", name: "email", value: data.email, onChange: handleChange, required: true, placeholder: "user@example.com" })),
         React.createElement(FormField, { label: "Department" }, React.createElement(TextInput, { type: "text", name: "department", value: data.department, onChange: handleChange, required: true })),
         React.createElement(FormField, { label: "Specializations (comma-separated)" }, React.createElement(TextInput, { type: "text", name: "specialization", value: data.specialization, onChange: handleChange })),
         React.createElement("button", { type: "submit", className: "w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" }, React.createElement(SaveIcon, null), "Save")

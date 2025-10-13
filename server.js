@@ -42,23 +42,32 @@ app.use(express.static(__dirname));
 
 // --- Mongoose Schemas ---
 const classSchema = new mongoose.Schema({ id: String, name: String, branch: String, year: Number, section: String, studentCount: Number });
-const facultySchema = new mongoose.Schema({ id: String, name: String, department: String, specialization: [String], email: { type: String, required: false } });
+const facultySchema = new mongoose.Schema({ id: String, name: String, department: String, specialization: [String], email: { type: String, required: true } });
 const subjectSchema = new mongoose.Schema({ id: String, name: String, code: String, type: String, hoursPerWeek: Number, assignedFacultyId: String });
 const roomSchema = new mongoose.Schema({ id: String, number: String, type: String, capacity: Number });
 const studentSchema = new mongoose.Schema({ id: String, name: String, email: String, classId: String, roll: String });
+const userSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true }, // This will be the email
+    password: { type: String, required: true }, // In a real app, this should be hashed.
+    role: { type: String, required: true, enum: ['admin', 'teacher', 'student'] },
+    profileId: { type: String, required: true } // Links to faculty or student ID, or a special ID for admin.
+});
+
 
 const Class = mongoose.model('Class', classSchema);
 const Faculty = mongoose.model('Faculty', facultySchema);
 const Subject = mongoose.model('Subject', subjectSchema);
 const Room = mongoose.model('Room', roomSchema);
 const Student = mongoose.model('Student', studentSchema);
+const User = mongoose.model('User', userSchema);
 
 const collections = {
     class: Class,
     faculty: Faculty,
     subject: Subject,
     room: Room,
-    student: Student
+    student: Student,
+    user: User,
 };
 
 // --- MOCK DATA FOR DB SEEDING ---
@@ -68,7 +77,7 @@ const MOCK_CLASSES = [
 ];
 const MOCK_FACULTY = [
     { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu' },
-    { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'] },
+    { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu' },
 ];
 const MOCK_SUBJECTS = [
     { id: 's1', name: 'Data Structures', code: 'CS301', type: 'theory', hoursPerWeek: 4, assignedFacultyId: 'f1' },
@@ -84,39 +93,35 @@ const MOCK_ROOMS = [
 ];
 const MOCK_STUDENTS = [
     { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu' },
-    { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02' },
+    { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02', email: 'bob.singh@university.edu' },
     { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01' },
-    { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02' },
+    { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02', email: 'diana.p@university.edu' },
 ];
-const MOCK_DATA = {
-    classes: MOCK_CLASSES,
-    faculty: MOCK_FACULTY,
-    subjects: MOCK_SUBJECTS,
-    rooms: MOCK_ROOMS,
-    students: MOCK_STUDENTS,
-};
+const MOCK_USERS = [
+    { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' },
+    { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' },
+    { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' },
+];
 
 // --- DB SEEDING FUNCTION ---
 async function seedDatabase(force = false) {
     try {
-        if (!force) {
-            const classCount = await Class.countDocuments();
-            if (classCount > 0) {
-                console.log('Database already contains data. Skipping seed.');
-                return;
-            }
-            console.log('Database is empty. Seeding with mock data...');
-        } else {
-            console.log('Forcing database seed/reset...');
+        const classCount = await Class.countDocuments();
+        if (classCount > 0 && !force) {
+            console.log('Database already contains data. Skipping seed.');
+            return;
         }
+        
+        console.log(force ? 'Forcing database seed/reset...' : 'Database is empty. Seeding with mock data...');
 
         await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
 
-        await Class.insertMany(MOCK_DATA.classes);
-        await Faculty.insertMany(MOCK_DATA.faculty);
-        await Subject.insertMany(MOCK_DATA.subjects);
-        await Room.insertMany(MOCK_DATA.rooms);
-        await Student.insertMany(MOCK_DATA.students);
+        await Class.insertMany(MOCK_CLASSES);
+        await Faculty.insertMany(MOCK_FACULTY);
+        await Subject.insertMany(MOCK_SUBJECTS);
+        await Room.insertMany(MOCK_ROOMS);
+        await Student.insertMany(MOCK_STUDENTS);
+        await User.insertMany(MOCK_USERS);
         
         console.log('Database seeded successfully.');
     } catch (error) {
@@ -136,21 +141,21 @@ mongoose.connect(process.env.MONGO_URI)
     });
 
 // --- AUTHENTICATION ---
-
-const credentials = {
-    admin: { user: 'admin@university.edu', pass: 'admin123' },
-    teacher: { user: 'teacher@university.edu', pass: 'teacher123' },
-    student: { user: 'student@university.edu', pass: 'student123' },
-};
-
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
     const { username, password, role } = req.body;
-    if (credentials[role] && credentials[role].user === username && credentials[role].pass === password) {
-        const userPayload = { username, role };
-        const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
-        res.json({ token, user: userPayload });
-    } else {
-        res.status(401).json({ message: 'Invalid credentials' });
+    try {
+        const user = await User.findOne({ username, role });
+        // IMPORTANT: In a production app, never store passwords in plaintext. Use a library like bcrypt to hash and compare passwords.
+        if (user && user.password === password) {
+            const userPayload = { username, role };
+            const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
+            res.json({ token, user: userPayload });
+        } else {
+            res.status(401).json({ message: 'Invalid credentials' });
+        }
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ message: "An error occurred during login." });
     }
 });
 
@@ -192,6 +197,53 @@ app.get('/api/data', authMiddleware, async (req, res) => {
         res.status(500).json({ message: 'Error fetching data', error });
     }
 });
+
+// User management routes (admin only)
+app.get('/api/users', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const users = await User.find({ role: { $ne: 'admin' } }); // Don't return the admin account itself
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching users', error });
+    }
+});
+
+app.post('/api/users', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { username, password, role, profileId } = req.body;
+        if (!username || !password || !role || !profileId) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const existingUser = await User.findOne({ $or: [{ username }, { profileId }] });
+        if (existingUser) {
+            return res.status(409).json({ message: 'A user account for this email or profile already exists.' });
+        }
+
+        const newUser = new User({ username, password, role, profileId });
+        await newUser.save();
+        res.status(201).json(newUser);
+    } catch (error) {
+        res.status(500).json({ message: 'Error creating user', error });
+    }
+});
+
+app.delete('/api/users/:id', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        if (user.role === 'admin') {
+            return res.status(403).json({ message: "Cannot delete admin user" });
+        }
+        await User.findByIdAndDelete(req.params.id);
+        res.status(204).send();
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting user', error });
+    }
+});
+
 
 // Generic CRUD operations (admin only)
 const createRouterFor = (type) => {
@@ -278,7 +330,7 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
                 } else if (c.type === 'facultyAvailability') {
                     const fac = faculty.find(f => f.id === c.facultyId);
                     if (fac) {
-                        return `- Faculty "${fac.name}" is unavailable on ${c.day} during the time slot ${c.timeSlot}.`;
+                        return `- Faculty "${fac.name}" is unavailable on ${c.day} during the time slot ${c.timeSlot}. This is a hard constraint and must be respected.`;
                     }
                 }
                 return null;
@@ -289,35 +341,53 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
         const concurrentClassesText = Object.entries(constraints.maxConcurrentClassesPerDept || {})
             .map(([dept, max]) => `- For the ${dept} department, a maximum of ${max} classes can be scheduled concurrently at any given time.`)
             .join('\n    ');
+        
+        const timeSlots = "09:30-10:20, 10:20-11:10, 11:10-12:00, 12:00-12:50, 01:35-02:20, 02:20-03:05, 03:05-03:50, 03:50-04:35";
 
       return `
-You are an expert AI scheduling assistant for a university. Your task is to generate a weekly timetable in JSON format according to the provided schema.
+You are an expert AI scheduling assistant for a university. Your task is to generate a weekly timetable in JSON format according to the provided schema. Analyze the provided data and constraints carefully to create a complete, optimal, and conflict-free schedule.
 
-Here is the input data:
+**Input Data:**
 - Classes: ${JSON.stringify(classes, null, 2)}
 - Faculty: ${JSON.stringify(faculty, null, 2)}
 - Subjects: ${JSON.stringify(subjects, null, 2)}
 - Rooms: ${JSON.stringify(rooms, null, 2)}
 
-Constraints and Rules:
-1. The timetable is for the following days: ${constraints.workingDays.join(', ')}.
-2. Time slots are: 09:30-10:20, 10:20-11:10, 11:10-12:00, 12:00-12:50, 01:35-02:20, 02:20-03:05, 03:05-03:50, 03:50-04:35.
-3. Lunch break is from ${constraints.lunchBreak}. No classes should be scheduled during this time.
-4. A faculty member cannot teach more than ${constraints.maxConsecutiveClasses} consecutive classes.
-5. A specific class (e.g., CSE-3-A) cannot have the same subject taught back-to-back unless it's a lab.
-6. Lab subjects (type: 'lab') must be scheduled for two consecutive time slots. The provided hoursPerWeek for labs (e.g., 2) means one 2-hour session per week.
-7. A faculty member can only teach one class at a time.
-8. A room can only be used by one class at a time.
-9. A class can only attend one subject at a time.
-10. The capacity of a room must be greater than or equal to the number of students in the class.
-11. Assign subjects to faculty based on their specialization and the 'assignedFacultyId' in the subjects list.
-12. 'theory' subjects should be in 'classroom' type rooms. 'lab' subjects must be in 'lab' type rooms.
-13. Fulfill the 'hoursPerWeek' requirement for each subject for each class.
-${concurrentClassesText ? `\n14. Department Constraints:\n    ${concurrentClassesText}` : ''}
-${specificConstraintsText ? `\n15. Specific Constraints:\n    ${specificConstraintsText}` : ''}
+**Scheduling Constraints & Rules:**
+
+**Hard Constraints (MUST be followed without exception):**
+1.  **Exclusivity Rules:**
+    - A faculty member can only teach ONE class in a single time slot. There are no exceptions.
+    - A class can only attend ONE subject in a single time slot.
+    - A room can only be occupied by ONE class in a single time slot.
+2.  **Working Hours & Breaks:**
+    - The timetable must only include the specified working days: ${constraints.workingDays.join(', ')}.
+    - Time slots are fixed: ${timeSlots}.
+    - The lunch break from ${constraints.lunchBreak} is mandatory for all. No classes can be scheduled during this time.
+3.  **Room Allocation:**
+    - 'theory' subjects MUST be scheduled in 'classroom' type rooms.
+    - 'lab' subjects MUST be in 'lab' type rooms.
+    - The student count of a class ('studentCount') must NOT exceed the capacity of its assigned room ('capacity').
+4.  **Subject & Faculty Assignment:**
+    - The total number of hours scheduled for each subject per week MUST exactly match its 'hoursPerWeek' property.
+    - The faculty member assigned to a subject is specified by 'assignedFacultyId'. The timetable MUST assign that specific faculty member to all sessions of that subject.
+5.  **Lab Scheduling:**
+    - 'lab' subjects MUST be scheduled for exactly two consecutive time slots. For example, a lab with 'hoursPerWeek: 2' should have one 2-hour session per week.
+
+**Soft Constraints & Preferences (Follow these to create a high-quality schedule):**
+1.  **Consecutive Classes:**
+    - A faculty member should not teach more than ${constraints.maxConsecutiveClasses} consecutive classes to avoid fatigue.
+    - Avoid scheduling the same subject back-to-back for a class on the same day, unless it is a lab session.
+2.  **Schedule Compactness:**
+    - For any given class, try to minimize gaps (free periods) between classes on the same day. A compact schedule is highly preferred.
+3.  **Subject Distribution:**
+    - Distribute the classes for a single subject evenly throughout the week, rather than clustering them all on one or two days.
+
+${concurrentClassesText ? `**Departmental Constraints:**\n    ${concurrentClassesText}` : ''}
+${specificConstraintsText ? `**User-Defined Specific Constraints:**\n    ${specificConstraintsText}` : ''}
 
 Based on all these rules, generate a complete, conflict-free timetable.
-The output MUST be a valid JSON array matching the schema.
+The output MUST be a valid JSON array matching the specified schema. Do not include any explanatory text, just the JSON array.
       `;
     };
 

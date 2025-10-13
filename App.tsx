@@ -7,7 +7,7 @@ import { LoadingIcon } from './components/Icons';
 import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance } from './types';
 
 // NOTE: The base URL for the backend server.
-const API_BASE_URL = 'https://smart-classroom-and-time-table-scheduler.onrender.com/api';
+const API_BASE_URL = '/api';
 
 const getInitialConstraints = (): Constraints => {
     const initialDepts = ['CSE'];
@@ -84,6 +84,7 @@ export const App = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [users, setUsers] = useState([]); // NEW: State for user accounts
   const [constraints, setConstraints] = useState<Constraints>(getInitialConstraints());
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   
@@ -102,16 +103,26 @@ export const App = () => {
           }
           try {
               setIsLoading(true);
-              const response = await fetchWithAuth(`${API_BASE_URL}/data`, {}, token);
-              if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
+              const [dataResponse, usersResponse] = await Promise.all([
+                  fetchWithAuth(`${API_BASE_URL}/data`, {}, token),
+                  user?.role === 'admin' ? fetchWithAuth(`${API_BASE_URL}/users`, {}, token) : Promise.resolve(null)
+              ]);
+
+              if (!dataResponse.ok) {
+                  throw new Error(`HTTP error! status: ${dataResponse.status}`);
               }
-              const data = await response.json();
+              const data = await dataResponse.json();
               setClasses(data.classes || []);
               setFaculty(data.faculty || []);
               setSubjects(data.subjects || []);
               setRooms(data.rooms || []);
               setStudents(data.students || []);
+
+              if (usersResponse && usersResponse.ok) {
+                  const usersData = await usersResponse.json();
+                  setUsers(usersData);
+              }
+
           } catch (error) {
               console.error("Failed to fetch initial data from server:", error);
           } finally {
@@ -119,7 +130,7 @@ export const App = () => {
           }
       };
       fetchData();
-  }, [token]);
+  }, [token, user?.role]);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -147,6 +158,7 @@ export const App = () => {
   const handleLogout = () => {
     setUser(null);
     setToken(null);
+    setUsers([]);
     sessionStorage.removeItem('user');
     sessionStorage.removeItem('token');
   };
@@ -205,6 +217,29 @@ export const App = () => {
         alert(`Error deleting ${type}: ${error.message}`);
      }
   };
+
+  const handleSaveUser = async (userData) => {
+      if (user?.role !== 'admin') throw new Error("Permission denied.");
+      const response = await fetchWithAuth(`${API_BASE_URL}/users`, {
+          method: 'POST', body: JSON.stringify(userData)
+      }, token);
+      if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.message || "Failed to create user.");
+      }
+      const newUser = await response.json();
+      setUsers(prev => [...prev, newUser]);
+  };
+
+  const handleDeleteUser = async (userId) => {
+      if (user?.role !== 'admin') throw new Error("Permission denied.");
+      const response = await fetchWithAuth(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' }, token);
+      if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.message || "Failed to delete user.");
+      }
+      setUsers(prev => prev.filter(u => u._id !== userId));
+  };
   
   const handleUpdateAttendance = (classId, date, studentId, status) => {
       setAttendance(prev => ({
@@ -232,6 +267,12 @@ export const App = () => {
         setConstraints(getInitialConstraints());
         setChatMessages([]);
         setAttendance({});
+        
+        if (user?.role === 'admin') {
+            const usersResponse = await fetchWithAuth(`${API_BASE_URL}/users`, {}, token);
+            if(usersResponse.ok) setUsers(await usersResponse.json());
+        }
+
         localStorage.removeItem('smartCampusShared');
         alert('Data has been reset successfully.');
     } catch (error) {
@@ -247,10 +288,11 @@ export const App = () => {
   }
 
   const dashboardProps = {
-    user, onLogout: handleLogout, theme, toggleTheme, classes, faculty, subjects, students,
+    user, onLogout: handleLogout, theme, toggleTheme, classes, faculty, subjects, students, users,
     constraints, updateConstraints: setConstraints, chatMessages, onSendMessage: handleSendMessage,
     attendance, onUpdateAttendance: handleUpdateAttendance,
     onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity,
+    onSaveUser: handleSaveUser, onDeleteUser: handleDeleteUser,
     token
   };
 

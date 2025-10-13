@@ -219,19 +219,127 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+// FIX: Pass children as a separate argument to `<option>` for consistent a `React.createElement` signature, resolving a TypeScript overload issue.
                 classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
         React.createElement("div", { className: "space-y-2" }, studentsInClass.map(student =>
             React.createElement("div", { key: student.id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                React.createElement("p", null, student.name),
+                // FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
+                React.createElement("p", { children: student.name }),
                 React.createElement("div", { className: "flex gap-2" },
                     React.createElement("button", { onClick: () => handleStatusChange(student.id, 'present'), className: `px-3 py-1 text-sm rounded-md ${attendanceForDay[student.id] === 'present' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}` }, "Present"),
                     React.createElement("button", { onClick: () => handleStatusChange(student.id, 'absent'), className: `px-3 py-1 text-sm rounded-md ${attendanceForDay[student.id] === 'absent' ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}` }, "Absent")
                 )
             )
         ))
+    );
+};
+
+// NEW: User Management Component for Admin Dashboard
+const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => {
+    const [modalOpen, setModalOpen] = useState(false);
+    const [error, setError] = useState('');
+
+    const facultyMap = useMemo(() => new Map(faculty.map(f => [f.id, f.name])), [faculty]);
+    const studentMap = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
+    
+    const userProfileIds = useMemo(() => new Set(users.map(u => u.profileId)), [users]);
+    const availableFaculty = useMemo(() => faculty.filter(f => f.email && !userProfileIds.has(f.id)), [faculty, userProfileIds]);
+    const availableStudents = useMemo(() => students.filter(s => s.email && !userProfileIds.has(s.id)), [students, userProfileIds]);
+
+    const handleSave = async (userData) => {
+        setError('');
+        try {
+            await onSaveUser(userData);
+            setModalOpen(false);
+// FIX: Add a type guard to safely handle potential non-Error exceptions, preventing a TypeScript error when setting the error state.
+        } catch(err) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("An unexpected error occurred.");
+            }
+        }
+    };
+    
+    const handleDelete = (user) => {
+        if (window.confirm(`Are you sure you want to delete the user account for ${user.username}?`)) {
+            onDeleteUser(user._id).catch(err => alert(`Failed to delete user: ${err.message}`));
+        }
+    };
+
+    const UserForm = ({ onSave, onCancel }) => {
+        const [role, setRole] = useState('teacher');
+        const [profileId, setProfileId] = useState('');
+        const [password, setPassword] = useState('');
+        const profiles = role === 'teacher' ? availableFaculty : availableStudents;
+        
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            const profile = profiles.find(p => p.id === profileId);
+            if (!profile || !password) {
+                alert("Please select a profile and enter a password.");
+                return;
+            }
+            onSave({ username: profile.email, password, role, profileId });
+        };
+        
+        useEffect(() => { setProfileId(''); }, [role]);
+
+        return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
+            error && React.createElement("div", { className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
+            React.createElement("div", null, 
+                // FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
+                React.createElement("label", { className: "block font-medium", children: "Role" }),
+                React.createElement("select", { value: role, onChange: e => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+                    React.createElement("option", { value: "teacher" }, "Teacher"), React.createElement("option", { value: "student" }, "Student")
+                )
+            ),
+            React.createElement("div", null,
+// FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
+                 React.createElement("label", { className: "block font-medium", children: "Select Profile" }),
+                 React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+                     React.createElement("option", { value: "", disabled: true }, "Select a profile"),
+                     profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
+                     : React.createElement("option", { value: "", disabled: true }, `No available ${role} profiles`)
+                 )
+            ),
+            React.createElement("div", null,
+// FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
+                React.createElement("label", { className: "block font-medium", children: "Password" }),
+                React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
+            ),
+            React.createElement("div", { className: "flex justify-end gap-2" },
+                React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
+                React.createElement("button", { type: "submit", className: "bg-indigo-600 text-white px-4 py-2 rounded-md" }, "Create User")
+            )
+        );
+    };
+
+    return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
+        React.createElement("div", { className: "flex justify-between items-center mb-4" },
+            React.createElement("h3", { className: "font-bold text-lg" }, "User Account Management"),
+            React.createElement("button", { onClick: () => { setError(''); setModalOpen(true); }, className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold" }, React.createElement(AddIcon, null), "Add User")
+        ),
+        modalOpen && React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center" }, 
+            React.createElement("div", { className: "bg-white dark:bg-slate-800 p-6 rounded-lg w-full max-w-md" },
+                React.createElement("h3", { className: "text-lg font-bold mb-4" }, "Create New User"),
+                React.createElement(UserForm, { onSave: handleSave, onCancel: () => setModalOpen(false) })
+            )
+        ),
+        React.createElement("div", { className: "space-y-4" },
+            users.length > 0 ? users.map(user =>
+                React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                    React.createElement("div", null,
+                        React.createElement("p", { className: "font-semibold" }, user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId)),
+                        React.createElement("p", { className: "text-xs text-gray-500" }, user.username, " (", user.role, ")")
+                    ),
+                    React.createElement("button", { onClick: () => handleDelete(user), className: "text-red-500 hover:text-red-700" }, React.createElement(DeleteIcon, null))
+                )
+            ) : React.createElement("p", { className: "text-gray-500 dark:text-gray-400 text-center py-8" }, "No teacher or student user accounts found.")
+        )
     );
 };
 
@@ -268,7 +376,7 @@ const AdminDashboard = (props) => {
             case 'classroom':
                 return React.createElement(ClassroomManager, { ...props });
             case 'users':
-                return React.createElement(PlaceholderContent, { title: "User Management", icon: React.createElement(UsersIcon, { className: "h-12 w-12" }) });
+                return React.createElement(UserManager, { faculty: props.faculty, students: props.students, users: props.users, onSaveUser: props.onSaveUser, onDeleteUser: props.onDeleteUser });
             case 'resources':
                 return React.createElement(PlaceholderContent, { title: "Classrooms & Resources", icon: React.createElement(ResourcesIcon, { className: "h-12 w-12" }) });
             case 'attendance':

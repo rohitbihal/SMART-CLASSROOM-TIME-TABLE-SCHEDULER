@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
 
-const API_BASE_URL = 'https://smart-classroom-and-time-table-scheduler.onrender.com/api';
+const API_BASE_URL = '/api';
 
 export const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -28,8 +28,15 @@ export const LoginPage = ({ onLogin }) => {
         });
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Login failed');
+            // Check if the response is JSON before parsing
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Login failed');
+            } else {
+                // If not JSON, it might be the HTML fallback, indicating a server/routing issue
+                throw new Error('Login failed: An unexpected server error occurred.');
+            }
         }
         
         const { token, user } = await response.json();
