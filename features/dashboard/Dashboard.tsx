@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -135,14 +132,12 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
     );
 };
 
-// FIX: Add type annotations for props to aid TypeScript's type inference and resolve errors.
 const StudentForm = ({ student, onSave, onCancel, classId }: { student: Student | null, onSave: (data: any) => void, onCancel: () => void, classId: string }) => {
     const [formData, setFormData] = useState(
         student
             ? { ...student, email: student.email || '', roll: student.roll || '' }
             : { name: '', email: '', roll: '', classId }
     );
-    // FIX: Add type annotation to the event object to resolve ambiguity for the 'value' property on the input element.
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
     return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg" },
@@ -212,7 +207,6 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
     );
 };
 
-// FIX: Add explicit types for component props to assist TypeScript inference and resolve the error on the 'select' element's 'value' prop.
 const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }: { classes: Class[], students: Student[], attendance: Attendance, onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void }) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -225,7 +219,6 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
-            // FIX: Use spread operator for children to resolve a TypeScript type inference issue with the parent select element's props.
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                 ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
@@ -246,7 +239,6 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
 // NEW: User Management Component for Admin Dashboard
 const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => {
     const [modalOpen, setModalOpen] = useState(false);
-    // FIX: Explicitly type the 'error' state as a string to prevent it from being inferred as 'unknown' within the 'catch' block context.
     const [error, setError] = useState<string>('');
 
     const facultyMap = useMemo(() => new Map(faculty.map(f => [f.id, f.name])), [faculty]);
@@ -290,25 +282,25 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
         
         useEffect(() => { setProfileId(''); }, [role]);
 
+// FIX: To resolve TypeScript errors with React.createElement, pass children as a `children` prop array instead of varargs.
+        const profileOptions = [
+            React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
+            ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
+            : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
+        ];
+
         return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
             error && React.createElement("div", { className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
             React.createElement("div", null, 
                 React.createElement("label", { className: "block font-medium" }, "Role"),
-// FIX: Add an explicit type for the `onChange` event handler to help TypeScript correctly infer props for the `select` element, resolving the error on the `value` property.
-// FIX: Replaced individual option elements with a mapped array and spread operator to resolve a TypeScript type inference issue, consistent with other working dropdowns in the app.
-// FIX: Simplified to use explicit option elements to resolve a TypeScript type inference issue.
-                React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                    React.createElement("option", { value: "teacher" }, "Teacher"),
-                    React.createElement("option", { value: "student" }, "Student")
-                )
+                React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: [
+                    React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
+                    React.createElement("option", { key: "student", value: "student" }, "Student")
+                ]})
             ),
             React.createElement("div", null,
                  React.createElement("label", { className: "block font-medium" }, "Select Profile"),
-                 React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                     React.createElement("option", { value: "", disabled: true }, "Select a profile"),
-                     ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
-                     : [React.createElement("option", { value: "", disabled: true }, `No available ${role} profiles`)])
-                 )
+                 React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: profileOptions })
             ),
             React.createElement("div", null,
                 React.createElement("label", { className: "block font-medium" }, "Password"),
@@ -336,8 +328,6 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
             users.length > 0 ? users.map(user =>
                 React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                     React.createElement("div", null,
-                        // FIX: Added a comma between the two <p> elements to correct a syntax error that was causing a TypeScript type error.
-                        // FIX: Add a fallback value for the user's name. The map `get` method can return `undefined`, which is not a valid React child and would cause a render error.
                         React.createElement("p", { className: "font-semibold" }, (user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId)) || '[Profile Not Found]'),
                         React.createElement("p", { className: "text-xs text-gray-500" }, user.username, " (", user.role, ")")
                     ),
@@ -539,13 +529,10 @@ const UpcomingClasses = ({ upcoming }) => {
 const StudentDashboard = (props) => {
     const [activeTab, setActiveTab] = useState('schedule');
     
-    // FIX: Removed insecure fallback. Now strictly finds the student profile matching the logged-in user.
     const myStudentProfile = useMemo(() => props.students.find(s => s.email === props.user.username), [props.students, props.user.username]);
     
-    // FIX: This logic now safely handles cases where the student profile might not be found.
     const myClass = useMemo(() => myStudentProfile ? props.classes.find(c => c.id === myStudentProfile.classId) : null, [props.classes, myStudentProfile]);
     
-    // FIX: Ensure timetable is filtered only if a class is found.
     const studentTimetable = useMemo(() => (myClass && props.timetable) ? props.timetable.filter(e => e.className === myClass.name) : [], [props.timetable, myClass]);
     
     const [channel, setChannel] = useState('query');
@@ -589,7 +576,6 @@ const StudentDashboard = (props) => {
           .slice(0, 4);
     }, [studentTimetable]);
 
-    // NEW: If the student profile is not found, display a clear, helpful message instead of potentially incorrect data.
     if (!myStudentProfile) {
         return React.createElement("div", { className: "p-4 md:p-8 min-h-screen bg-transparent" },
             React.createElement(Header, { title: "Student Dashboard", subtitle: `Welcome, ${props.user.username}`, ...props }),
