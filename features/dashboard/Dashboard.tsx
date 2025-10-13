@@ -219,15 +219,15 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-// FIX: Pass children as a separate argument to `<option>` for consistent a `React.createElement` signature, resolving a TypeScript overload issue.
+// FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
                 classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
         React.createElement("div", { className: "space-y-2" }, studentsInClass.map(student =>
             React.createElement("div", { key: student.id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                // FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
-                React.createElement("p", { children: student.name }),
+                // FIX: Pass children as a separate argument to resolve TypeScript overload issue.
+                React.createElement("p", null, student.name),
                 React.createElement("div", { className: "flex gap-2" },
                     React.createElement("button", { onClick: () => handleStatusChange(student.id, 'present'), className: `px-3 py-1 text-sm rounded-md ${attendanceForDay[student.id] === 'present' ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}` }, "Present"),
                     React.createElement("button", { onClick: () => handleStatusChange(student.id, 'absent'), className: `px-3 py-1 text-sm rounded-md ${attendanceForDay[student.id] === 'absent' ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}` }, "Absent")
@@ -255,12 +255,8 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
             await onSaveUser(userData);
             setModalOpen(false);
 // FIX: Add a type guard to safely handle potential non-Error exceptions, preventing a TypeScript error when setting the error state.
-        } catch(err) {
-            if (err instanceof Error) {
-                setError(err.message);
-            } else {
-                setError("An unexpected error occurred.");
-            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "An unexpected error occurred.");
         }
     };
     
@@ -291,15 +287,15 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
         return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
             error && React.createElement("div", { className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
             React.createElement("div", null, 
-                // FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
-                React.createElement("label", { className: "block font-medium", children: "Role" }),
+                // FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
+                React.createElement("label", { className: "block font-medium" }, "Role"),
                 React.createElement("select", { value: role, onChange: e => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                     React.createElement("option", { value: "teacher" }, "Teacher"), React.createElement("option", { value: "student" }, "Student")
                 )
             ),
             React.createElement("div", null,
-// FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
-                 React.createElement("label", { className: "block font-medium", children: "Select Profile" }),
+// FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
+                 React.createElement("label", { className: "block font-medium" }, "Select Profile"),
                  React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                      React.createElement("option", { value: "", disabled: true }, "Select a profile"),
                      profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
@@ -307,8 +303,8 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
                  )
             ),
             React.createElement("div", null,
-// FIX: Explicitly pass children via the `children` prop to resolve TypeScript overload issue.
-                React.createElement("label", { className: "block font-medium", children: "Password" }),
+// FIX: Pass children as a separate argument to React.createElement to resolve TypeScript overload errors.
+                React.createElement("label", { className: "block font-medium" }, "Password"),
                 React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
             ),
             React.createElement("div", { className: "flex justify-end gap-2" },

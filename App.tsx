@@ -78,7 +78,7 @@ export const App = () => {
   const [token, setToken] = useState(() => sessionStorage.getItem('token'));
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
   
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [classes, setClasses] = useState<Class[]>([]);
   const [faculty, setFaculty] = useState<Faculty[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -98,11 +98,11 @@ export const App = () => {
   useEffect(() => {
       const fetchData = async () => {
           if (!token) {
-              setIsLoading(false);
+              setIsInitialLoad(false);
               return; // Don't fetch if not logged in
           }
           try {
-              setIsLoading(true);
+              // Data fetching now happens in the background without a blocking loader
               const [dataResponse, usersResponse] = await Promise.all([
                   fetchWithAuth(`${API_BASE_URL}/data`, {}, token),
                   user?.role === 'admin' ? fetchWithAuth(`${API_BASE_URL}/users`, {}, token) : Promise.resolve(null)
@@ -126,7 +126,7 @@ export const App = () => {
           } catch (error) {
               console.error("Failed to fetch initial data from server:", error);
           } finally {
-              setIsLoading(false);
+              setIsInitialLoad(false);
           }
       };
       fetchData();
@@ -153,6 +153,10 @@ export const App = () => {
     setToken(authToken);
     sessionStorage.setItem('user', JSON.stringify(loggedInUser));
     sessionStorage.setItem('token', authToken);
+    // By setting isInitialLoad to false here, we prevent the full-screen
+    // loader from showing on the next render after a successful login.
+    // This makes the transition instantaneous.
+    setIsInitialLoad(false);
   };
 
   const handleLogout = () => {
@@ -253,7 +257,7 @@ export const App = () => {
       return;
     }
     try {
-        setIsLoading(true);
+        setIsInitialLoad(true); // Show loader while resetting
         const response = await fetchWithAuth(`${API_BASE_URL}/reset-data`, { method: 'POST' }, token);
         if (!response.ok) throw new Error('Failed to reset data on server');
         
@@ -279,11 +283,11 @@ export const App = () => {
         console.error("Error resetting data:", error);
         alert(`Failed to reset data: ${error.message}`);
     } finally {
-        setIsLoading(false);
+        setIsInitialLoad(false);
     }
   };
 
-  if (isLoading && token) {
+  if (isInitialLoad && token) {
     return React.createElement(FullScreenLoader, { message: "Loading Campus Data..." });
   }
 

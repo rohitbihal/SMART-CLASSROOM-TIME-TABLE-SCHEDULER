@@ -53,6 +53,9 @@ const userSchema = new mongoose.Schema({
     profileId: { type: String, required: true } // Links to faculty or student ID, or a special ID for admin.
 });
 
+// Performance Optimization: Add a compound index for the login query.
+userSchema.index({ username: 1, role: 1 });
+
 
 const Class = mongoose.model('Class', classSchema);
 const Faculty = mongoose.model('Faculty', facultySchema);
