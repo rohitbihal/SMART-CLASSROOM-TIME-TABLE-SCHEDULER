@@ -25,8 +25,15 @@ if (!process.env.MONGO_URI) {
     process.exit(1);
 }
 if (!process.env.JWT_SECRET) {
-    console.error("FATAL ERROR: JWT_SECRET is not defined in the environment variables. This is required for secure authentication.");
-    process.exit(1);
+    // In a production environment, you MUST set a secure, private JWT_SECRET.
+    // For development convenience, we are using a default, insecure secret.
+    // DO NOT USE THIS IN PRODUCTION.
+    process.env.JWT_SECRET = 'DEFAULT_INSECURE_JWT_SECRET_FOR_DEVELOPMENT_ONLY';
+    console.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    console.warn("!!! WARNING: JWT_SECRET is not defined in environment variables.");
+    console.warn("!!! Using a default, insecure secret for development purposes.");
+    console.warn("!!! For production, create a .env file and set a strong JWT_SECRET.");
+    console.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 }
 if (!process.env.API_KEY) {
     console.warn("WARNING: API_KEY is not defined. The AI timetable generation feature will not work.");

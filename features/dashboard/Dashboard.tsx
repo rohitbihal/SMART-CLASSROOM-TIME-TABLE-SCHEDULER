@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -223,9 +224,9 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
-            // FIX: Removed spread operator to resolve a TypeScript type inference issue with the parent select element's props.
+            // FIX: Use spread operator for children to resolve a TypeScript type inference issue with the parent select element's props.
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
+                ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
