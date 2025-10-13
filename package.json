@@ -1,11 +1,15 @@
 {
-  "name": "smart-campus-backend",
+  "name": "smart-campus-frontend",
   "version": "1.0.0",
-  "description": "Backend server for the Smart Campus & Timetable Scheduler app.",
+  "homepage": "https://<your-github-username>.github.io/<your-repo-name>",
+  "description": "Frontend for the Smart Campus & Timetable Scheduler app.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"Build script not configured. Please replace this with your project's build command.\" && exit 1",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "keywords": [],
   "author": "",
@@ -17,5 +21,8 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.1"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.1.1"
   }
 }
