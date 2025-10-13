@@ -70,7 +70,8 @@ export interface PreferredTimeConstraint {
     id: number;
     type: 'preferredTime';
     classId: string;
-    details: string;
+    day: string;
+    timePreference: 'morning' | 'afternoon';
 }
 export interface FacultyAvailabilityConstraint {
     id: number;

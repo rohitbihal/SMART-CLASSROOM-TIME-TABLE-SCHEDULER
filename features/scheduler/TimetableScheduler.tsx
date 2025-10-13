@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
@@ -335,7 +336,8 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                 id: Date.now(),
                 type,
                 classId: classes[0]?.id || '',
-                details: ''
+                day: DAYS[0],
+                timePreference: 'morning'
             };
         } else if (type === 'facultyAvailability') {
             newConstraint = {
@@ -476,13 +478,17 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, React.createElement("option", { value: "" }, "Select Class"), ...classOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "prefers"),
-                            React.createElement("input", {
-                                type: "text",
-                                placeholder: "e.g., morning slots on Mondays",
-                                value: constraint.details,
-                                onChange: (e: React.ChangeEvent<HTMLInputElement>) => handleConstraintChange(constraint.id, 'details', e.target.value),
-                                className: "flex-grow p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }),
+                            React.createElement("select", {
+                                value: constraint.timePreference,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'timePreference', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, React.createElement("option", {value: "morning"}, "Morning"), React.createElement("option", {value: "afternoon"}, "Afternoon")),
+                            React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "slots on"),
+                            React.createElement("select", {
+                                value: constraint.day,
+                                onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'day', e.target.value),
+                                className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
+                            }, ...dayOptions),
                             deleteButton
                         );
                     } else if (constraint.type === 'facultyAvailability') {

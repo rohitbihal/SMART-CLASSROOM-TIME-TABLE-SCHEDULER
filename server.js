@@ -337,8 +337,8 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
                     }
                 } else if (c.type === 'preferredTime') {
                     const className = classes.find(cl => cl.id === c.classId)?.name;
-                    if (className && c.details) {
-                        return `- For class "${className}", adhere to the following scheduling preference: "${c.details}".`;
+                    if (className && c.day && c.timePreference) {
+                        return `- For class "${className}", prefer scheduling classes in the ${c.timePreference} on ${c.day}.`;
                     }
                 } else if (c.type === 'facultyAvailability') {
                     const fac = faculty.find(f => f.id === c.facultyId);

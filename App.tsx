@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -14,7 +15,7 @@ const getInitialConstraints = (): Constraints => {
     const initialDepts = ['CSE'];
     return {
         maxConsecutiveClasses: 3,
-        workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
         lunchBreak: "12:50-01:35",
         chatWindow: { start: '09:00', end: '17:00' },
         classSpecific: [],

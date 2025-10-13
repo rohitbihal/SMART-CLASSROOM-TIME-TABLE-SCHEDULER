@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -284,33 +285,35 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
 
 // FIX: To resolve TypeScript errors with React.createElement, pass children as a `children` prop array instead of varargs.
         const profileOptions = [
-            React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
-            ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
-            : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
+// FIX: Changed to use `children` prop for option text to fix TypeScript inference error on `value` prop.
+            React.createElement("option", { key: "placeholder", value: "", disabled: true, children: "Select a profile" }),
+            ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id, children: `${p.name} (${p.email})` }))
+            : [React.createElement("option", { key: "no-profiles", value: "", disabled: true, children: `No available ${role} profiles` })])
         ];
 
-        return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
-            error && React.createElement("div", { className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
-            React.createElement("div", null, 
+// FIX: To resolve TypeScript errors with React.createElement, pass children as a `children` prop array instead of varargs. This also fixes the 'unknown' type error.
+        return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+            error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
+            React.createElement("div", { key: "role-selector" }, 
                 React.createElement("label", { className: "block font-medium" }, "Role"),
                 React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: [
                     React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
                     React.createElement("option", { key: "student", value: "student" }, "Student")
                 ]})
             ),
-            React.createElement("div", null,
+            React.createElement("div", { key: "profile-selector" },
                  React.createElement("label", { className: "block font-medium" }, "Select Profile"),
                  React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: profileOptions })
             ),
-            React.createElement("div", null,
+            React.createElement("div", { key: "password-input" },
                 React.createElement("label", { className: "block font-medium" }, "Password"),
                 React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
             ),
-            React.createElement("div", { className: "flex justify-end gap-2" },
+            React.createElement("div", { key: "action-buttons", className: "flex justify-end gap-2" },
                 React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
                 React.createElement("button", { type: "submit", className: "bg-indigo-600 text-white px-4 py-2 rounded-md" }, "Create User")
             )
-        );
+        ] });
     };
 
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
