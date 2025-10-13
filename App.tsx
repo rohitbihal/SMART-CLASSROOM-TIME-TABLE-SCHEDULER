@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -84,7 +85,8 @@ export const App = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [users, setUsers] = useState([]); // NEW: State for user accounts
+  // FIX: Initialize with a specific type to avoid `never[]` inference, which caused downstream type errors.
+  const [users, setUsers] = useState<any[]>([]); // NEW: State for user accounts
   const [constraints, setConstraints] = useState<Constraints>(getInitialConstraints());
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   

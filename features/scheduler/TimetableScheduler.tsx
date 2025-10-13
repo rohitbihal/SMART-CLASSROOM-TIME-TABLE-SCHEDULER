@@ -110,7 +110,7 @@ const SubjectForm = ({ initialData, onSave, faculty }) => {
         React.createElement(FormField, { label: "Hours Per Week" }, React.createElement(TextInput, { type: "number", name: "hoursPerWeek", value: data.hoursPerWeek, onChange: handleChange, required: true, min: 1 })),
         React.createElement(FormField, { label: "Assigned Faculty" }, React.createElement(SelectInput, { name: "assignedFacultyId", value: data.assignedFacultyId, onChange: handleChange, required: true },
             React.createElement("option", { value: "", disabled: true }, "Select Faculty"),
-            faculty.map(f => React.createElement("option", { key: f.id, value: f.id }, f.name))
+            ...faculty.map(f => React.createElement("option", { key: f.id, value: f.id }, f.name))
         )),
         React.createElement("button", { type: "submit", className: "w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" }, React.createElement(SaveIcon, null), "Save")
     );
@@ -451,19 +451,19 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                 value: constraint.classId,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'classId', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, React.createElement("option", { value: "" }, "Select Class"), classOptions),
+                            }, React.createElement("option", { value: "" }, "Select Class"), ...classOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "subjects"),
                             React.createElement("select", {
                                 value: constraint.subjectId1,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'subjectId1', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, React.createElement("option", { value: "" }, "Select Subject"), subjectOptions),
+                            }, React.createElement("option", { value: "" }, "Select Subject"), ...subjectOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "&"),
                             React.createElement("select", {
                                 value: constraint.subjectId2,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'subjectId2', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, React.createElement("option", { value: "" }, "Select Subject"), subjectOptions),
+                            }, React.createElement("option", { value: "" }, "Select Subject"), ...subjectOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "should not be consecutive."),
                             deleteButton
                         );
@@ -473,7 +473,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                 value: constraint.classId,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'classId', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, React.createElement("option", { value: "" }, "Select Class"), classOptions),
+                            }, React.createElement("option", { value: "" }, "Select Class"), ...classOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "prefers"),
                             React.createElement("input", {
                                 type: "text",
@@ -490,19 +490,19 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                 value: constraint.facultyId,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'facultyId', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, React.createElement("option", { value: "" }, "Select Faculty"), facultyOptions),
+                            }, React.createElement("option", { value: "" }, "Select Faculty"), ...facultyOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "is unavailable on"),
                              React.createElement("select", {
                                 value: constraint.day,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'day', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, dayOptions),
+                            }, ...dayOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "at"),
                             React.createElement("select", {
                                 value: constraint.timeSlot,
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'timeSlot', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
-                            }, timeSlotOptions),
+                            }, ...timeSlotOptions),
                             deleteButton
                         );
                     }
@@ -675,7 +675,7 @@ const ViewTab = ({ timetable }: { timetable: TimetableEntry[] }) => {
                         multiple: isMultiSelect,
                         className: `w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-white ${isMultiSelect ? 'h-32' : ''}`
                     },
-                        options.map(o => React.createElement("option", { key: o.value, value: o.value }, o.label))
+                        ...options.map(o => React.createElement("option", { key: o.value, value: o.value }, o.label))
                     )
                 ),
                 React.createElement("button", { 

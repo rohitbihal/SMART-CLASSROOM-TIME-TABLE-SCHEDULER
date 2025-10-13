@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -221,9 +222,9 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
+// FIX: Pass the array of option elements as a single child argument instead of spreading them. This helps TypeScript correctly infer the props for the `select` element, resolving the error on the `value` property.
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-// FIX: Spread the array of option elements as arguments to `React.createElement`. This helps TypeScript correctly infer the props for the `select` element, resolving the error on the `value` property.
-                ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
+                classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
@@ -290,7 +291,8 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
             error && React.createElement("div", { className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
             React.createElement("div", null, 
                 React.createElement("label", { className: "block font-medium" }, "Role"),
-                React.createElement("select", { value: role, onChange: e => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+// FIX: Add an explicit type for the `onChange` event handler to help TypeScript correctly infer props for the `select` element, resolving the error on the `value` property.
+                React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                     React.createElement("option", { value: "teacher" }, "Teacher"), React.createElement("option", { value: "student" }, "Student")
                 )
             ),
@@ -298,8 +300,8 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
                  React.createElement("label", { className: "block font-medium" }, "Select Profile"),
                  React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                      React.createElement("option", { value: "", disabled: true }, "Select a profile"),
-                     profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
-                     : React.createElement("option", { value: "", disabled: true }, `No available ${role} profiles`)
+                     ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
+                     : [React.createElement("option", { value: "", disabled: true }, `No available ${role} profiles`)])
                  )
             ),
             React.createElement("div", null,
@@ -451,7 +453,7 @@ const TeacherDashboard = (props) => {
                 }
                 return React.createElement(React.Fragment, null,
                     React.createElement("div", { className: "flex gap-4 mb-4" },
-                        React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, teacherClasses.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                        React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, ...teacherClasses.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))),
                         React.createElement("select", { value: channel, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, React.createElement("option", { value: "query" }, "Query"), React.createElement("option", { value: "attendance" }, "Attendance"))
                     ),
                     React.createElement(ChatComponent, { ...props, classId: selectedClassId, channel: channel })
