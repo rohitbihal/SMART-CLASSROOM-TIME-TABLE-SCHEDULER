@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -295,8 +296,10 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
                 React.createElement("label", { className: "block font-medium" }, "Role"),
 // FIX: Add an explicit type for the `onChange` event handler to help TypeScript correctly infer props for the `select` element, resolving the error on the `value` property.
 // FIX: Replaced individual option elements with a mapped array and spread operator to resolve a TypeScript type inference issue, consistent with other working dropdowns in the app.
+// FIX: Simplified to use explicit option elements to resolve a TypeScript type inference issue.
                 React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                    ...[{value: "teacher", label: "Teacher"}, {value: "student", label: "Student"}].map(opt => React.createElement("option", { key: opt.value, value: opt.value }, opt.label))
+                    React.createElement("option", { value: "teacher" }, "Teacher"),
+                    React.createElement("option", { value: "student" }, "Student")
                 )
             ),
             React.createElement("div", null,

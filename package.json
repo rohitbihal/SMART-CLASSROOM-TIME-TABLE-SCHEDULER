@@ -1,17 +1,21 @@
 {
-  "name": "smart-campus-frontend",
+  "name": "smart-campus-scheduler",
   "version": "1.0.0",
-  "homepage": "https://<your-github-username>.github.io/<your-repo-name>",
-  "description": "Frontend for the Smart Campus & Timetable Scheduler app.",
+  "description": "Full-stack AI-powered application to generate and manage college timetables.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "echo \"Build script not configured. Please replace this with your project's build command.\" && exit 1",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "keywords": [],
+  "keywords": [
+    "react",
+    "express",
+    "nodejs",
+    "mongodb",
+    "gemini-api"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -20,9 +24,16 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.4.1"
+    "mongoose": "^8.4.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.4"
   },
   "devDependencies": {
-    "gh-pages": "^6.1.1"
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1"
   }
 }

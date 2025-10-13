@@ -45,7 +45,10 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 // --- Serve Frontend Static Files ---
-app.use(express.static(__dirname));
+// This section serves the built React app in production.
+// The Vite build process will create these files in the 'dist' directory.
+app.use(express.static(path.join(__dirname, 'dist')));
+
 
 // --- Mongoose Schemas ---
 const classSchema = new mongoose.Schema({ id: String, name: String, branch: String, year: Number, section: String, studentCount: Number });
@@ -442,9 +445,12 @@ The output MUST be a valid JSON array matching the specified schema. Do not incl
 });
 
 // --- Frontend Catch-all Route ---
+// This route handles client-side routing. Any request that is not for an API endpoint
+// will be served the main index.html file from the build output.
 app.get(/^(?!\/api).*/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
+
 
 // --- Server Start ---
 const PORT = process.env.PORT || 3001;
