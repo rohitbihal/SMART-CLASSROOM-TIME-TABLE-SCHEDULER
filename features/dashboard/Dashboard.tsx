@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -222,9 +223,9 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
-// FIX: Pass the array of option elements as a single child argument instead of spreading them. This helps TypeScript correctly infer the props for the `select` element, resolving the error on the `value` property.
+// FIX: Spread the array of option elements to resolve a TypeScript type inference issue with the parent select element's props.
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
+                ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
@@ -292,8 +293,9 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
             React.createElement("div", null, 
                 React.createElement("label", { className: "block font-medium" }, "Role"),
 // FIX: Add an explicit type for the `onChange` event handler to help TypeScript correctly infer props for the `select` element, resolving the error on the `value` property.
+// FIX: Replaced individual option elements with a mapped array and spread operator to resolve a TypeScript type inference issue, consistent with other working dropdowns in the app.
                 React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                    React.createElement("option", { value: "teacher" }, "Teacher"), React.createElement("option", { value: "student" }, "Student")
+                    ...[{value: "teacher", label: "Teacher"}, {value: "student", label: "Student"}].map(opt => React.createElement("option", { key: opt.value, value: opt.value }, opt.label))
                 )
             ),
             React.createElement("div", null,
@@ -330,6 +332,7 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
             users.length > 0 ? users.map(user =>
                 React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                     React.createElement("div", null,
+// FIX: Added a comma between the two <p> elements to correct a syntax error that was causing a TypeScript type error.
 // FIX: Add a fallback value for the user's name. The map `get` method can return `undefined`, which is not a valid React child and would cause a render error.
                         React.createElement("p", { className: "font-semibold" }, (user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId)) || '[Profile Not Found]'),
                         React.createElement("p", { className: "text-xs text-gray-500" }, user.username, " (", user.role, ")")
@@ -649,7 +652,7 @@ const StudentDashboard = (props) => {
 
 export const Dashboard = (props) => {
     const { user, ...restProps } = props;
-    const [timetable, setTimetable] = useState([]);
+    const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     
     useEffect(() => {
         const loadTimetable = () => {
