@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
 
@@ -43,7 +44,11 @@ export const LoginPage = ({ onLogin }) => {
         onLogin(user, token);
 
     } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        if (err instanceof TypeError && err.message === 'Failed to fetch') {
+            setError('Could not connect to the server. Please ensure the backend server is running and check its console for any errors (e.g., missing environment variables).');
+        } else {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        }
     } finally {
         setIsLoading(false);
     }

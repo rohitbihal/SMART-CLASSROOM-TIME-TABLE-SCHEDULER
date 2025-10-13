@@ -223,9 +223,9 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
-// FIX: Spread the array of option elements to resolve a TypeScript type inference issue with the parent select element's props.
+            // FIX: Removed spread operator to resolve a TypeScript type inference issue with the parent select element's props.
             React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
+                classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
@@ -332,8 +332,8 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
             users.length > 0 ? users.map(user =>
                 React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                     React.createElement("div", null,
-// FIX: Added a comma between the two <p> elements to correct a syntax error that was causing a TypeScript type error.
-// FIX: Add a fallback value for the user's name. The map `get` method can return `undefined`, which is not a valid React child and would cause a render error.
+                        // FIX: Added a comma between the two <p> elements to correct a syntax error that was causing a TypeScript type error.
+                        // FIX: Add a fallback value for the user's name. The map `get` method can return `undefined`, which is not a valid React child and would cause a render error.
                         React.createElement("p", { className: "font-semibold" }, (user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId)) || '[Profile Not Found]'),
                         React.createElement("p", { className: "text-xs text-gray-500" }, user.username, " (", user.role, ")")
                     ),
