@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
@@ -488,18 +489,21 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                          return React.createElement("div", { key: constraint.id, className: "flex flex-wrap items-center gap-2 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                              React.createElement("select", {
                                 value: constraint.facultyId,
+// FIX: Add explicit type `React.ChangeEvent<HTMLSelectElement>` to the event object `e` to resolve TypeScript error.
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'facultyId', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, React.createElement("option", { value: "" }, "Select Faculty"), ...facultyOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "is unavailable on"),
                              React.createElement("select", {
                                 value: constraint.day,
+// FIX: Add explicit type `React.ChangeEvent<HTMLSelectElement>` to the event object `e` to resolve TypeScript error.
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'day', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, ...dayOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "at"),
                             React.createElement("select", {
                                 value: constraint.timeSlot,
+// FIX: Add explicit type `React.ChangeEvent<HTMLSelectElement>` to the event object `e` to resolve TypeScript error.
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'timeSlot', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, ...timeSlotOptions),
