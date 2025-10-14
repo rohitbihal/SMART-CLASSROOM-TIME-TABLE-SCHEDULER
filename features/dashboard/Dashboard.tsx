@@ -268,7 +268,7 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
                 )) : React.createElement("div", { className: "text-center text-gray-500 dark:text-gray-400 pt-16" }, "Be the first to send a message!")
             ),
             React.createElement("form", { onSubmit: handleSend, className: "flex gap-2" },
-                React.createElement("input", { type: "text", value: newMessage, onChange: (e) => setNewMessage(e.target.value), placeholder: isOpen ? "Type a message..." : "Chat is closed", disabled: !isOpen, className: "flex-grow p-3 bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition disabled:opacity-50" }),
+                React.createElement("input", { type: "text", value: newMessage, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewMessage(e.target.value), placeholder: isOpen ? "Type a message..." : "Chat is closed", disabled: !isOpen, className: "flex-grow p-3 bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none transition disabled:opacity-50" }),
                 React.createElement("button", { type: "submit", disabled: !isOpen || !newMessage.trim(), className: "bg-indigo-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-indigo-700 transition disabled:bg-indigo-400 disabled:cursor-not-allowed" }, "Send")
             )
         )
@@ -390,7 +390,7 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
-            React.createElement("select", { value: selectedClassId, onChange: e => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+            React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                 ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
             React.createElement("input", { type: "date", value: selectedDate, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
@@ -464,7 +464,7 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: Use
         ),
         React.createElement("div", { key: "password-input" },
             React.createElement("label", { className: "block font-medium" }, "Password"),
-            React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
+            React.createElement("input", { type: "password", value: password, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
         React.createElement("div", { key: "action-buttons", className: "flex justify-end gap-2" },
             React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
