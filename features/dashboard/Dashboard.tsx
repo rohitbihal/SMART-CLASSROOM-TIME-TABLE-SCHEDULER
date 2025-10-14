@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -116,7 +115,6 @@ interface DashboardProps {
     onUpdateProfilePicture: (dataUrl: string) => void;
     token: string | null;
     timetable: TimetableEntry[];
-    // FIX: Added onProfileClick to DashboardProps to be passed down to child dashboards and then to the Header.
     onProfileClick: () => void;
 }
 
@@ -448,7 +446,6 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: Use
 
     useEffect(() => { setProfileId(''); }, [role]);
     
-    // FIX: Refactored profileOptions creation to use .map() for better type inference and consistency.
     const profileOptions: React.ReactNode[] = [
         React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
         ...(profiles.length > 0
@@ -981,7 +978,7 @@ const StudentDashboard = (props: DashboardProps) => {
 };
 
 export const Dashboard = (props: Omit<DashboardProps, 'timetable' | 'onProfileClick'>) => {
-    const { user, onUpdateProfilePicture, ...restProps } = props;
+    const { user, onUpdateProfilePicture } = props;
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     
@@ -1001,8 +998,7 @@ export const Dashboard = (props: Omit<DashboardProps, 'timetable' | 'onProfileCl
         return () => window.removeEventListener('storage', loadTimetable);
     }, []);
 
-    // FIX: Added onUpdateProfilePicture to dashboardProps to satisfy the DashboardProps interface for child components.
-    const dashboardProps: DashboardProps = { ...restProps, user, timetable, onUpdateProfilePicture, onProfileClick: () => setIsProfileModalOpen(true) };
+    const dashboardProps = { ...props, timetable, onProfileClick: () => setIsProfileModalOpen(true) } as DashboardProps;
 
     const renderDashboard = () => {
         switch (user.role) {

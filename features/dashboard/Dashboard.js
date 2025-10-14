@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -847,7 +846,7 @@ const StudentDashboard = (props) => {
 };
 
 export const Dashboard = (props) => {
-    const { user, onUpdateProfilePicture, ...restProps } = props;
+    const { user, onUpdateProfilePicture } = props;
     const [timetable, setTimetable] = useState([]);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     
@@ -867,7 +866,7 @@ export const Dashboard = (props) => {
         return () => window.removeEventListener('storage', loadTimetable);
     }, []);
 
-    const dashboardProps = { ...restProps, user, timetable, onUpdateProfilePicture, onProfileClick: () => setIsProfileModalOpen(true) };
+    const dashboardProps = { ...props, timetable, onProfileClick: () => setIsProfileModalOpen(true) };
 
     const renderDashboard = () => {
         switch (user.role) {
