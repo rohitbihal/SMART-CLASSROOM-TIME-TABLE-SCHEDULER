@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
 import { User } from '../../types';
@@ -39,13 +40,11 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
         });
         
         if (!response.ok) {
-            // Check if the response is JSON before parsing
             const contentType = response.headers.get("content-type");
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Login failed');
             } else {
-                // If not JSON, it might be the HTML fallback, indicating a server/routing issue
                 throw new Error('Login failed: An unexpected server error occurred.');
             }
         }
@@ -55,9 +54,14 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
 
     } catch (err: unknown) {
         if (err instanceof TypeError && err.message === 'Failed to fetch') {
-            setError('Could not connect to the server. Please ensure the backend server is running and check its console for any errors (e.g., missing environment variables).');
+            setError('Could not connect to the server. Please check your network and ensure the backend is running.');
         } else {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+            const serverMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+            if (serverMessage.toLowerCase().includes('credential')) {
+                 setError('Login failed. Please double-check your email, password, and selected role.');
+            } else {
+                 setError(`Login failed: ${serverMessage}`);
+            }
         }
     } finally {
         setIsLoading(false);

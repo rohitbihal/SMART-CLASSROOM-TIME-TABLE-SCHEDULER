@@ -1,9 +1,11 @@
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, ClassSpecificConstraint } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, ClassSpecificConstraint, User } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room';
 type Entity = Class | Faculty | Subject | Room;
@@ -45,6 +47,7 @@ interface ModalProps {
     onClose: () => void;
     title: string;
     children?: React.ReactNode;
+    error?: string | null;
 }
 
 interface FormFieldProps {
@@ -54,7 +57,7 @@ interface FormFieldProps {
 
 interface FormProps<T> {
     initialData: T | null;
-    onSave: (data: any) => void;
+    onSave: (data: any) => Promise<void>;
 }
 
 interface SubjectFormProps extends FormProps<Subject> {
@@ -74,12 +77,13 @@ interface SetupTabProps {
     subjects: Subject[];
     rooms: Room[];
     openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void;
-    handleDelete: (type: EntityType, id: string) => void;
-    handleResetData: () => void;
+    handleDelete: (type: EntityType, id: string) => Promise<void>;
+    handleResetData: () => Promise<void>;
     selectedItems: { [key in EntityType]: string[] };
     onToggleSelect: (type: EntityType, id: string) => void;
     onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void;
     onInitiateBulkDelete: (type: EntityType) => void;
+    pageError: string | null;
 }
 
 interface ConstraintsTabProps {
@@ -107,6 +111,10 @@ interface TabButtonProps {
     icon: React.ReactNode;
 }
 
+const ErrorDisplay = ({ message }: { message: string | null }) => {
+    if (!message) return null;
+    return React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2", role: "alert" }, message);
+};
 
 const SectionCard = ({ title, children, actions }: SectionCardProps) => (
     React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md mb-6" },
@@ -132,7 +140,7 @@ const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMe
     )
 );
 
-const Modal = ({ isOpen, onClose, title, children = null }: ModalProps) => {
+const Modal = ({ isOpen, onClose, title, children = null, error = null }: ModalProps) => {
     if (!isOpen) return null;
 
     return (
@@ -146,7 +154,10 @@ const Modal = ({ isOpen, onClose, title, children = null }: ModalProps) => {
                         )
                     )
                 ),
-                React.createElement("div", { className: "p-6 overflow-y-auto" }, children)
+                React.createElement("div", { className: "p-6 overflow-y-auto" }, 
+                    React.createElement(ErrorDisplay, { message: error }),
+                    children
+                )
             )
         )
     );
@@ -256,11 +267,12 @@ const HeaderCheckbox = <T extends { id: string }>({ type, items, selectedItems, 
     );
 };
 
-const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete }: SetupTabProps) => {
+const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError }: SetupTabProps) => {
     const [classFilter, setClassFilter] = useState('');
     const [facultyFilter, setFacultyFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('');
     const [roomFilter, setRoomFilter] = useState('');
+    const [confirmResetModal, setConfirmResetModal] = useState(false);
 
     const filteredClasses = useMemo(() => {
         const trimmedFilter = classFilter.trim();
@@ -318,12 +330,26 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
 
     return (
         React.createElement(React.Fragment, null,
+             React.createElement(Modal, {
+                isOpen: confirmResetModal,
+                onClose: () => setConfirmResetModal(false),
+                title: "Confirm Data Reset"
+             },
+                React.createElement("div", null,
+                    React.createElement("p", { className: "text-gray-600 dark:text-gray-300" }, "This will replace all current data with the original sample data. This action cannot be undone. Are you sure?"),
+                    React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+                        React.createElement("button", { onClick: () => setConfirmResetModal(false), className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
+                        React.createElement("button", { onClick: () => { handleResetData(); setConfirmResetModal(false); }, className: "bg-red-600 text-white px-4 py-2 rounded-md" }, "Confirm Reset")
+                    )
+                )
+             ),
+             React.createElement(ErrorDisplay, { message: pageError }),
              React.createElement("div", { className: "bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 p-4 rounded-2xl mb-6 flex flex-wrap items-center justify-between gap-4" },
                 React.createElement("div", null,
                     React.createElement("h3", { className: "text-md font-bold text-indigo-800 dark:text-indigo-200" }, "Manage Data"),
                     React.createElement("p", { className: "text-sm text-indigo-600 dark:text-indigo-300 mt-1" }, "Add, edit, or delete items. You can reset to the original sample data if needed.")
                 ),
-                React.createElement("button", { onClick: handleResetData, className: "bg-indigo-200 hover:bg-indigo-300 dark:bg-indigo-800/50 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 transition shadow-sm text-sm" }, "Reset to Sample Data")
+                React.createElement("button", { onClick: () => setConfirmResetModal(true), className: "bg-indigo-200 hover:bg-indigo-300 dark:bg-indigo-800/50 dark:hover:bg-indigo-800 text-indigo-800 dark:text-indigo-200 font-semibold py-2 px-4 rounded-lg flex items-center gap-2 transition shadow-sm text-sm" }, "Reset to Sample Data")
             ),
             React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
                 React.createElement("div", null,
@@ -333,7 +359,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                     },
                         React.createElement(BulkDeleteButton, { type: "class", count: selectedItems.class.length }),
                         React.createElement(SearchInput, { value: classFilter, onChange: setClassFilter, placeholder: "Search by name or branch..." }),
-                        React.createElement(DataTable, {
+                        React.createElement(DataTable<Class>, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "class", items: filteredClasses, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
                             headers: ['Name', 'Students', 'Actions'], data: filteredClasses, renderRow: (c: Class) => (
                                 React.createElement("tr", { key: c.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
@@ -352,7 +378,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                     },
                         React.createElement(BulkDeleteButton, { type: "subject", count: selectedItems.subject.length }),
                         React.createElement(SearchInput, { value: subjectFilter, onChange: setSubjectFilter, placeholder: "Search by name or code..." }),
-                        React.createElement(DataTable, {
+                        React.createElement(DataTable<Subject>, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "subject", items: filteredSubjects, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
                             headers: ['Name', 'Type', 'Hours/Week', 'Actions'], data: filteredSubjects, renderRow: (s: Subject) => (
                                 React.createElement("tr", { key: s.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
@@ -374,7 +400,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                     },
                         React.createElement(BulkDeleteButton, { type: "faculty", count: selectedItems.faculty.length }),
                         React.createElement(SearchInput, { value: facultyFilter, onChange: setFacultyFilter, placeholder: "Search by name or department..." }),
-                        React.createElement(DataTable, {
+                        React.createElement(DataTable<Faculty>, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "faculty", items: filteredFaculty, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
                             headers: ['Name', 'Department', 'Actions'], data: filteredFaculty, renderRow: (f: Faculty) => (
                                 React.createElement("tr", { key: f.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
@@ -393,7 +419,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                     },
                         React.createElement(BulkDeleteButton, { type: "room", count: selectedItems.room.length }),
                         React.createElement(SearchInput, { value: roomFilter, onChange: setRoomFilter, placeholder: "Search by room number..." }),
-                        React.createElement(DataTable, {
+                        React.createElement(DataTable<Room>, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "room", items: filteredRooms, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
                             headers: ['Number', 'Type', 'Capacity', 'Actions'], data: filteredRooms, renderRow: (r: Room) => (
                                 React.createElement("tr", { key: r.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
@@ -637,7 +663,11 @@ const GenerateTab = ({ onGenerate, isLoading, error, loadingMessage }: GenerateT
         React.createElement("h3", { className: "text-2xl font-bold text-gray-800 dark:text-gray-100" }, "Generate Timetable"),
         React.createElement("p", { className: "text-gray-500 dark:text-gray-400 my-4" }, "Click the button below to use the AI to generate an optimal, conflict-free timetable based on your setup and constraints."),
 
-        error && React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-left my-4" }, error),
+        error && React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border-red-500/50 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-left my-4" },
+            React.createElement("p", { className: "font-bold mb-1" }, "Generation Failed"),
+            React.createElement("p", { className: "text-sm" }, "The AI scheduler encountered a problem. Please review the details below, check your data and constraints in the Setup tab, and try again."),
+            React.createElement("p", { className: "text-xs mt-2 font-mono bg-red-200/50 dark:bg-red-800/50 p-2 rounded break-words" }, error)
+        ),
 
         React.createElement("button", {
             onClick: onGenerate,
@@ -701,7 +731,6 @@ const ViewTab = ({ timetable }: ViewTabProps) => {
 
     const handleExport = () => {
         if (!timetable || timetable.length === 0) {
-            alert("No timetable data to export.");
             return;
         }
 
@@ -860,10 +889,12 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState("Initializing AI generation...");
 
-  const [modalState, setModalState] = useState<{ isOpen: boolean, mode: 'add' | 'edit', type: EntityType | '', data: Entity | null }>({ isOpen: false, mode: 'add', type: '', data: null });
+  const [modalState, setModalState] = useState<{ isOpen: boolean, mode: 'add' | 'edit', type: EntityType | '', data: Entity | null, error: string | null }>({ isOpen: false, mode: 'add', type: '', data: null, error: null });
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [confirmSingleDelete, setConfirmSingleDelete] = useState<{ isOpen: boolean, onConfirm: () => void }>({ isOpen: false, onConfirm: () => {} });
   const [bulkDeleteState, setBulkDeleteState] = useState<{ isOpen: boolean, type: EntityType | '', onConfirm: () => void }>({ isOpen: false, type: '', onConfirm: () => {} });
   
   const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({
@@ -879,7 +910,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     "Finalizing timetable structure...",
     "Almost there, polishing the final schedule..."
   ], []);
-
+  
   useEffect(() => {
     let intervalId: number | undefined;
     if (isLoading) {
@@ -906,25 +937,41 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     } catch(e) { console.error("Could not load timetable from storage", e)}
   }, []);
 
-  const openModal = (mode: 'add' | 'edit', type: EntityType, data: Entity | null = null) => setModalState({ isOpen: true, mode, type, data });
-  const closeModal = () => setModalState({ isOpen: false, mode: 'add', type: '', data: null });
+  const openModal = (mode: 'add' | 'edit', type: EntityType, data: Entity | null = null) => setModalState({ isOpen: true, mode, type, data, error: null });
+  const closeModal = () => setModalState({ isOpen: false, mode: 'add', type: '', data: null, error: null });
 
-  const handleSave = (type: EntityType, data: Entity) => {
-      onSaveEntity(type, data);
-      closeModal();
+  const handleSave = async (type: EntityType, data: Entity) => {
+    try {
+        setModalState(prev => ({ ...prev, error: null }));
+        await onSaveEntity(type, data);
+        closeModal();
+    } catch(err: unknown) {
+        setModalState(prev => ({ ...prev, error: err instanceof Error ? err.message : "An unknown error occurred." }));
+    }
   };
 
-  const handleDelete = (type: EntityType, id: string) => {
-      if (window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
-          onDeleteEntity(type, id);
-      }
+  const handleDelete = async (type: EntityType, id: string) => {
+    setConfirmSingleDelete({
+        isOpen: true,
+        onConfirm: async () => {
+            setPageError(null);
+            try {
+                await onDeleteEntity(type, id);
+            } catch(err: unknown) {
+                setPageError(err instanceof Error ? err.message : `Failed to delete ${type}.`);
+            }
+            setConfirmSingleDelete({ isOpen: false, onConfirm: () => {} });
+        }
+    });
   };
 
-  const handleResetData = () => {
-    if (window.confirm('This will replace all current data with the original sample data. Are you sure?')) {
-        onResetData();
+  const handleResetData = async () => {
+    setPageError(null);
+    try {
+        await onResetData();
         setTimetable([]);
-        alert('Data has been reset to the original sample data.');
+    } catch (err: unknown) {
+        setPageError(err instanceof Error ? err.message : "Failed to reset data.");
     }
   };
   
@@ -949,10 +996,8 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
           const allSelectedOnPage = displayedIds.length > 0 && displayedIds.every(id => currentSelection.includes(id));
           
           if (allSelectedOnPage) {
-              // Deselect all items on the current page
               return { ...prev, [type]: currentSelection.filter(id => !displayedIds.includes(id)) };
           } else {
-              // Select all items on the current page
               const newSelection = [...new Set([...currentSelection, ...displayedIds])];
               return { ...prev, [type]: newSelection };
           }
@@ -968,14 +1013,14 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
         type: type,
         onConfirm: async () => {
             setIsLoading(true);
+            setPageError(null);
             try {
                 await Promise.all(idsToDelete.map(id => onDeleteEntity(type, id)));
+                setSelectedItems(prev => ({ ...prev, [type]: [] }));
             } catch (err: unknown) {
                 const message = err instanceof Error ? err.message : String(err);
-                console.error("Bulk delete failed:", err);
-                setError(`Failed to delete some items. Please refresh and try again. Error: ${message}`);
+                setPageError(`Failed to delete some items. Please refresh and try again. Error: ${message}`);
             } finally {
-                setSelectedItems(prev => ({ ...prev, [type]: [] }));
                 setIsLoading(false);
                 setBulkDeleteState({ isOpen: false, type: '', onConfirm: () => {} });
             }
@@ -992,7 +1037,6 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
       const result = await generateTimetable(classes, faculty, subjects, rooms, constraints, token);
       
       if (!Array.isArray(result)) {
-        console.error("API returned non-array for timetable:", result);
         throw new Error("The AI service returned an invalid data format for the timetable. Please try generating again.");
       }
 
@@ -1003,11 +1047,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
 
       setActiveTab('view');
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unknown error occurred while generating the timetable.");
-      }
+      setError(err instanceof Error ? err.message : "An unknown error occurred while generating the timetable.");
     } finally {
       setIsLoading(false);
     }
@@ -1023,7 +1063,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   }, [classes, faculty, subjects, rooms]);
 
   const renderModalContent = () => {
-      const { mode, type, data } = modalState;
+      const { mode, type, data, error } = modalState;
       const title = `${mode === 'add' ? 'Add New' : 'Edit'} ${type.charAt(0).toUpperCase() + type.slice(1)}`;
 
       let formComponent;
@@ -1043,13 +1083,13 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
           default:
               formComponent = null;
       }
-      return React.createElement(Modal, { isOpen: modalState.isOpen, onClose: closeModal, title: title }, formComponent);
+      return React.createElement(Modal, { isOpen: modalState.isOpen, onClose: closeModal, title: title, error: error }, formComponent);
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'setup':
-        return React.createElement(SetupTab, { classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems: selectedItems, onToggleSelect: handleToggleSelect, onToggleSelectAll: handleToggleSelectAll, onInitiateBulkDelete: handleInitiateBulkDelete });
+        return React.createElement(SetupTab, { classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems: selectedItems, onToggleSelect: handleToggleSelect, onToggleSelectAll: handleToggleSelectAll, onInitiateBulkDelete: handleInitiateBulkDelete, pageError });
       case 'constraints':
         return React.createElement(ConstraintsTab, { constraints: constraints, onConstraintsChange: handleConstraintsChange, classes: classes, subjects: subjects, faculty: faculty });
       case 'generate':
@@ -1063,7 +1103,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
 
   const TabButton = ({ tab, label, icon }: TabButtonProps) => (
     React.createElement("button", {
-      onClick: () => setActiveTab(tab),
+      onClick: () => { setActiveTab(tab); setPageError(null); },
       className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${
         activeTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'
       }`
@@ -1073,6 +1113,19 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   return (
     React.createElement("div", { className: "min-h-screen bg-transparent p-4 sm:p-6 lg:p-8" },
       renderModalContent(),
+      React.createElement(Modal, {
+          isOpen: confirmSingleDelete.isOpen,
+          onClose: () => setConfirmSingleDelete({ isOpen: false, onConfirm: () => {} }),
+          title: "Confirm Deletion"
+        },
+        React.createElement("div", null,
+          React.createElement("p", { className: "text-gray-600 dark:text-gray-300" }, "Are you sure you want to delete this item? This action cannot be undone."),
+          React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+            React.createElement("button", { onClick: () => setConfirmSingleDelete({ isOpen: false, onConfirm: () => {} }), className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
+            React.createElement("button", { onClick: confirmSingleDelete.onConfirm, className: "bg-red-600 text-white px-4 py-2 rounded-md" }, "Delete")
+          )
+        )
+      ),
        React.createElement(Modal, {
           isOpen: bulkDeleteState.isOpen,
           onClose: () => setBulkDeleteState({ isOpen: false, type: '', onConfirm: () => {} }),

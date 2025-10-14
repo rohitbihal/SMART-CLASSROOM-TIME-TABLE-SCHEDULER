@@ -1,3 +1,4 @@
+
 import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types';
 
 // NOTE: The base URL for the backend server.
@@ -28,8 +29,16 @@ export const generateTimetable = async (
     });
 
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Server responded with status: ${response.status}`);
+        let errorMsg = `Server responded with status: ${response.status}`;
+        try {
+            // Try to parse a structured error message from the server
+            const errorData = await response.json();
+            errorMsg = errorData.message || JSON.stringify(errorData);
+        } catch (e) {
+            // If response is not JSON, it might be an HTML error page. Use the raw text.
+            errorMsg = await response.text();
+        }
+        throw new Error(`The server encountered an issue: ${errorMsg}`);
     }
 
     const timetable = await response.json();
@@ -42,8 +51,9 @@ export const generateTimetable = async (
     return timetable;
     
   } catch (error) {
-    console.error("Error fetching timetable from server:", error);
+    console.error("Error during timetable generation request:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to generate timetable. Please check your connection and constraints. Error: ${errorMessage}`);
+    // Provide a comprehensive error message for the UI
+    throw new Error(`An error occurred while generating the timetable. This could be due to a network issue, server configuration, or a problem with the AI model. Details: ${errorMessage}`);
   }
 };

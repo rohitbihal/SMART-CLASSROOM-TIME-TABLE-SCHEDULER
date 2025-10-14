@@ -102,4 +102,6 @@ export interface User {
   role: 'admin' | 'teacher' | 'student';
   _id?: string; // from MongoDB
   profileId?: string;
+  // FIX: Added optional password field for user creation.
+  password?: string;
 }

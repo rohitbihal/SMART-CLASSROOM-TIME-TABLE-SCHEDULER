@@ -7,7 +7,7 @@ import {
     IMSIcon, AnalyticsIcon, SecurityIcon, AIIcon, ResourcesIcon, AttendanceIcon, CommunicationIcon, SmartToolsIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, BookOpenIcon, AvailabilityIcon, RequestsIcon
 } from '../../components/Icons';
 import { DAYS, TIME_SLOTS } from '../../constants';
-import { TimetableEntry, Class, Faculty, Subject, Constraints, ChatMessage, Student, Attendance, AttendanceStatus } from '../../types';
+import { TimetableEntry, Class, Faculty, Subject, Constraints, ChatMessage, Student, Attendance, AttendanceStatus, User } from '../../types';
 
 // --- Prop Interfaces ---
 
@@ -38,7 +38,7 @@ interface TimetableGridProps {
 interface ChatComponentProps {
     messages: ChatMessage[];
     onSendMessage: (text: string, classId: string, channel: string) => void;
-    user: { username: string; role: 'admin' | 'student' | 'teacher' };
+    user: User;
     constraints: Constraints;
     classId: string;
     channel: string;
@@ -46,7 +46,7 @@ interface ChatComponentProps {
 
 interface StudentFormProps {
     student: Student | null;
-    onSave: (data: Partial<Student>) => void;
+    onSave: (data: Partial<Student>) => Promise<void>;
     onCancel: () => void;
     classId: string;
 }
@@ -54,8 +54,8 @@ interface StudentFormProps {
 interface ClassroomManagerProps {
     classes: Class[];
     students: Student[];
-    onSaveEntity: (type: 'student', data: Partial<Student>) => void;
-    onDeleteEntity: (type: 'student', id: string) => void;
+    onSaveEntity: (type: 'student', data: Partial<Student>) => Promise<void>;
+    onDeleteEntity: (type: 'student', id: string) => Promise<void>;
     constraints: Constraints;
     updateConstraints: (c: Constraints) => void;
 }
@@ -70,17 +70,16 @@ interface AttendanceManagerProps {
 interface UserManagerProps {
     faculty: Faculty[];
     students: Student[];
-    users: any[]; // Assuming user type from backend
-    onSaveUser: (userData: any) => Promise<void>;
+    users: User[];
+    onSaveUser: (userData: Partial<User>) => Promise<void>;
     onDeleteUser: (userId: string) => Promise<void>;
 }
 
 interface UserFormProps {
-    onSave: (userData: any) => void;
+    onSave: (userData: Partial<User>) => Promise<void>;
     onCancel: () => void;
     availableFaculty: Faculty[];
     availableStudents: Student[];
-    error: string;
 }
 
 interface PlaceholderContentProps {
@@ -93,9 +92,68 @@ interface UpcomingClassesProps {
     upcoming: TimetableEntry[];
 }
 
+interface DashboardProps {
+    user: User;
+    onLogout: () => void;
+    theme: string;
+    toggleTheme: () => void;
+    classes: Class[];
+    faculty: Faculty[];
+    subjects: Subject[];
+    students: Student[];
+    users: User[];
+    constraints: Constraints;
+    updateConstraints: (c: Constraints) => void;
+    chatMessages: ChatMessage[];
+    onSendMessage: (text: string, classId: string, channel: string) => void;
+    attendance: Attendance;
+    onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void;
+    onSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => Promise<void>;
+    onDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => Promise<void>;
+    onSaveUser: (userData: any) => Promise<void>;
+    onDeleteUser: (userId: string) => Promise<void>;
+    token: string | null;
+    timetable: TimetableEntry[];
+}
+
+interface ModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    children?: React.ReactNode;
+    error?: string | null;
+}
+
 // Reusable UI Components
 const Tabs = ({ children, className = '' }: TabContainerProps) => React.createElement("div", { className: `bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-2 rounded-xl shadow-md flex flex-wrap gap-2 mb-8 ${className}` }, children);
 const TabButton = ({ isActive, onClick, children }: TabButtonProps) => React.createElement("button", { onClick, className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}` }, children);
+const ErrorDisplay = ({ message }: { message: string | null }) => {
+    if (!message) return null;
+    return React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2", role: "alert" }, message);
+};
+
+const Modal = ({ isOpen, onClose, title, children = null, error = null }: ModalProps) => {
+    if (!isOpen) return null;
+
+    return (
+        React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4", "aria-modal": true, role: "dialog" },
+            React.createElement("div", { className: "bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" },
+                React.createElement("div", { className: "flex justify-between items-center p-4 border-b border-gray-200 dark:border-slate-700" },
+                    React.createElement("h2", { className: "text-lg font-bold text-gray-800 dark:text-gray-100" }, title),
+                    React.createElement("button", { onClick: onClose, className: "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" },
+                        React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" },
+                            React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M6 18L18 6M6 6l12 12" })
+                        )
+                    )
+                ),
+                React.createElement("div", { className: "p-6 overflow-y-auto" }, 
+                    React.createElement(ErrorDisplay, { message: error }),
+                    children
+                )
+            )
+        )
+    );
+};
 
 const Header = ({ title, subtitle, onLogout, theme, toggleTheme }: HeaderProps) => (
     React.createElement("div", { className: "bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-2xl shadow-lg mb-8 flex justify-between items-center" },
@@ -223,9 +281,22 @@ const StudentForm = ({ student, onSave, onCancel, classId }: StudentFormProps) =
             ? { ...student, email: student.email || '', roll: student.roll || '' }
             : { name: '', email: '', roll: '', classId }
     );
+    const [error, setError] = useState<string | null>(null);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(formData); };
+    
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        try {
+            await onSave(formData);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "An unknown error occurred.");
+        }
+    };
+    
     return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg" },
+        React.createElement(ErrorDisplay, { message: error }),
         React.createElement("input", { name: "name", value: formData.name, onChange: handleChange, placeholder: "Student Name", className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md", required: true }),
         React.createElement("input", { name: "email", type: "email", value: formData.email, onChange: handleChange, placeholder: "Email (optional)", className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md" }),
         React.createElement("input", { name: "roll", value: formData.roll, onChange: handleChange, placeholder: "Roll Number", className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md" }),
@@ -239,19 +310,33 @@ const StudentForm = ({ student, onSave, onCancel, classId }: StudentFormProps) =
 const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, constraints, updateConstraints }: ClassroomManagerProps) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [editingStudent, setEditingStudent] = useState<Student | { new: true } | null>(null);
+    const [listError, setListError] = useState<string | null>(null);
 
     const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId), [students, selectedClassId]);
     const selectedClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
     const handleChatWindowChange = (e: React.ChangeEvent<HTMLInputElement>) => updateConstraints({ ...constraints, chatWindow: { ...(constraints.chatWindow || { start: '', end: '' }), [e.target.name]: e.target.value } });
-    const handleSaveStudent = (studentData: Partial<Student>) => { onSaveEntity('student', studentData); setEditingStudent(null); };
+    
+    const handleSaveStudent = async (studentData: Partial<Student>) => { 
+        await onSaveEntity('student', studentData); 
+        setEditingStudent(null); 
+    };
+
+    const handleDeleteStudent = async (studentId: string) => {
+        setListError(null);
+        try {
+            await onDeleteEntity('student', studentId);
+        } catch(err: unknown) {
+            setListError(err instanceof Error ? err.message : "Could not delete student.");
+        }
+    };
 
     return React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-3 gap-8" },
         React.createElement("div", { className: "lg:col-span-1" },
             React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
                 React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Select Class"),
                 React.createElement("div", { className: "space-y-2" }, classes.map(c =>
-                    React.createElement("button", { key: c.id, onClick: () => setSelectedClassId(c.id), className: `w-full text-left p-3 rounded-lg transition ${selectedClassId === c.id ? 'bg-indigo-500 text-white' : 'hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}` }, c.name)
+                    React.createElement("button", { key: c.id, onClick: () => { setSelectedClassId(c.id); setListError(null); }, className: `w-full text-left p-3 rounded-lg transition ${selectedClassId === c.id ? 'bg-indigo-500 text-white' : 'hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}` }, c.name)
                 ))
             ),
             React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md mt-8" },
@@ -272,6 +357,7 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
                         React.createElement("h3", { className: "font-bold text-lg" }, "Students in ", selectedClass.name),
                         React.createElement("button", { onClick: () => setEditingStudent({ new: true }), className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold" }, React.createElement(AddIcon, null), "Add Student")
                     ),
+                    React.createElement(ErrorDisplay, { message: listError }),
                     (editingStudent && 'new' in editingStudent) && React.createElement(StudentForm, { student: null, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId }),
                     React.createElement("div", { className: "space-y-2 mt-4" }, studentsInClass.map(student =>
                         (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? React.createElement(StudentForm, { key: student.id, student: student, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId })
@@ -282,7 +368,7 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
                             ),
                             React.createElement("div", { className: "flex gap-2" },
                                 React.createElement("button", { onClick: () => setEditingStudent(student), className: "text-indigo-500 hover:text-indigo-700" }, React.createElement(EditIcon, null)),
-                                React.createElement("button", { onClick: () => onDeleteEntity('student', student.id), className: "text-red-500 hover:text-red-700" }, React.createElement(DeleteIcon, null))
+                                React.createElement("button", { onClick: () => handleDeleteStudent(student.id), className: "text-red-500 hover:text-red-700" }, React.createElement(DeleteIcon, null))
                             )
                         )
                     ))
@@ -304,10 +390,10 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
         React.createElement("div", { className: "flex gap-4 mb-4" },
-            React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+            React.createElement("select", { value: selectedClassId, onChange: e => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                 ...classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))
             ),
-            React.createElement("input", { type: "date", value: selectedDate, onChange: e => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
+            React.createElement("input", { type: "date", value: selectedDate, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
         ),
         React.createElement("div", { className: "space-y-2" }, studentsInClass.map(student =>
             React.createElement("div", { key: student.id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
@@ -321,29 +407,50 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     );
 };
 
-// FIX: Refactored the component to pass children as arguments to `React.createElement` instead of using the `children` prop.
-// This resolves a subtle TypeScript type inference issue that caused an error on the `value` prop of `<option>` elements.
-const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error }: UserFormProps) => {
-    const [role, setRole] = useState('teacher');
+const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: UserFormProps) => {
+    // FIX: Changed role state to be of type string to avoid a TypeScript inference issue with the select element's value prop.
+    const [role, setRole] = useState<string>('teacher');
     const [profileId, setProfileId] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>('');
     const profiles = role === 'teacher' ? availableFaculty : availableStudents;
-    
-    const handleSubmit = (e: React.FormEvent) => {
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
         const profile = profiles.find(p => p.id === profileId);
-        if (!profile || !password) {
-            alert("Please select a profile and enter a password.");
+        if (!profileId || !password.trim() || !profile) {
+            setError("Please select a valid profile and enter a password.");
             return;
         }
-        onSave({ username: profile.email, password, role, profileId });
+        
+        try {
+            // FIX: Cast role back to User['role'] for type safety when saving.
+            await onSave({ username: profile.email || '', password, role: role as User['role'], profileId });
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+        }
     };
-    
+
     useEffect(() => { setProfileId(''); }, [role]);
+    
+    // FIX: Refactored profileOptions creation to be more explicit and avoid potential TS inference issues.
+    // FIX: Explicitly typed profileOptions as React.ReactNode[] to allow pushing elements with different prop shapes.
+    const profileOptions: React.ReactNode[] = [
+        React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile")
+    ];
+
+    if (profiles.length > 0) {
+        profiles.forEach(p => {
+            profileOptions.push(React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email || ''})`));
+        });
+    } else {
+        profileOptions.push(React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`));
+    }
 
     return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
-        error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
-        React.createElement("div", { key: "role-selector" }, 
+        React.createElement(ErrorDisplay, { message: error }),
+        React.createElement("div", { key: "role-selector" },
             React.createElement("label", { className: "block font-medium" }, "Role"),
             React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                 React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
@@ -351,13 +458,10 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error
             )
         ),
         React.createElement("div", { key: "profile-selector" },
-             React.createElement("label", { className: "block font-medium" }, "Select Profile"),
-            // FIX: Inlined the option generation to resolve a subtle type inference issue with React.createElement.
-             React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
-                ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
-                : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
-             )
+            React.createElement("label", { className: "block font-medium" }, "Select Profile"),
+            React.createElement("select", { value: profileId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+                ...profileOptions
+            )
         ),
         React.createElement("div", { key: "password-input" },
             React.createElement("label", { className: "block font-medium" }, "Password"),
@@ -371,10 +475,10 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error
 };
 
 
-// NEW: User Management Component for Admin Dashboard
 const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }: UserManagerProps) => {
     const [modalOpen, setModalOpen] = useState(false);
-    const [error, setError] = useState<string>('');
+    const [listError, setListError] = useState<string>('');
+    const [confirmDeleteUser, setConfirmDeleteUser] = useState<User | null>(null);
 
     const facultyMap = useMemo(() => new Map(faculty.map(f => [f.id, f.name])), [faculty]);
     const studentMap = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
@@ -383,33 +487,59 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }: Use
     const availableFaculty = useMemo(() => faculty.filter(f => f.email && !userProfileIds.has(f.id)), [faculty, userProfileIds]);
     const availableStudents = useMemo(() => students.filter(s => s.email && !userProfileIds.has(s.id)), [students, userProfileIds]);
 
-    const handleSave = async (userData: any) => {
-        setError('');
-        try {
-            await onSaveUser(userData);
-            setModalOpen(false);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "An unexpected error occurred.");
-        }
+    const handleSave = async (userData: Partial<User>) => {
+        await onSaveUser(userData);
+        setModalOpen(false);
     };
     
-    const handleDelete = (user: any) => {
-        if (window.confirm(`Are you sure you want to delete the user account for ${user.username}?`)) {
-            onDeleteUser(user._id).catch((err: unknown) => alert(`Failed to delete user: ${err instanceof Error ? err.message : 'Unknown error'}`));
+    const handleDeleteRequest = (user: User) => {
+        setListError('');
+        setConfirmDeleteUser(user);
+    };
+
+    const executeDelete = async () => {
+        if (!confirmDeleteUser || !confirmDeleteUser._id) return;
+        
+        setListError('');
+        try {
+            await onDeleteUser(confirmDeleteUser._id);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'An unknown server error occurred.';
+            setListError(`Could not delete user '${confirmDeleteUser.username}'. Reason: ${message}`);
+        } finally {
+            setConfirmDeleteUser(null);
         }
     };
 
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("div", { className: "flex justify-between items-center mb-4" },
             React.createElement("h3", { className: "font-bold text-lg" }, "User Account Management"),
-            React.createElement("button", { onClick: () => { setError(''); setModalOpen(true); }, className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold" }, React.createElement(AddIcon, null), "Add User")
+            React.createElement("button", { onClick: () => setModalOpen(true), className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold" }, React.createElement(AddIcon, null), "Add User")
         ),
-        modalOpen && React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center" }, 
+        modalOpen && React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" }, 
             React.createElement("div", { className: "bg-white dark:bg-slate-800 p-6 rounded-lg w-full max-w-md" },
                 React.createElement("h3", { className: "text-lg font-bold mb-4" }, "Create New User"),
-                React.createElement(UserForm, { onSave: handleSave, onCancel: () => setModalOpen(false), availableFaculty, availableStudents, error })
+                React.createElement(UserForm, { onSave: handleSave, onCancel: () => setModalOpen(false), availableFaculty, availableStudents })
             )
         ),
+        confirmDeleteUser && React.createElement(Modal, {
+            isOpen: !!confirmDeleteUser,
+            onClose: () => setConfirmDeleteUser(null),
+            title: "Confirm User Deletion"
+          },
+            React.createElement("div", null,
+                React.createElement("p", { className: "text-gray-600 dark:text-gray-300" },
+                    "Are you sure you want to delete the user account for ",
+                    React.createElement("strong", null, confirmDeleteUser.username),
+                    "? This action is irreversible."
+                ),
+                React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+                    React.createElement("button", { onClick: () => setConfirmDeleteUser(null), className: "bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 px-4 py-2 rounded-md font-semibold" }, "Cancel"),
+                    React.createElement("button", { onClick: executeDelete, className: "bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-semibold" }, "Delete")
+                )
+            )
+        ),
+        React.createElement(ErrorDisplay, { message: listError }),
         React.createElement("div", { className: "space-y-4" },
             users.length > 0 ? users.map(user =>
                 React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
@@ -417,7 +547,7 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }: Use
                         React.createElement("p", { className: "font-semibold" }, (user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId)) || '[Profile Not Found]'),
                         React.createElement("p", { className: "text-xs text-gray-500" }, user.username, " (", user.role, ")")
                     ),
-                    React.createElement("button", { onClick: () => handleDelete(user), className: "text-red-500 hover:text-red-700" }, React.createElement(DeleteIcon, null))
+                    React.createElement("button", { onClick: () => handleDeleteRequest(user), className: "text-red-500 hover:text-red-700" }, React.createElement(DeleteIcon, null))
                 )
             ) : React.createElement("p", { className: "text-gray-500 dark:text-gray-400 text-center py-8" }, "No teacher or student user accounts found.")
         )
@@ -432,7 +562,7 @@ const PlaceholderContent = ({ title, icon, message = "This feature is under deve
     )
 );
 
-const AdminDashboard = (props: any) => {
+const AdminDashboard = (props: DashboardProps) => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('overview');
     const studentCount = props.students.length;
@@ -495,7 +625,7 @@ const AdminDashboard = (props: any) => {
     );
 };
 
-const TeacherDashboard = (props: any) => {
+const TeacherDashboard = (props: DashboardProps) => {
     const [activeTab, setActiveTab] = useState('timetable');
 
     const myFacultyProfile = useMemo(() => 
@@ -510,7 +640,7 @@ const TeacherDashboard = (props: any) => {
     const teacherClasses = useMemo(() => {
         if (!teacherTimetable) return [];
         const classNames = [...new Set(teacherTimetable.map((e: TimetableEntry) => e.className))];
-        return classNames.map(name => props.classes.find((c: Class) => c.name === name)).filter(Boolean);
+        return classNames.map(name => props.classes.find((c: Class) => c.name === name)).filter(Boolean) as Class[];
     }, [teacherTimetable, props.classes]);
 
     const [selectedClassId, setSelectedClassId] = useState('');
@@ -539,7 +669,7 @@ const TeacherDashboard = (props: any) => {
                         React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, ...teacherClasses.map((c: Class) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
                         React.createElement("select", { value: channel, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, React.createElement("option", { value: "query" }, "Query"), React.createElement("option", { value: "attendance" }, "Attendance"))
                     ),
-                    React.createElement(ChatComponent, { ...props, classId: selectedClassId, channel: channel })
+                    React.createElement(ChatComponent, { messages: props.chatMessages, onSendMessage: props.onSendMessage, user: props.user, constraints: props.constraints, classId: selectedClassId, channel: channel })
                 );
             case 'ims': return React.createElement(PlaceholderContent, { title: "IMS", icon: React.createElement(IMSIcon, { className: "h-12 w-12" }) });
             case 'smart_tools': return React.createElement(PlaceholderContent, { title: "Smart Tools", icon: React.createElement(SmartToolsIcon, { className: "h-12 w-12" }) });
@@ -612,7 +742,12 @@ const UpcomingClasses = ({ upcoming }: UpcomingClassesProps) => {
   );
 };
 
-const StudentDashboard = (props: any) => {
+interface UpcomingEntry extends TimetableEntry {
+    dayIndex: number;
+    startTimeMinutes: number;
+}
+
+const StudentDashboard = (props: DashboardProps) => {
     const [activeTab, setActiveTab] = useState('schedule');
     
     const myStudentProfile = useMemo(() => props.students.find((s: Student) => s.email === props.user.username), [props.students, props.user.username]);
@@ -640,12 +775,12 @@ const StudentDashboard = (props: any) => {
         };
 
         return studentTimetable
-          .map(entry => ({
+          .map((entry: TimetableEntry) => ({
             ...entry,
             dayIndex: dayIndexMap[entry.day.toLowerCase()],
             startTimeMinutes: getStartTimeInMinutes(entry.time),
           }))
-          .filter(entry => {
+          .filter((entry: UpcomingEntry) => {
             const entryDayIndex = entry.dayIndex;
             const todayDayIndex = dayIndexMap[todayName];
 
@@ -655,7 +790,7 @@ const StudentDashboard = (props: any) => {
             
             return false;
           })
-          .sort((a, b) => {
+          .sort((a: UpcomingEntry, b: UpcomingEntry) => {
             if (a.dayIndex !== b.dayIndex) return a.dayIndex - b.dayIndex;
             return a.startTimeMinutes - b.startTimeMinutes;
           })
@@ -694,7 +829,7 @@ const StudentDashboard = (props: any) => {
                     React.createElement("div", { className: "flex gap-4 mb-4" },
                         React.createElement("select", { value: channel, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, React.createElement("option", { value: "query" }, "Query"), React.createElement("option", { value: "attendance" }, "Attendance"))
                     ),
-                    React.createElement(ChatComponent, { ...props, classId: myClass.id, channel: channel })
+                    React.createElement(ChatComponent, { messages: props.chatMessages, onSendMessage: props.onSendMessage, user: props.user, constraints: props.constraints, classId: myClass.id, channel: channel })
                 );
             case 'ims': return React.createElement(PlaceholderContent, { title: "IMS", icon: React.createElement(IMSIcon, { className: "h-12 w-12" }) });
             case 'smart_tools': return React.createElement(PlaceholderContent, { title: "Smart Tools", icon: React.createElement(SmartToolsIcon, { className: "h-12 w-12" }) });
@@ -726,7 +861,7 @@ const StudentDashboard = (props: any) => {
     )
 };
 
-export const Dashboard = (props: any) => {
+export const Dashboard = (props: Omit<DashboardProps, 'timetable'>) => {
     const { user, ...restProps } = props;
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     

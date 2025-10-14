@@ -5,7 +5,6 @@ import { LoginPage } from './features/auth/LoginPage';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
 import { LoadingIcon } from './components/Icons';
-// FIX: Added AttendanceStatus to imports
 import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus } from './types';
 
 // NOTE: The base URL for the backend server.
@@ -165,9 +164,6 @@ export const App = () => {
     setToken(authToken);
     sessionStorage.setItem('user', JSON.stringify(loggedInUser));
     sessionStorage.setItem('token', authToken);
-    // By setting isInitialLoad to false here, we prevent the full-screen
-    // loader from showing on the next render after a successful login.
-    // This makes the transition instantaneous.
     setIsInitialLoad(false);
   };
 
@@ -188,55 +184,50 @@ export const App = () => {
     setChatMessages(prev => [...prev, newMessage]);
   };
 
+  const handleApiError = async (response: Response) => {
+      let errorMsg = `Server responded with status: ${response.status}`;
+      try {
+          const errorData = await response.json();
+          errorMsg = errorData.message || 'The server returned an unspecified error.';
+      } catch { /* Could not parse JSON, use status message */ }
+      throw new Error(errorMsg);
+  };
+
   const handleSaveEntity = async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => {
-    if (user?.role !== 'admin') {
-      alert("You don't have permission to perform this action.");
-      return;
-    }
+    if (user?.role !== 'admin') throw new Error("You don't have permission to perform this action.");
+    
     const isAdding = !data.id;
     const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;
     const method = isAdding ? 'POST' : 'PUT';
     
-    try {
-        const response = await fetchWithAuth(url, {
-            method: method,
-            body: JSON.stringify(isAdding ? { ...data, id: `id_${Date.now()}` } : data),
-        }, token);
-        if (!response.ok) throw new Error(`Failed to save ${type}`);
-        const savedItem = await response.json();
-        
-        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents };
-        const setter = setterMap[type] as React.Dispatch<React.SetStateAction<any[]>>;
+    const response = await fetchWithAuth(url, {
+        method: method,
+        body: JSON.stringify(isAdding ? { ...data, id: `id_${Date.now()}` } : data),
+    }, token);
 
-        if (isAdding) {
-            setter(prev => [...prev, savedItem]);
-        } else {
-            setter(prev => prev.map(item => item.id === savedItem.id ? savedItem : item));
-        }
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`Error saving ${type}:`, error);
-        alert(`Error saving ${type}: ${message}`);
+    if (!response.ok) await handleApiError(response);
+    
+    const savedItem = await response.json();
+    
+    const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents };
+    const setter = setterMap[type] as React.Dispatch<React.SetStateAction<any[]>>;
+
+    if (isAdding) {
+        setter(prev => [...prev, savedItem]);
+    } else {
+        setter(prev => prev.map(item => item.id === savedItem.id ? savedItem : item));
     }
   };
 
   const handleDeleteEntity = async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => {
-     if (user?.role !== 'admin') {
-      alert("You don't have permission to perform this action.");
-      return;
-    }
-     try {
-        const response = await fetchWithAuth(`${API_BASE_URL}/${type}/${id}`, { method: 'DELETE' }, token);
-        if (!response.ok) throw new Error(`Failed to delete ${type}`);
+     if (user?.role !== 'admin') throw new Error("You don't have permission to perform this action.");
+     
+     const response = await fetchWithAuth(`${API_BASE_URL}/${type}/${id}`, { method: 'DELETE' }, token);
+     if (!response.ok) await handleApiError(response);
         
-        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents };
-        const setter = setterMap[type] as React.Dispatch<React.SetStateAction<any[]>>;
-        setter(prev => prev.filter(item => item.id !== id));
-     } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`Error deleting ${type}:`, error);
-        alert(`Error deleting ${type}: ${message}`);
-     }
+     const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents };
+     const setter = setterMap[type] as React.Dispatch<React.SetStateAction<any[]>>;
+     setter(prev => prev.filter(item => item.id !== id));
   };
 
   const handleSaveUser = async (userData: any) => {
@@ -244,10 +235,9 @@ export const App = () => {
       const response = await fetchWithAuth(`${API_BASE_URL}/users`, {
           method: 'POST', body: JSON.stringify(userData)
       }, token);
-      if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.message || "Failed to create user.");
-      }
+      
+      if (!response.ok) await handleApiError(response);
+
       const newUser = await response.json();
       setUsers(prev => [...prev, newUser]);
   };
@@ -255,14 +245,12 @@ export const App = () => {
   const handleDeleteUser = async (userId: string) => {
       if (user?.role !== 'admin') throw new Error("Permission denied.");
       const response = await fetchWithAuth(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' }, token);
-      if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.message || "Failed to delete user.");
-      }
+      
+      if (!response.ok) await handleApiError(response);
+      
       setUsers(prev => prev.filter(u => u._id !== userId));
   };
   
-  // FIX: Changed status type from string to AttendanceStatus to match type definition.
   const handleUpdateAttendance = (classId: string, date: string, studentId: string, status: AttendanceStatus) => {
       setAttendance(prev => ({
           ...prev, [classId]: { ...(prev[classId] || {}), [date]: { ...((prev[classId] && prev[classId][date]) || {}), [studentId]: status } }
@@ -270,16 +258,16 @@ export const App = () => {
   };
 
   const handleResetData = async () => {
-    if (user?.role !== 'admin') {
-      alert("You don't have permission to perform this action.");
-      return;
-    }
+    if (user?.role !== 'admin') throw new Error("You don't have permission to perform this action.");
+
+    setIsInitialLoad(true);
     try {
-        setIsInitialLoad(true); // Show loader while resetting
         const response = await fetchWithAuth(`${API_BASE_URL}/reset-data`, { method: 'POST' }, token);
-        if (!response.ok) throw new Error('Failed to reset data on server');
+        if (!response.ok) await handleApiError(response);
         
         const dataResponse = await fetchWithAuth(`${API_BASE_URL}/data`, {}, token);
+        if (!dataResponse.ok) await handleApiError(dataResponse);
+
         const data = await dataResponse.json();
         setClasses(data.classes || []);
         setFaculty(data.faculty || []);
@@ -296,11 +284,6 @@ export const App = () => {
         }
 
         localStorage.removeItem('smartCampusShared');
-        alert('Data has been reset successfully.');
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error("Error resetting data:", error);
-        alert(`Failed to reset data: ${message}`);
     } finally {
         setIsInitialLoad(false);
     }
