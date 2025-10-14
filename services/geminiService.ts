@@ -43,6 +43,7 @@ export const generateTimetable = async (
     
   } catch (error) {
     console.error("Error fetching timetable from server:", error);
-    throw new Error(`Failed to generate timetable. Please check your connection and constraints. Error: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to generate timetable. Please check your connection and constraints. Error: ${errorMessage}`);
   }
 };

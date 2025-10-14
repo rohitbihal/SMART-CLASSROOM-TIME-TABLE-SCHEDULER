@@ -1,14 +1,116 @@
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, ClassSpecificConstraint } from '../../types';
+
+type EntityType = 'class' | 'faculty' | 'subject' | 'room';
+type Entity = Class | Faculty | Subject | Room;
+
+// --- Prop Interfaces ---
+interface TimetableSchedulerProps {
+    onLogout: () => void;
+    theme: string;
+    toggleTheme: () => void;
+    classes: Class[];
+    faculty: Faculty[];
+    subjects: Subject[];
+    rooms: Room[];
+    students: Student[];
+    constraints: Constraints;
+    setConstraints: (c: Constraints) => void;
+    onSaveEntity: (type: EntityType | 'student', data: any) => Promise<void>;
+    onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>;
+    onResetData: () => Promise<void>;
+    token: string;
+}
+
+interface SectionCardProps {
+    title: string;
+    children?: React.ReactNode;
+    actions?: React.ReactNode;
+}
+
+interface DataTableProps<T> {
+    headers: string[];
+    data: T[];
+    renderRow: (item: T) => React.ReactNode;
+    emptyMessage?: string;
+    headerPrefix?: React.ReactNode;
+}
+
+interface ModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    children?: React.ReactNode;
+}
+
+interface FormFieldProps {
+    label: string;
+    children?: React.ReactNode;
+}
+
+interface FormProps<T> {
+    initialData: T | null;
+    onSave: (data: any) => void;
+}
+
+interface SubjectFormProps extends FormProps<Subject> {
+    faculty: Faculty[];
+}
+
+interface HeaderCheckboxProps<T> {
+    type: EntityType;
+    items: T[];
+    selectedItems: { [key: string]: string[] };
+    onToggleSelectAll: (type: EntityType, items: T[]) => void;
+}
+
+interface SetupTabProps {
+    classes: Class[];
+    faculty: Faculty[];
+    subjects: Subject[];
+    rooms: Room[];
+    openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void;
+    handleDelete: (type: EntityType, id: string) => void;
+    handleResetData: () => void;
+    selectedItems: { [key in EntityType]: string[] };
+    onToggleSelect: (type: EntityType, id: string) => void;
+    onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void;
+    onInitiateBulkDelete: (type: EntityType) => void;
+}
+
+interface ConstraintsTabProps {
+    constraints: Constraints;
+    onConstraintsChange: (newConstraints: Constraints) => void;
+    classes: Class[];
+    subjects: Subject[];
+    faculty: Faculty[];
+}
+
+interface GenerateTabProps {
+    onGenerate: () => void;
+    isLoading: boolean;
+    error: string | null;
+}
+
+interface ViewTabProps {
+    timetable: TimetableEntry[];
+}
+
+interface TabButtonProps {
+    tab: string;
+    label: string;
+    icon: React.ReactNode;
+}
 
 
-const SectionCard = ({ title, children, actions }: { title: string, children?: React.ReactNode, actions?: React.ReactNode }) => (
+const SectionCard = ({ title, children, actions }: SectionCardProps) => (
     React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md mb-6" },
         React.createElement("div", { className: "flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4" },
             React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, title),
@@ -18,7 +120,7 @@ const SectionCard = ({ title, children, actions }: { title: string, children?: R
     )
 );
 
-const DataTable = ({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }) => (
+const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: DataTableProps<T>) => (
     React.createElement("div", { className: "overflow-x-auto" },
         React.createElement("table", { className: "w-full text-sm text-left" },
             React.createElement("thead", { className: "bg-gray-100 dark:bg-slate-900/50 text-gray-500 dark:text-gray-400 uppercase text-xs" },
@@ -32,7 +134,7 @@ const DataTable = ({ headers, data, renderRow, emptyMessage = "No data available
     )
 );
 
-const Modal = ({ isOpen, onClose, title, children = null }) => {
+const Modal = ({ isOpen, onClose, title, children = null }: ModalProps) => {
     if (!isOpen) return null;
 
     return (
@@ -52,11 +154,11 @@ const Modal = ({ isOpen, onClose, title, children = null }) => {
     );
 };
 
-const FormField = ({ label, children = null }) => React.createElement("div", { className: "mb-4" }, React.createElement("label", { className: "block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1" }, label), children);
-const TextInput = (props) => React.createElement("input", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
-const SelectInput = (props) => React.createElement("select", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
+const FormField = ({ label, children = null }: FormFieldProps) => React.createElement("div", { className: "mb-4" }, React.createElement("label", { className: "block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1" }, label), children);
+const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => React.createElement("input", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
+const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => React.createElement("select", { ...props, className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-800 dark:text-gray-200" });
 
-const SearchInput = ({ value, onChange, placeholder }) => (
+const SearchInput = ({ value, onChange, placeholder }: { value: string, onChange: (v: string) => void, placeholder?: string }) => (
     React.createElement("div", { className: "relative mb-4" },
         React.createElement("div", { className: "absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" },
             React.createElement("svg", { className: "h-5 w-5 text-gray-400 dark:text-gray-500", xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20", fill: "currentColor" },
@@ -73,9 +175,9 @@ const SearchInput = ({ value, onChange, placeholder }) => (
     )
 );
 
-const ClassForm = ({ initialData, onSave }) => {
+const ClassForm = ({ initialData, onSave }: FormProps<Class>) => {
     const [data, setData] = useState(initialData || { name: '', branch: '', year: 1, section: '', studentCount: 0 });
-    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
         React.createElement(FormField, { label: "Name (e.g., CSE-3-A)" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
         React.createElement(FormField, { label: "Branch (e.g., CSE)" }, React.createElement(TextInput, { type: "text", name: "branch", value: data.branch, onChange: handleChange, required: true })),
@@ -86,10 +188,10 @@ const ClassForm = ({ initialData, onSave }) => {
     );
 };
 
-const FacultyForm = ({ initialData, onSave }) => {
+const FacultyForm = ({ initialData, onSave }: FormProps<Faculty>) => {
     const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', '), email: initialData.email || '' } : { name: '', department: '', specialization: '', email: '' });
-    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.value });
-    const handleSave = (e) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.value });
+    const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean) });
     };
@@ -102,9 +204,9 @@ const FacultyForm = ({ initialData, onSave }) => {
     );
 };
 
-const SubjectForm = ({ initialData, onSave, faculty }) => {
+const SubjectForm = ({ initialData, onSave, faculty }: SubjectFormProps) => {
     const [data, setData] = useState(initialData || { name: '', code: '', type: 'theory', hoursPerWeek: 3, assignedFacultyId: '' });
-    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
         React.createElement(FormField, { label: "Name" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
         React.createElement(FormField, { label: "Code" }, React.createElement(TextInput, { type: "text", name: "code", value: data.code, onChange: handleChange, required: true })),
@@ -118,9 +220,9 @@ const SubjectForm = ({ initialData, onSave, faculty }) => {
     );
 };
 
-const RoomForm = ({ initialData, onSave }) => {
+const RoomForm = ({ initialData, onSave }: FormProps<Room>) => {
     const [data, setData] = useState(initialData || { number: '', type: 'classroom', capacity: 0 });
-    const handleChange = (e) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
         React.createElement(FormField, { label: "Number (e.g., CS-101)" }, React.createElement(TextInput, { type: "text", name: "number", value: data.number, onChange: handleChange, required: true })),
         React.createElement(FormField, { label: "Type" }, React.createElement(SelectInput, { name: "type", value: data.type, onChange: handleChange }, React.createElement("option", { value: "classroom" }, "Classroom"), React.createElement("option", { value: "lab" }, "Lab"))),
@@ -129,8 +231,8 @@ const RoomForm = ({ initialData, onSave }) => {
     );
 };
 
-const HeaderCheckbox = ({ type, items, selectedItems, onToggleSelectAll }) => {
-    const checkboxRef = useRef(null);
+const HeaderCheckbox = <T extends { id: string }>({ type, items, selectedItems, onToggleSelectAll }: HeaderCheckboxProps<T>) => {
+    const checkboxRef = useRef<HTMLInputElement>(null);
     const visibleIds = useMemo(() => items.map(item => item.id), [items]);
     const selectedVisibleIds = useMemo(() => visibleIds.filter(id => (selectedItems[type] || []).includes(id)), [visibleIds, selectedItems, type]);
 
@@ -156,7 +258,7 @@ const HeaderCheckbox = ({ type, items, selectedItems, onToggleSelectAll }) => {
     );
 };
 
-const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete }) => {
+const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete }: SetupTabProps) => {
     const [classFilter, setClassFilter] = useState('');
     const [facultyFilter, setFacultyFilter] = useState('');
     const [subjectFilter, setSubjectFilter] = useState('');
@@ -201,14 +303,14 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
         );
     }, [rooms, roomFilter]);
     
-    const ActionButtons = ({ onEdit, onDelete }) => (
+    const ActionButtons = ({ onEdit, onDelete }: { onEdit: () => void, onDelete: () => void }) => (
         React.createElement("div", { className: "flex gap-2" },
             React.createElement("button", { onClick: onEdit, className: "text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 p-1", "aria-label": "Edit" }, React.createElement(EditIcon, null)),
             React.createElement("button", { onClick: onDelete, className: "text-red-500 hover:text-red-700 dark:hover:text-red-400 p-1", "aria-label": "Delete" }, React.createElement(DeleteIcon, null))
         )
     );
     
-    const BulkDeleteButton = ({ type, count }) => {
+    const BulkDeleteButton = ({ type, count }: { type: EntityType, count: number }) => {
         if (count === 0) return null;
         return React.createElement("button", {
             onClick: () => onInitiateBulkDelete(type),
@@ -235,7 +337,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         React.createElement(SearchInput, { value: classFilter, onChange: setClassFilter, placeholder: "Search by name or branch..." }),
                         React.createElement(DataTable, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "class", items: filteredClasses, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
-                            headers: ['Name', 'Students', 'Actions'], data: filteredClasses, renderRow: (c) => (
+                            headers: ['Name', 'Students', 'Actions'], data: filteredClasses, renderRow: (c: Class) => (
                                 React.createElement("tr", { key: c.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
                                     React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.class.includes(c.id), onChange: () => onToggleSelect('class', c.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, c.name),
@@ -254,7 +356,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         React.createElement(SearchInput, { value: subjectFilter, onChange: setSubjectFilter, placeholder: "Search by name or code..." }),
                         React.createElement(DataTable, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "subject", items: filteredSubjects, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
-                            headers: ['Name', 'Type', 'Hours/Week', 'Actions'], data: filteredSubjects, renderRow: (s) => (
+                            headers: ['Name', 'Type', 'Hours/Week', 'Actions'], data: filteredSubjects, renderRow: (s: Subject) => (
                                 React.createElement("tr", { key: s.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
                                     React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.subject.includes(s.id), onChange: () => onToggleSelect('subject', s.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, s.name),
@@ -276,7 +378,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         React.createElement(SearchInput, { value: facultyFilter, onChange: setFacultyFilter, placeholder: "Search by name or department..." }),
                         React.createElement(DataTable, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "faculty", items: filteredFaculty, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
-                            headers: ['Name', 'Department', 'Actions'], data: filteredFaculty, renderRow: (f) => (
+                            headers: ['Name', 'Department', 'Actions'], data: filteredFaculty, renderRow: (f: Faculty) => (
                                 React.createElement("tr", { key: f.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
                                     React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.faculty.includes(f.id), onChange: () => onToggleSelect('faculty', f.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, f.name),
@@ -295,7 +397,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         React.createElement(SearchInput, { value: roomFilter, onChange: setRoomFilter, placeholder: "Search by room number..." }),
                         React.createElement(DataTable, {
                             headerPrefix: React.createElement(HeaderCheckbox, { type: "room", items: filteredRooms, selectedItems: selectedItems, onToggleSelectAll: onToggleSelectAll }),
-                            headers: ['Number', 'Type', 'Capacity', 'Actions'], data: filteredRooms, renderRow: (r) => (
+                            headers: ['Number', 'Type', 'Capacity', 'Actions'], data: filteredRooms, renderRow: (r: Room) => (
                                 React.createElement("tr", { key: r.id, className: "border-b border-gray-200 dark:border-slate-700 hover:bg-gray-50/50 dark:hover:bg-slate-800/50" },
                                     React.createElement("td", { className: "px-4 py-4" }, React.createElement("input", { type: "checkbox", checked: selectedItems.room.includes(r.id), onChange: () => onToggleSelect('room', r.id), className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" })),
                                     React.createElement("td", { className: "px-6 py-4" }, r.number),
@@ -313,7 +415,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
     );
 };
 
-const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, faculty }: { constraints: Constraints, onConstraintsChange: (newConstraints: Constraints) => void, classes: Class[], subjects: Subject[], faculty: Faculty[] }) => {
+const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, faculty }: ConstraintsTabProps) => {
     const uniqueDepartments = useMemo(() => [...new Set(faculty.map(f => f.department))], [faculty]);
 
     const handleConstraintUpdate = (updater: ((c: Constraints) => Constraints) | Constraints) => {
@@ -322,7 +424,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
     };
 
     const handleAddConstraint = (type: 'nonConsecutive' | 'preferredTime' | 'facultyAvailability') => {
-        let newConstraint;
+        let newConstraint: ClassSpecificConstraint;
         if (type === 'nonConsecutive') {
             newConstraint = {
                 id: Date.now(),
@@ -495,21 +597,18 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                          return React.createElement("div", { key: constraint.id, className: "flex flex-wrap items-center gap-2 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                              React.createElement("select", {
                                 value: constraint.facultyId,
-// FIX: Add explicit type `React.ChangeEvent<HTMLSelectElement>` to the event object `e` to resolve TypeScript error.
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'facultyId', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, React.createElement("option", { value: "" }, "Select Faculty"), ...facultyOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "is unavailable on"),
                              React.createElement("select", {
                                 value: constraint.day,
-// FIX: Add explicit type `React.ChangeEvent<HTMLSelectElement>` to the event object `e` to resolve TypeScript error.
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'day', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, ...dayOptions),
                             React.createElement("span", { className: "text-gray-600 dark:text-gray-300" }, "at"),
                             React.createElement("select", {
                                 value: constraint.timeSlot,
-// FIX: Add explicit type `React.ChangeEvent<HTMLSelectElement>` to the event object `e` to resolve TypeScript error.
                                 onChange: (e: React.ChangeEvent<HTMLSelectElement>) => handleConstraintChange(constraint.id, 'timeSlot', e.target.value),
                                 className: "p-2 border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-md text-gray-800 dark:text-gray-200"
                             }, ...timeSlotOptions),
@@ -537,7 +636,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
     );
 };
 
-const GenerateTab = ({ onGenerate, isLoading, error }) => (
+const GenerateTab = ({ onGenerate, isLoading, error }: GenerateTabProps) => (
     React.createElement("div", { className: "text-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-8 rounded-2xl shadow-lg max-w-2xl mx-auto" },
         React.createElement("h3", { className: "text-2xl font-bold text-gray-800 dark:text-gray-100" }, "Generate Timetable"),
         React.createElement("p", { className: "text-gray-500 dark:text-gray-400 my-4" }, "Click the button below to use the AI to generate an optimal, conflict-free timetable based on your setup and constraints."),
@@ -564,7 +663,7 @@ const GenerateTab = ({ onGenerate, isLoading, error }) => (
     )
 );
 
-const ViewTab = ({ timetable }: { timetable: TimetableEntry[] }) => {
+const ViewTab = ({ timetable }: ViewTabProps) => {
     const [viewBy, setViewBy] = useState('class');
     const [selectedValues, setSelectedValues] = useState<string[]>([]);
 
@@ -758,7 +857,7 @@ const ViewTab = ({ timetable }: { timetable: TimetableEntry[] }) => {
     );
 };
 
-export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, students, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token }) => {
+export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, faculty, subjects, rooms, students, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token }: TimetableSchedulerProps) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('setup');
   
@@ -766,11 +865,11 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [modalState, setModalState] = useState({ isOpen: false, mode: 'add', type: '', data: null });
+  const [modalState, setModalState] = useState<{ isOpen: boolean, mode: 'add' | 'edit', type: EntityType | '', data: Entity | null }>({ isOpen: false, mode: 'add', type: '', data: null });
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [bulkDeleteState, setBulkDeleteState] = useState({ isOpen: false, type: '', onConfirm: () => {} });
+  const [bulkDeleteState, setBulkDeleteState] = useState<{ isOpen: boolean, type: EntityType | '', onConfirm: () => void }>({ isOpen: false, type: '', onConfirm: () => {} });
   
-  const [selectedItems, setSelectedItems] = useState<{ [key: string]: string[] }>({
+  const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({
       class: [], faculty: [], subject: [], room: []
   });
 
@@ -783,15 +882,15 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     } catch(e) { console.error("Could not load timetable from storage", e)}
   }, []);
 
-  const openModal = (mode, type, data = null) => setModalState({ isOpen: true, mode, type, data });
+  const openModal = (mode: 'add' | 'edit', type: EntityType, data: Entity | null = null) => setModalState({ isOpen: true, mode, type, data });
   const closeModal = () => setModalState({ isOpen: false, mode: 'add', type: '', data: null });
 
-  const handleSave = (type, data) => {
+  const handleSave = (type: EntityType, data: Entity) => {
       onSaveEntity(type, data);
       closeModal();
   };
 
-  const handleDelete = (type, id) => {
+  const handleDelete = (type: EntityType, id: string) => {
       if (window.confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
           onDeleteEntity(type, id);
       }
@@ -805,11 +904,11 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     }
   };
   
-  const handleConstraintsChange = useCallback((newConstraints) => {
+  const handleConstraintsChange = useCallback((newConstraints: Constraints) => {
       setConstraints(newConstraints);
   }, [setConstraints]);
 
-  const handleToggleSelect = (type, id) => {
+  const handleToggleSelect = (type: EntityType, id: string) => {
       setSelectedItems(prev => {
           const currentSelection = prev[type] || [];
           const newSelection = currentSelection.includes(id)
@@ -819,7 +918,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
       });
   };
 
-  const handleToggleSelectAll = (type, displayedItems) => {
+  const handleToggleSelectAll = (type: EntityType, displayedItems: { id: string }[]) => {
       setSelectedItems(prev => {
           const currentSelection = prev[type] || [];
           const displayedIds = displayedItems.map(item => item.id);
@@ -836,7 +935,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
       });
   };
   
-  const handleInitiateBulkDelete = (type) => {
+  const handleInitiateBulkDelete = (type: EntityType) => {
     const idsToDelete = selectedItems[type];
     if (idsToDelete.length === 0) return;
 
@@ -847,9 +946,10 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
             setIsLoading(true);
             try {
                 await Promise.all(idsToDelete.map(id => onDeleteEntity(type, id)));
-            } catch (err) {
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : String(err);
                 console.error("Bulk delete failed:", err);
-                setError(`Failed to delete some items. Please refresh and try again. Error: ${err.message}`);
+                setError(`Failed to delete some items. Please refresh and try again. Error: ${message}`);
             } finally {
                 setSelectedItems(prev => ({ ...prev, [type]: [] }));
                 setIsLoading(false);
@@ -887,7 +987,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     } finally {
       setIsLoading(false);
     }
-  }, [classes, faculty, subjects, rooms, students, constraints, token]);
+  }, [classes, faculty, subjects, rooms, students, constraints, token, setTimetable]);
 
   const handleInitiateGenerate = useCallback(() => {
     setError(null);
@@ -905,16 +1005,16 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
       let formComponent;
       switch(type) {
           case 'class':
-              formComponent = React.createElement(ClassForm, { initialData: data, onSave: (d) => handleSave('class', d) });
+              formComponent = React.createElement(ClassForm, { initialData: data as Class, onSave: (d: Class) => handleSave('class', d) });
               break;
           case 'faculty':
-              formComponent = React.createElement(FacultyForm, { initialData: data, onSave: (d) => handleSave('faculty', d) });
+              formComponent = React.createElement(FacultyForm, { initialData: data as Faculty, onSave: (d: Faculty) => handleSave('faculty', d) });
               break;
           case 'subject':
-              formComponent = React.createElement(SubjectForm, { initialData: data, onSave: (d) => handleSave('subject', d), faculty: faculty });
+              formComponent = React.createElement(SubjectForm, { initialData: data as Subject, onSave: (d: Subject) => handleSave('subject', d), faculty: faculty });
               break;
           case 'room':
-              formComponent = React.createElement(RoomForm, { initialData: data, onSave: (d) => handleSave('room', d) });
+              formComponent = React.createElement(RoomForm, { initialData: data as Room, onSave: (d: Room) => handleSave('room', d) });
               break;
           default:
               formComponent = null;
@@ -937,7 +1037,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
     }
   };
 
-  const TabButton = ({ tab, label, icon }) => (
+  const TabButton = ({ tab, label, icon }: TabButtonProps) => (
     React.createElement("button", {
       onClick: () => setActiveTab(tab),
       className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${
@@ -956,7 +1056,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
         },
         React.createElement("div", null,
           React.createElement("p", { className: "text-gray-600 dark:text-gray-300" },
-            `Are you sure you want to delete the selected ${selectedItems[bulkDeleteState.type]?.length} ${bulkDeleteState.type} items? This action cannot be undone.`
+            `Are you sure you want to delete the selected ${selectedItems[bulkDeleteState.type as EntityType]?.length} ${bulkDeleteState.type} items? This action cannot be undone.`
           ),
           React.createElement("div", { className: "flex justify-end gap-4 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700" },
             React.createElement("button", {

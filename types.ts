@@ -13,6 +13,7 @@ export interface Faculty {
   name: string;
   department: string;
   specialization: string[];
+  email: string;
 }
 
 export interface Subject {

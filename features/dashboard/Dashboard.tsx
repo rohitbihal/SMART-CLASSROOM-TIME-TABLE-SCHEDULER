@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -293,12 +294,14 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
 
 // FIX: To resolve TypeScript errors with React.createElement, pass children as a `children` prop array instead of varargs. This also fixes the 'unknown' type error.
         return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-            error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
+// FIX: Changed to use `children` prop to fix `unknown` type error with `error` variable.
+            error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md", children: error }),
             React.createElement("div", { key: "role-selector" }, 
                 React.createElement("label", { className: "block font-medium" }, "Role"),
+// FIX: Changed to use `children` prop for option text to fix TypeScript inference error on `value` prop.
                 React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: [
-                    React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
-                    React.createElement("option", { key: "student", value: "student" }, "Student")
+                    React.createElement("option", { key: "teacher", value: "teacher", children: "Teacher" }),
+                    React.createElement("option", { key: "student", value: "student", children: "Student" })
                 ]})
             ),
             React.createElement("div", { key: "profile-selector" },
