@@ -50,13 +50,14 @@ const subjectSchema = new mongoose.Schema({ id: {type: String, unique: true}, na
 const roomSchema = new mongoose.Schema({ id: {type: String, unique: true}, number: {type: String, required: true, unique: true}, type: String, capacity: Number });
 const studentSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, email: {type: String, unique: true, sparse: true}, classId: String, roll: String });
 const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
+    username: { type: String, required: true },
     password: { type: String, required: true },
     role: { type: String, required: true, enum: ['admin', 'teacher', 'student'] },
     profileId: { type: String, required: true, unique: true }
 });
 
-userSchema.index({ username: 1, role: 1 });
+// FIX: Enforce uniqueness on the combination of username and role.
+userSchema.index({ username: 1, role: 1 }, { unique: true });
 
 const Class = mongoose.model('Class', classSchema);
 const Faculty = mongoose.model('Faculty', facultySchema);
@@ -77,13 +78,18 @@ const TIME_SLOTS = [ '09:30-10:20', '10:20-11:10', '11:10-12:00', '12:00-12:50',
 
 async function seedDatabase(force = false) {
     try {
-        const adminUser = await User.findOne({ username: 'admin@university.edu' });
-        if (adminUser && !force) {
-            console.log('Database already contains admin user. Skipping seed.');
+        // FIX: Make seeding more robust by checking for all demo users, not just the admin.
+        // This prevents a partial data state from blocking a necessary re-seed.
+        const demoUserCount = await User.countDocuments({
+            username: { $in: ['admin@university.edu', 'teacher@university.edu', 'student@university.edu'] }
+        });
+
+        if (demoUserCount === 3 && !force) {
+            console.log('All demo users found. Skipping database seed.');
             return;
         }
         
-        console.log(force ? 'Forcing database seed/reset...' : 'Database is empty or incomplete. Seeding with mock data...');
+        console.log(force ? 'Forcing database seed/reset...' : 'Demo users are missing or incomplete. Seeding with mock data...');
         await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
 
         // Hash passwords for mock users before inserting
