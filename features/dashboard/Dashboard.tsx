@@ -448,13 +448,21 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: Use
         profileOptions.push(React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`));
     }
 
+    // FIX: Refactored to use map for creating options to ensure proper type inference.
+    const roleData = [
+        { value: 'teacher', label: 'Teacher' },
+        { value: 'student', label: 'Student' }
+    ];
+    const roleOptions = roleData.map(r =>
+        React.createElement("option", { key: r.value, value: r.value }, r.label)
+    );
+
     return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
         React.createElement(ErrorDisplay, { message: error }),
         React.createElement("div", { key: "role-selector" },
             React.createElement("label", { className: "block font-medium" }, "Role"),
             React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
-                React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
-                React.createElement("option", { key: "student", value: "student" }, "Student")
+                ...roleOptions
             )
         ),
         React.createElement("div", { key: "profile-selector" },
@@ -544,7 +552,7 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }: Use
             users.length > 0 ? users.map(user =>
                 React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                     React.createElement("div", null,
-                        React.createElement("p", { className: "font-semibold" }, (user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId)) || '[Profile Not Found]'),
+                        React.createElement("p", { className: "font-semibold" }, (user.profileId && (user.role === 'teacher' ? facultyMap.get(user.profileId) : studentMap.get(user.profileId))) || '[Profile Not Found]'),
                         React.createElement("p", { className: "text-xs text-gray-500" }, user.username, " (", user.role, ")")
                     ),
                     React.createElement("button", { onClick: () => handleDeleteRequest(user), className: "text-red-500 hover:text-red-700" }, React.createElement(DeleteIcon, null))

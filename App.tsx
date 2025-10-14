@@ -293,34 +293,56 @@ export const App = () => {
     return React.createElement(FullScreenLoader, { message: "Loading Campus Data..." });
   }
 
-  const dashboardProps = {
-    user, onLogout: handleLogout, theme, toggleTheme, classes, faculty, subjects, students, users,
-    constraints, updateConstraints: setConstraints, chatMessages, onSendMessage: handleSendMessage,
-    attendance, onUpdateAttendance: handleUpdateAttendance,
-    onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity,
-    onSaveUser: handleSaveUser, onDeleteUser: handleDeleteUser,
-    token
-  };
-
-  return (
-    React.createElement(HashRouter, null,
+  // If user is not logged in, render only the login-related routes.
+  // This structure ensures TypeScript knows `user` is null.
+  if (!user) {
+    return React.createElement(HashRouter, null,
       React.createElement(Routes, null,
-        React.createElement(Route, { path: "/login", element: user ? React.createElement(Navigate, { to: "/" }) : React.createElement(LoginPage, { onLogin: handleLogin }) }),
-        React.createElement(Route, { path: "/", element: user ? React.createElement(Dashboard, dashboardProps) : React.createElement(Navigate, { to: "/login" }) }),
-        React.createElement(Route, {
-          path: "/scheduler",
-          element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children: 
-            React.createElement(TimetableScheduler, {
-                onLogout: handleLogout, theme: theme, toggleTheme: toggleTheme,
-                classes, faculty, subjects, rooms, students,
-                constraints, setConstraints,
-                onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity, onResetData: handleResetData,
-                token: token || ''
-              })
-          })
-        }),
-        React.createElement(Route, { path: "*", element: React.createElement(Navigate, { to: user ? "/" : "/login" }) })
+        React.createElement(Route, { path: "/login", element: React.createElement(LoginPage, { onLogin: handleLogin }) }),
+        React.createElement(Route, { path: "*", element: React.createElement(Navigate, { to: "/login" }) })
       )
+    );
+  }
+  
+  // If user is logged in, `user` is of type `User`. Render the authenticated app routes.
+  return React.createElement(HashRouter, null,
+    React.createElement(Routes, null,
+      React.createElement(Route, { path: "/login", element: React.createElement(Navigate, { to: "/" }) }),
+      React.createElement(Route, { path: "/", element: React.createElement(Dashboard, {
+          user: user,
+          onLogout: handleLogout,
+          theme: theme,
+          toggleTheme: toggleTheme,
+          classes: classes,
+          faculty: faculty,
+          subjects: subjects,
+          students: students,
+          users: users,
+          constraints: constraints,
+          updateConstraints: setConstraints,
+          chatMessages: chatMessages,
+          onSendMessage: handleSendMessage,
+          attendance: attendance,
+          onUpdateAttendance: handleUpdateAttendance,
+          onSaveEntity: handleSaveEntity,
+          onDeleteEntity: handleDeleteEntity,
+          onSaveUser: handleSaveUser,
+          onDeleteUser: handleDeleteUser,
+          token: token
+      }) }),
+      React.createElement(Route, {
+        path: "/scheduler",
+        element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children: 
+          React.createElement(TimetableScheduler, {
+              onLogout: handleLogout, theme: theme, toggleTheme: toggleTheme,
+              classes, faculty, subjects, rooms, students,
+              constraints, setConstraints,
+              onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity, onResetData: handleResetData,
+              token: token || ''
+            })
+        })
+      }),
+      React.createElement(Route, { path: "*", element: React.createElement(Navigate, { to: "/" }) })
     )
   );
 };
