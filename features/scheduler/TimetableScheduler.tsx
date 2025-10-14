@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon } from '../../components/Icons';
@@ -67,7 +64,7 @@ interface SubjectFormProps extends FormProps<Subject> {
 interface HeaderCheckboxProps<T> {
     type: EntityType;
     items: T[];
-    selectedItems: { [key: string]: string[] };
+    selectedItems: { [key in EntityType]: string[] };
     onToggleSelectAll: (type: EntityType, items: T[]) => void;
 }
 
@@ -176,7 +173,7 @@ const SearchInput = ({ value, onChange, placeholder }: { value: string, onChange
 );
 
 const ClassForm = ({ initialData, onSave }: FormProps<Class>) => {
-    const [data, setData] = useState(initialData || { name: '', branch: '', year: 1, section: '', studentCount: 0 });
+    const [data, setData] = useState(initialData || { id: '', name: '', branch: '', year: 1, section: '', studentCount: 0 });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
         React.createElement(FormField, { label: "Name (e.g., CSE-3-A)" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
@@ -189,7 +186,7 @@ const ClassForm = ({ initialData, onSave }: FormProps<Class>) => {
 };
 
 const FacultyForm = ({ initialData, onSave }: FormProps<Faculty>) => {
-    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', '), email: initialData.email || '' } : { name: '', department: '', specialization: '', email: '' });
+    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', '), email: initialData.email || '' } : { id: '', name: '', department: '', specialization: '', email: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.value });
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
@@ -205,7 +202,7 @@ const FacultyForm = ({ initialData, onSave }: FormProps<Faculty>) => {
 };
 
 const SubjectForm = ({ initialData, onSave, faculty }: SubjectFormProps) => {
-    const [data, setData] = useState(initialData || { name: '', code: '', type: 'theory', hoursPerWeek: 3, assignedFacultyId: '' });
+    const [data, setData] = useState(initialData || { id: '', name: '', code: '', type: 'theory', hoursPerWeek: 3, assignedFacultyId: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
         React.createElement(FormField, { label: "Name" }, React.createElement(TextInput, { type: "text", name: "name", value: data.name, onChange: handleChange, required: true })),
@@ -221,7 +218,7 @@ const SubjectForm = ({ initialData, onSave, faculty }: SubjectFormProps) => {
 };
 
 const RoomForm = ({ initialData, onSave }: FormProps<Room>) => {
-    const [data, setData] = useState(initialData || { number: '', type: 'classroom', capacity: 0 });
+    const [data, setData] = useState(initialData || { id: '', number: '', type: 'classroom', capacity: 0 });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     return React.createElement("form", { onSubmit: (e) => { e.preventDefault(); onSave(data); } },
         React.createElement(FormField, { label: "Number (e.g., CS-101)" }, React.createElement(TextInput, { type: "text", name: "number", value: data.number, onChange: handleChange, required: true })),
@@ -268,7 +265,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
         const trimmedFilter = classFilter.trim();
         if (!trimmedFilter) return classes;
         const lowercasedFilter = trimmedFilter.toLowerCase();
-        return classes.filter(c =>
+        return classes.filter((c: Class) =>
             c.name.toLowerCase().includes(lowercasedFilter) ||
             c.branch.toLowerCase().includes(lowercasedFilter)
         );
@@ -278,7 +275,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
         const trimmedFilter = facultyFilter.trim();
         if (!trimmedFilter) return faculty;
         const lowercasedFilter = trimmedFilter.toLowerCase();
-        return faculty.filter(f =>
+        return faculty.filter((f: Faculty) =>
             f.name.toLowerCase().includes(lowercasedFilter) ||
             f.department.toLowerCase().includes(lowercasedFilter)
         );
@@ -288,7 +285,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
         const trimmedFilter = subjectFilter.trim();
         if (!trimmedFilter) return subjects;
         const lowercasedFilter = trimmedFilter.toLowerCase();
-        return subjects.filter(s =>
+        return subjects.filter((s: Subject) =>
             s.name.toLowerCase().includes(lowercasedFilter) ||
             s.code.toLowerCase().includes(lowercasedFilter)
         );
@@ -298,7 +295,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
         const trimmedFilter = roomFilter.trim();
         if (!trimmedFilter) return rooms;
         const lowercasedFilter = trimmedFilter.toLowerCase();
-        return rooms.filter(r =>
+        return rooms.filter((r: Room) =>
             r.number.toLowerCase().includes(lowercasedFilter)
         );
     }, [rooms, roomFilter]);
@@ -441,7 +438,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                 day: DAYS[0],
                 timePreference: 'morning'
             };
-        } else if (type === 'facultyAvailability') {
+        } else { // type === 'facultyAvailability'
             newConstraint = {
                 id: Date.now(),
                 type,
@@ -451,12 +448,10 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
             };
         }
 
-        if (newConstraint) {
-            handleConstraintUpdate(prev => ({
-                ...prev,
-                classSpecific: [...(prev.classSpecific || []), newConstraint]
-            }));
-        }
+        handleConstraintUpdate(prev => ({
+            ...prev,
+            classSpecific: [...(prev.classSpecific || []), newConstraint]
+        }));
     };
 
     const handleConstraintChange = (id: number, field: string, value: string) => {

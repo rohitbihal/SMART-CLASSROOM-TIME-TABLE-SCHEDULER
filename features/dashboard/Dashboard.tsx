@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,11 +7,95 @@ import {
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { TimetableEntry, Class, Faculty, Subject, Constraints, ChatMessage, Student, Attendance, AttendanceStatus } from '../../types';
 
-// Reusable UI Components
-const Tabs = ({ children, className = '' }) => React.createElement("div", { className: `bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-2 rounded-xl shadow-md flex flex-wrap gap-2 mb-8 ${className}` }, children);
-const TabButton = ({ isActive, onClick, children }) => React.createElement("button", { onClick, className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}` }, children);
+// --- Prop Interfaces ---
 
-const Header = ({ title, subtitle, onLogout, theme, toggleTheme }) => (
+interface TabContainerProps {
+    children: React.ReactNode;
+    className?: string;
+}
+
+interface TabButtonProps {
+    isActive: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+}
+
+interface HeaderProps {
+    title: string;
+    subtitle: string;
+    onLogout: () => void;
+    theme: string;
+    toggleTheme: () => void;
+}
+
+interface TimetableGridProps {
+    timetable: TimetableEntry[];
+    role?: 'student' | 'teacher';
+}
+
+interface ChatComponentProps {
+    messages: ChatMessage[];
+    onSendMessage: (text: string, classId: string, channel: string) => void;
+    user: { username: string; role: 'admin' | 'student' | 'teacher' };
+    constraints: Constraints;
+    classId: string;
+    channel: string;
+}
+
+interface StudentFormProps {
+    student: Student | null;
+    onSave: (data: Partial<Student>) => void;
+    onCancel: () => void;
+    classId: string;
+}
+
+interface ClassroomManagerProps {
+    classes: Class[];
+    students: Student[];
+    onSaveEntity: (type: 'student', data: Partial<Student>) => void;
+    onDeleteEntity: (type: 'student', id: string) => void;
+    constraints: Constraints;
+    updateConstraints: (c: Constraints) => void;
+}
+
+interface AttendanceManagerProps {
+    classes: Class[];
+    students: Student[];
+    attendance: Attendance;
+    onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void;
+}
+
+interface UserManagerProps {
+    faculty: Faculty[];
+    students: Student[];
+    users: any[]; // Assuming user type from backend
+    onSaveUser: (userData: any) => Promise<void>;
+    onDeleteUser: (userId: string) => Promise<void>;
+}
+
+interface UserFormProps {
+    onSave: (userData: any) => void;
+    onCancel: () => void;
+    availableFaculty: Faculty[];
+    availableStudents: Student[];
+    error: string;
+}
+
+interface PlaceholderContentProps {
+    title: string;
+    icon: React.ReactNode;
+    message?: string;
+}
+
+interface UpcomingClassesProps {
+    upcoming: TimetableEntry[];
+}
+
+// Reusable UI Components
+const Tabs = ({ children, className = '' }: TabContainerProps) => React.createElement("div", { className: `bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-2 rounded-xl shadow-md flex flex-wrap gap-2 mb-8 ${className}` }, children);
+const TabButton = ({ isActive, onClick, children }: TabButtonProps) => React.createElement("button", { onClick, className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}` }, children);
+
+const Header = ({ title, subtitle, onLogout, theme, toggleTheme }: HeaderProps) => (
     React.createElement("div", { className: "bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-2xl shadow-lg mb-8 flex justify-between items-center" },
         React.createElement("div", null,
             React.createElement("h1", { className: "text-3xl font-bold" }, title),
@@ -31,7 +112,7 @@ const Header = ({ title, subtitle, onLogout, theme, toggleTheme }) => (
     )
 );
 
-const TimetableGrid = ({ timetable, role = 'student' }: { timetable: TimetableEntry[], role?: 'student' | 'teacher' }) => {
+const TimetableGrid = ({ timetable, role = 'student' }: TimetableGridProps) => {
     if (!timetable || timetable.length === 0) {
         const emptyStateContent = {
             student: { title: "Timetable Not Published", message: "Your class timetable is not available yet. It will be displayed here once it's published by the admin." },
@@ -45,7 +126,7 @@ const TimetableGrid = ({ timetable, role = 'student' }: { timetable: TimetableEn
         );
     }
     
-    const getEntry = (day, time) => timetable.find(e => e.day.toLowerCase() === day.toLowerCase() && e.time === time);
+    const getEntry = (day: string, time: string) => timetable.find(e => e.day.toLowerCase() === day.toLowerCase() && e.time === time);
 
     return (
         React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md overflow-x-auto" },
@@ -73,7 +154,7 @@ const TimetableGrid = ({ timetable, role = 'student' }: { timetable: TimetableEn
     );
 };
 
-const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, channel }) => {
+const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, channel }: ChatComponentProps) => {
     const [newMessage, setNewMessage] = useState('');
     const chatBoxRef = useRef<HTMLDivElement>(null);
     const { chatWindow } = constraints;
@@ -88,7 +169,7 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
         const currentTime = now.getHours() * 60 + now.getMinutes();
         const startTime = startH * 60 + startM;
         const endTime = endH * 60 + endM;
-        const formatTime = (timeStr) => new Date(`1970-01-01T${timeStr}:00`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const formatTime = (timeStr: string) => new Date(`1970-01-01T${timeStr}:00`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
         const open = currentTime >= startTime && currentTime <= endTime;
         return { isOpen: open, statusText: `Chat is ${open ? 'open' : 'closed'}. Hours: ${formatTime(chatWindow.start)} - ${formatTime(chatWindow.end)}.` };
@@ -100,7 +181,7 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
         }
     }, [messages, classId, channel]);
 
-    const handleSend = (e) => {
+    const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (newMessage.trim() && isOpen && classId) {
             onSendMessage(newMessage, classId, channel);
@@ -109,7 +190,7 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
     };
     
     const filteredMessages = messages.filter(m => m.classId === classId && m.channel === channel);
-    const roleColors = { admin: 'bg-red-500', teacher: 'bg-green-500', student: 'bg-blue-500' };
+    const roleColors: { [key in 'admin' | 'teacher' | 'student']: string } = { admin: 'bg-red-500', teacher: 'bg-green-500', student: 'bg-blue-500' };
 
     return (
         React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md flex flex-col h-[500px] lg:h-full" },
@@ -134,14 +215,14 @@ const ChatComponent = ({ messages, onSendMessage, user, constraints, classId, ch
     );
 };
 
-const StudentForm = ({ student, onSave, onCancel, classId }: { student: Student | null, onSave: (data: any) => void, onCancel: () => void, classId: string }) => {
+const StudentForm = ({ student, onSave, onCancel, classId }: StudentFormProps) => {
     const [formData, setFormData] = useState(
         student
             ? { ...student, email: student.email || '', roll: student.roll || '' }
             : { name: '', email: '', roll: '', classId }
     );
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(formData); };
     return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg" },
         React.createElement("input", { name: "name", value: formData.name, onChange: handleChange, placeholder: "Student Name", className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md", required: true }),
         React.createElement("input", { name: "email", type: "email", value: formData.email, onChange: handleChange, placeholder: "Email (optional)", className: "w-full p-2 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-md" }),
@@ -153,15 +234,15 @@ const StudentForm = ({ student, onSave, onCancel, classId }: { student: Student 
     );
 };
 
-const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, constraints, updateConstraints }) => {
+const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, constraints, updateConstraints }: ClassroomManagerProps) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
-    const [editingStudent, setEditingStudent] = useState(null);
+    const [editingStudent, setEditingStudent] = useState<Student | { new: true } | null>(null);
 
     const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId), [students, selectedClassId]);
     const selectedClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
-    const handleChatWindowChange = (e) => updateConstraints({ ...constraints, chatWindow: { ...(constraints.chatWindow || {}), [e.target.name]: e.target.value } });
-    const handleSaveStudent = (studentData) => { onSaveEntity('student', studentData); setEditingStudent(null); };
+    const handleChatWindowChange = (e: React.ChangeEvent<HTMLInputElement>) => updateConstraints({ ...constraints, chatWindow: { ...(constraints.chatWindow || { start: '', end: '' }), [e.target.name]: e.target.value } });
+    const handleSaveStudent = (studentData: Partial<Student>) => { onSaveEntity('student', studentData); setEditingStudent(null); };
 
     return React.createElement("div", { className: "grid grid-cols-1 lg:grid-cols-3 gap-8" },
         React.createElement("div", { className: "lg:col-span-1" },
@@ -189,9 +270,9 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
                         React.createElement("h3", { className: "font-bold text-lg" }, "Students in ", selectedClass.name),
                         React.createElement("button", { onClick: () => setEditingStudent({ new: true }), className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold" }, React.createElement(AddIcon, null), "Add Student")
                     ),
-                    editingStudent?.new && React.createElement(StudentForm, { student: null, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId }),
+                    (editingStudent && 'new' in editingStudent) && React.createElement(StudentForm, { student: null, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId }),
                     React.createElement("div", { className: "space-y-2 mt-4" }, studentsInClass.map(student =>
-                        editingStudent?.id === student.id ? React.createElement(StudentForm, { key: student.id, student: student, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId })
+                        (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? React.createElement(StudentForm, { key: student.id, student: student, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId })
                         : React.createElement("div", { key: student.id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
                             React.createElement("div", null,
                                 React.createElement("p", { className: "font-semibold" }, student.name),
@@ -209,14 +290,14 @@ const ClassroomManager = ({ classes, students, onSaveEntity, onDeleteEntity, con
     );
 };
 
-const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }: { classes: Class[], students: Student[], attendance: Attendance, onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void }) => {
+const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }: AttendanceManagerProps) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
     const studentsInClass = students.filter(s => s.classId === selectedClassId);
     const attendanceForDay = attendance[selectedClassId]?.[selectedDate] || {};
 
-    const handleStatusChange = (studentId, status) => { onUpdateAttendance(selectedClassId, selectedDate, studentId, status); };
+    const handleStatusChange = (studentId: string, status: AttendanceStatus) => { onUpdateAttendance(selectedClassId, selectedDate, studentId, status); };
     
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
         React.createElement("h3", { className: "font-bold text-lg mb-4" }, "Mark Attendance"),
@@ -238,8 +319,60 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     );
 };
 
+const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error }: UserFormProps) => {
+    const [role, setRole] = useState('teacher');
+    const [profileId, setProfileId] = useState('');
+    const [password, setPassword] = useState('');
+    const profiles = role === 'teacher' ? availableFaculty : availableStudents;
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const profile = profiles.find(p => p.id === profileId);
+        if (!profile || !password) {
+            alert("Please select a profile and enter a password.");
+            return;
+        }
+        onSave({ username: profile.email, password, role, profileId });
+    };
+    
+    useEffect(() => { setProfileId(''); }, [role]);
+
+    const profileOptions = [
+// FIX: Pass string child as a separate argument instead of a 'children' prop to fix a TypeScript type inference issue.
+        React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
+        ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
+        : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
+    ];
+
+    return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
+        error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md", children: error }),
+        React.createElement("div", { key: "role-selector" }, 
+            React.createElement("label", { className: "block font-medium" }, "Role"),
+            React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: [
+// FIX: Pass string child as a separate argument instead of a 'children' prop.
+                React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
+// FIX: Pass string child as a separate argument instead of a 'children' prop.
+                React.createElement("option", { key: "student", value: "student" }, "Student")
+            ]})
+        ),
+        React.createElement("div", { key: "profile-selector" },
+             React.createElement("label", { className: "block font-medium" }, "Select Profile"),
+             React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: profileOptions })
+        ),
+        React.createElement("div", { key: "password-input" },
+            React.createElement("label", { className: "block font-medium" }, "Password"),
+            React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
+        ),
+        React.createElement("div", { key: "action-buttons", className: "flex justify-end gap-2" },
+            React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
+            React.createElement("button", { type: "submit", className: "bg-indigo-600 text-white px-4 py-2 rounded-md" }, "Create User")
+        )
+    ] });
+};
+
+
 // NEW: User Management Component for Admin Dashboard
-const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => {
+const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }: UserManagerProps) => {
     const [modalOpen, setModalOpen] = useState(false);
     const [error, setError] = useState<string>('');
 
@@ -250,73 +383,20 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
     const availableFaculty = useMemo(() => faculty.filter(f => f.email && !userProfileIds.has(f.id)), [faculty, userProfileIds]);
     const availableStudents = useMemo(() => students.filter(s => s.email && !userProfileIds.has(s.id)), [students, userProfileIds]);
 
-    const handleSave = async (userData) => {
+    const handleSave = async (userData: any) => {
         setError('');
         try {
             await onSaveUser(userData);
             setModalOpen(false);
-        } catch (err) {
+        } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "An unexpected error occurred.");
         }
     };
     
-    const handleDelete = (user) => {
+    const handleDelete = (user: any) => {
         if (window.confirm(`Are you sure you want to delete the user account for ${user.username}?`)) {
-            onDeleteUser(user._id).catch(err => alert(`Failed to delete user: ${err.message}`));
+            onDeleteUser(user._id).catch((err: unknown) => alert(`Failed to delete user: ${err instanceof Error ? err.message : 'Unknown error'}`));
         }
-    };
-
-    const UserForm = ({ onSave, onCancel }) => {
-        const [role, setRole] = useState('teacher');
-        const [profileId, setProfileId] = useState('');
-        const [password, setPassword] = useState('');
-        const profiles = role === 'teacher' ? availableFaculty : availableStudents;
-        
-        const handleSubmit = (e) => {
-            e.preventDefault();
-            const profile = profiles.find(p => p.id === profileId);
-            if (!profile || !password) {
-                alert("Please select a profile and enter a password.");
-                return;
-            }
-            onSave({ username: profile.email, password, role, profileId });
-        };
-        
-        useEffect(() => { setProfileId(''); }, [role]);
-
-// FIX: To resolve TypeScript errors with React.createElement, pass children as a `children` prop array instead of varargs.
-        const profileOptions = [
-// FIX: Changed to use `children` prop for option text to fix TypeScript inference error on `value` prop.
-            React.createElement("option", { key: "placeholder", value: "", disabled: true, children: "Select a profile" }),
-            ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id, children: `${p.name} (${p.email})` }))
-            : [React.createElement("option", { key: "no-profiles", value: "", disabled: true, children: `No available ${role} profiles` })])
-        ];
-
-// FIX: To resolve TypeScript errors with React.createElement, pass children as a `children` prop array instead of varargs. This also fixes the 'unknown' type error.
-        return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-// FIX: Changed to use `children` prop to fix `unknown` type error with `error` variable.
-            error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md", children: error }),
-            React.createElement("div", { key: "role-selector" }, 
-                React.createElement("label", { className: "block font-medium" }, "Role"),
-// FIX: Changed to use `children` prop for option text to fix TypeScript inference error on `value` prop.
-                React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: [
-                    React.createElement("option", { key: "teacher", value: "teacher", children: "Teacher" }),
-                    React.createElement("option", { key: "student", value: "student", children: "Student" })
-                ]})
-            ),
-            React.createElement("div", { key: "profile-selector" },
-                 React.createElement("label", { className: "block font-medium" }, "Select Profile"),
-                 React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: profileOptions })
-            ),
-            React.createElement("div", { key: "password-input" },
-                React.createElement("label", { className: "block font-medium" }, "Password"),
-                React.createElement("input", { type: "password", value: password, onChange: e => setPassword(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" })
-            ),
-            React.createElement("div", { key: "action-buttons", className: "flex justify-end gap-2" },
-                React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
-                React.createElement("button", { type: "submit", className: "bg-indigo-600 text-white px-4 py-2 rounded-md" }, "Create User")
-            )
-        ] });
     };
 
     return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
@@ -327,7 +407,7 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
         modalOpen && React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center" }, 
             React.createElement("div", { className: "bg-white dark:bg-slate-800 p-6 rounded-lg w-full max-w-md" },
                 React.createElement("h3", { className: "text-lg font-bold mb-4" }, "Create New User"),
-                React.createElement(UserForm, { onSave: handleSave, onCancel: () => setModalOpen(false) })
+                React.createElement(UserForm, { onSave: handleSave, onCancel: () => setModalOpen(false), availableFaculty, availableStudents, error })
             )
         ),
         React.createElement("div", { className: "space-y-4" },
@@ -344,7 +424,7 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }) => 
     );
 };
 
-const PlaceholderContent = ({ title, icon, message = "This feature is under development and will be available soon." }) => (
+const PlaceholderContent = ({ title, icon, message = "This feature is under development and will be available soon." }: PlaceholderContentProps) => (
     React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border-2 border-dashed border-gray-300 dark:border-slate-700 p-8 rounded-2xl shadow-inner text-center flex flex-col items-center justify-center min-h-[400px]" },
         React.createElement("div", { className: "text-gray-400 dark:text-gray-500 mb-4" }, icon),
         React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, title),
@@ -352,7 +432,7 @@ const PlaceholderContent = ({ title, icon, message = "This feature is under deve
     )
 );
 
-const AdminDashboard = (props) => {
+const AdminDashboard = (props: any) => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('overview');
     const studentCount = props.students.length;
@@ -415,22 +495,22 @@ const AdminDashboard = (props) => {
     );
 };
 
-const TeacherDashboard = (props) => {
+const TeacherDashboard = (props: any) => {
     const [activeTab, setActiveTab] = useState('timetable');
 
     const myFacultyProfile = useMemo(() => 
-        props.faculty.find(f => f.email === props.user.username), 
+        props.faculty.find((f: Faculty) => f.email === props.user.username), 
     [props.faculty, props.user.username]);
 
     const teacherTimetable = useMemo(() => {
         if (!myFacultyProfile) return [];
-        return (props.timetable || []).filter(e => e.faculty === myFacultyProfile.name);
+        return (props.timetable || []).filter((e: TimetableEntry) => e.faculty === myFacultyProfile.name);
     }, [props.timetable, myFacultyProfile]);
     
     const teacherClasses = useMemo(() => {
         if (!teacherTimetable) return [];
-        const classNames = [...new Set(teacherTimetable.map(e => e.className))];
-        return classNames.map(name => props.classes.find(c => c.name === name)).filter(Boolean);
+        const classNames = [...new Set(teacherTimetable.map((e: TimetableEntry) => e.className))];
+        return classNames.map(name => props.classes.find((c: Class) => c.name === name)).filter(Boolean);
     }, [teacherTimetable, props.classes]);
 
     const [selectedClassId, setSelectedClassId] = useState('');
@@ -456,7 +536,7 @@ const TeacherDashboard = (props) => {
                 }
                 return React.createElement(React.Fragment, null,
                     React.createElement("div", { className: "flex gap-4 mb-4" },
-                        React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, ...teacherClasses.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                        React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, ...teacherClasses.map((c: Class) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
                         React.createElement("select", { value: channel, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value), className: "p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" }, React.createElement("option", { value: "query" }, "Query"), React.createElement("option", { value: "attendance" }, "Attendance"))
                     ),
                     React.createElement(ChatComponent, { ...props, classId: selectedClassId, channel: channel })
@@ -486,8 +566,8 @@ const TeacherDashboard = (props) => {
     )
 };
 
-const UpcomingClasses = ({ upcoming }) => {
-  const getRelativeDay = (dayName) => {
+const UpcomingClasses = ({ upcoming }: UpcomingClassesProps) => {
+  const getRelativeDay = (dayName: string) => {
     const now = new Date();
     const jsDayToName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const todayName = jsDayToName[now.getDay()];
@@ -532,14 +612,14 @@ const UpcomingClasses = ({ upcoming }) => {
   );
 };
 
-const StudentDashboard = (props) => {
+const StudentDashboard = (props: any) => {
     const [activeTab, setActiveTab] = useState('schedule');
     
-    const myStudentProfile = useMemo(() => props.students.find(s => s.email === props.user.username), [props.students, props.user.username]);
+    const myStudentProfile = useMemo(() => props.students.find((s: Student) => s.email === props.user.username), [props.students, props.user.username]);
     
-    const myClass = useMemo(() => myStudentProfile ? props.classes.find(c => c.id === myStudentProfile.classId) : null, [props.classes, myStudentProfile]);
+    const myClass = useMemo(() => myStudentProfile ? props.classes.find((c: Class) => c.id === myStudentProfile.classId) : null, [props.classes, myStudentProfile]);
     
-    const studentTimetable = useMemo(() => (myClass && props.timetable) ? props.timetable.filter(e => e.className === myClass.name) : [], [props.timetable, myClass]);
+    const studentTimetable = useMemo(() => (myClass && props.timetable) ? props.timetable.filter((e: TimetableEntry) => e.className === myClass.name) : [], [props.timetable, myClass]);
     
     const [channel, setChannel] = useState('query');
 
@@ -553,7 +633,7 @@ const StudentDashboard = (props) => {
 
         const dayIndexMap = Object.fromEntries(DAYS.map((day, i) => [day.toLowerCase(), i]));
 
-        const getStartTimeInMinutes = (timeSlot) => {
+        const getStartTimeInMinutes = (timeSlot: string) => {
           const [start] = timeSlot.split('-');
           const [h, m] = start.split(':').map(Number);
           return h * 60 + m;
@@ -646,7 +726,7 @@ const StudentDashboard = (props) => {
     )
 };
 
-export const Dashboard = (props) => {
+export const Dashboard = (props: any) => {
     const { user, ...restProps } = props;
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     
