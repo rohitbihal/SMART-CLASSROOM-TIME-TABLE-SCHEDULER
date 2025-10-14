@@ -77,12 +77,13 @@ const TIME_SLOTS = [ '09:30-10:20', '10:20-11:10', '11:10-12:00', '12:00-12:50',
 
 async function seedDatabase(force = false) {
     try {
-        const classCount = await Class.countDocuments();
-        if (classCount > 0 && !force) {
-            console.log('Database already contains data. Skipping seed.');
+        const adminUser = await User.findOne({ username: 'admin@university.edu' });
+        if (adminUser && !force) {
+            console.log('Database already contains admin user. Skipping seed.');
             return;
         }
-        console.log(force ? 'Forcing database seed/reset...' : 'Database is empty. Seeding with mock data...');
+        
+        console.log(force ? 'Forcing database seed/reset...' : 'Database is empty or incomplete. Seeding with mock data...');
         await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
 
         // Hash passwords for mock users before inserting
@@ -324,7 +325,11 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
             config: {
                 responseMimeType: "application/json",
                 responseSchema: responseSchema,
-                temperature: 0.2 // Lower temperature for more predictable scheduling
+                temperature: 0.2, // Lower temperature for more predictable scheduling
+                // NOTE: Disabled thinking to prioritize generation speed. This may reduce the quality or
+                // success rate of the generated timetable, especially with complex constraints.
+                // For higher quality results, this line can be removed.
+                thinkingConfig: { thinkingBudget: 0 },
             },
         });
 

@@ -160,9 +160,10 @@ export const App = () => {
   }, [attendance]);
   
   const handleLogin = (loggedInUser: User, authToken: string) => {
-    setUser(loggedInUser);
+    const userToSave = { ...loggedInUser, profilePictureUrl: user?.profilePictureUrl || '' };
+    setUser(userToSave);
     setToken(authToken);
-    sessionStorage.setItem('user', JSON.stringify(loggedInUser));
+    sessionStorage.setItem('user', JSON.stringify(userToSave));
     sessionStorage.setItem('token', authToken);
     setIsInitialLoad(false);
   };
@@ -256,6 +257,14 @@ export const App = () => {
           ...prev, [classId]: { ...(prev[classId] || {}), [date]: { ...((prev[classId] && prev[classId][date]) || {}), [studentId]: status } }
       }));
   };
+  
+  const handleUpdateProfilePicture = (dataUrl: string) => {
+    if (!user) return;
+    const updatedUser = { ...user, profilePictureUrl: dataUrl };
+    setUser(updatedUser);
+    sessionStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
 
   const handleResetData = async () => {
     if (user?.role !== 'admin') throw new Error("You don't have permission to perform this action.");
@@ -328,7 +337,8 @@ export const App = () => {
           onDeleteEntity: handleDeleteEntity,
           onSaveUser: handleSaveUser,
           onDeleteUser: handleDeleteUser,
-          token: token
+          token: token,
+          onUpdateProfilePicture: handleUpdateProfilePicture
       }) }),
       React.createElement(Route, {
         path: "/scheduler",

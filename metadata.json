@@ -1,5 +1,7 @@
 {
   "name": "Smart Campus & Timetable Scheduler",
   "description": "An AI-powered application to generate and manage college timetables. It helps administrators set up classes, faculty, subjects, and constraints to automatically create an optimal, conflict-free schedule using the Gemini API.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

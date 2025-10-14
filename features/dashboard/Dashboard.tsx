@@ -1,10 +1,9 @@
 
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SubjectIcon, SunIcon, TeacherIcon, ChatIcon, EditIcon, DeleteIcon, AddIcon, SaveIcon, UsersIcon,
-    IMSIcon, AnalyticsIcon, SecurityIcon, AIIcon, ResourcesIcon, AttendanceIcon, CommunicationIcon, SmartToolsIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, BookOpenIcon, AvailabilityIcon, RequestsIcon
+    IMSIcon, AnalyticsIcon, SecurityIcon, AIIcon, ResourcesIcon, AttendanceIcon, CommunicationIcon, SmartToolsIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, BookOpenIcon, AvailabilityIcon, RequestsIcon, ProfileIcon, CameraIcon, UploadIcon
 } from '../../components/Icons';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { TimetableEntry, Class, Faculty, Subject, Constraints, ChatMessage, Student, Attendance, AttendanceStatus, User } from '../../types';
@@ -23,11 +22,13 @@ interface TabButtonProps {
 }
 
 interface HeaderProps {
+    user: User;
     title: string;
     subtitle: string;
     onLogout: () => void;
     theme: string;
     toggleTheme: () => void;
+    onProfileClick: () => void;
 }
 
 interface TimetableGridProps {
@@ -112,8 +113,11 @@ interface DashboardProps {
     onDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => Promise<void>;
     onSaveUser: (userData: any) => Promise<void>;
     onDeleteUser: (userId: string) => Promise<void>;
+    onUpdateProfilePicture: (dataUrl: string) => void;
     token: string | null;
     timetable: TimetableEntry[];
+    // FIX: Added onProfileClick to DashboardProps to be passed down to child dashboards and then to the Header.
+    onProfileClick: () => void;
 }
 
 interface ModalProps {
@@ -122,6 +126,13 @@ interface ModalProps {
     title: string;
     children?: React.ReactNode;
     error?: string | null;
+}
+
+interface ProfilePictureModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (dataUrl: string) => void;
+    currentUser: User;
 }
 
 // Reusable UI Components
@@ -155,13 +166,18 @@ const Modal = ({ isOpen, onClose, title, children = null, error = null }: ModalP
     );
 };
 
-const Header = ({ title, subtitle, onLogout, theme, toggleTheme }: HeaderProps) => (
+const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme, onProfileClick }: HeaderProps) => (
     React.createElement("div", { className: "bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-2xl shadow-lg mb-8 flex justify-between items-center" },
         React.createElement("div", null,
             React.createElement("h1", { className: "text-3xl font-bold" }, title),
             React.createElement("p", { className: "opacity-90 mt-1" }, subtitle)
         ),
         React.createElement("div", {className: "flex items-center gap-2"},
+             React.createElement("button", { onClick: onProfileClick, className: "h-12 w-12 rounded-full bg-white/20 flex items-center justify-center ring-2 ring-white/50 hover:ring-white transition", title: "Change Profile Picture" },
+                user.profilePictureUrl ?
+                    React.createElement("img", { src: user.profilePictureUrl, alt: "Profile", className: "h-full w-full rounded-full object-cover" }) :
+                    React.createElement(ProfileIcon, { className: "h-7 w-7 text-white" })
+            ),
             React.createElement("button", { onClick: toggleTheme, className: "bg-white/20 hover:bg-white/30 text-white font-semibold p-2.5 rounded-lg flex items-center gap-2 transition" },
                 theme === 'dark' ? React.createElement(SunIcon, null) : React.createElement(MoonIcon, null)
             ),
@@ -561,6 +577,110 @@ const PlaceholderContent = ({ title, icon, message = "This feature is under deve
     )
 );
 
+const ProfilePictureModal = ({ isOpen, onClose, onSave, currentUser }: ProfilePictureModalProps) => {
+    const [imageSrc, setImageSrc] = useState<string | null>(currentUser.profilePictureUrl || null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [error, setError] = useState('');
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const cleanUpCamera = () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        setIsCameraOpen(false);
+    };
+
+    const handleClose = () => {
+        cleanUpCamera();
+        setError('');
+        setImageSrc(currentUser.profilePictureUrl || null);
+        onClose();
+    };
+    
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                setError("File is too large. Please select an image smaller than 2MB.");
+                return;
+            }
+            setError('');
+            const reader = new FileReader();
+            reader.onload = (e) => setImageSrc(e.target?.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const openCamera = async () => {
+        cleanUpCamera();
+        setImageSrc(null);
+        setError('');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                setIsCameraOpen(true);
+            }
+        } catch (err) {
+            setError("Could not access camera. Please check permissions.");
+            console.error("Camera access error:", err);
+        }
+    };
+
+    const capturePhoto = () => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (video && canvas) {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+            setImageSrc(canvas.toDataURL('image/jpeg'));
+            cleanUpCamera();
+        }
+    };
+
+    const handleSave = () => {
+        if (imageSrc) {
+            onSave(imageSrc);
+            handleClose();
+        }
+    };
+
+    return React.createElement(Modal, { isOpen, onClose: handleClose, title: "Update Profile Picture", error },
+        React.createElement("div", { className: "text-center space-y-4" },
+            React.createElement("div", { className: "w-48 h-48 mx-auto rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden border-4 border-white dark:border-slate-600 shadow-lg" },
+                imageSrc && !isCameraOpen && React.createElement("img", { src: imageSrc, alt: "Profile Preview", className: "w-full h-full object-cover" }),
+                !imageSrc && !isCameraOpen && React.createElement(ProfileIcon, { className: "w-24 h-24 text-gray-400 dark:text-gray-500" }),
+                isCameraOpen && React.createElement("video", { ref: videoRef, autoPlay: true, playsInline: true, className: "w-full h-full object-cover" })
+            ),
+            React.createElement("canvas", { ref: canvasRef, className: "hidden" }),
+            
+            !isCameraOpen ? (
+                React.createElement(React.Fragment, null,
+                    React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, onChange: handleFileChange, className: "hidden" }),
+                    React.createElement("div", { className: "flex gap-4 justify-center" },
+                        React.createElement("button", { onClick: () => fileInputRef.current?.click(), className: "flex-1 flex items-center justify-center gap-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 font-semibold py-2 px-4 rounded-md transition" }, React.createElement(UploadIcon, null), "Upload"),
+                        React.createElement("button", { onClick: openCamera, className: "flex-1 flex items-center justify-center gap-2 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 font-semibold py-2 px-4 rounded-md transition" }, React.createElement(CameraIcon, null), "Take Photo")
+                    )
+                )
+            ) : (
+                React.createElement("button", { onClick: capturePhoto, className: "w-full flex items-center justify-center gap-2 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md transition" }, React.createElement(CameraIcon, null), "Capture")
+            ),
+
+            React.createElement("div", { className: "flex justify-end gap-4 pt-4 border-t border-gray-200 dark:border-slate-700" },
+                React.createElement("button", { onClick: handleClose, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md font-semibold" }, "Cancel"),
+                React.createElement("button", { onClick: handleSave, disabled: !imageSrc, className: "bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold disabled:bg-indigo-400 disabled:cursor-not-allowed" }, "Save")
+            )
+        )
+    );
+};
+
+
 const AdminDashboard = (props: DashboardProps) => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('overview');
@@ -845,7 +965,7 @@ const StudentDashboard = (props: DashboardProps) => {
     return React.createElement("div", { className: "p-4 md:p-8 min-h-screen bg-transparent" },
         React.createElement(Header, { title: "Student Dashboard", subtitle: `Welcome, ${myStudentProfile?.name || props.user.username}`, ...props }),
         React.createElement(Tabs, null,
-            React.createElement(TabButton, { isActive: activeTab === 'schedule', onClick: () => setActiveTab('schedule'), children: [React.createElement(SchedulerIcon, { className: 'h-5 w-5'}), "My Schedule"] }),
+            React.createElement(TabButton, { isActive: activeTab === 'schedule', onClick: () => setActiveTab('schedule'), children: [React.createElement(SchedulerIcon, {className: 'h-5 w-5'}), "My Schedule"] }),
             React.createElement(TabButton, { isActive: activeTab === 'ims', onClick: () => setActiveTab('ims'), children: [React.createElement(IMSIcon, {className: 'h-5 w-5'}), "IMS"] }),
             React.createElement(TabButton, { isActive: activeTab === 'smart_tools', onClick: () => setActiveTab('smart_tools'), children: [React.createElement(SmartToolsIcon, {className: 'h-5 w-5'}), "Smart Tools"] }),
             React.createElement(TabButton, { isActive: activeTab === 'subjects', onClick: () => setActiveTab('subjects'), children: [React.createElement(BookOpenIcon, {className: 'h-5 w-5'}), "Subjects"] }),
@@ -860,9 +980,10 @@ const StudentDashboard = (props: DashboardProps) => {
     )
 };
 
-export const Dashboard = (props: Omit<DashboardProps, 'timetable'>) => {
-    const { user, ...restProps } = props;
+export const Dashboard = (props: Omit<DashboardProps, 'timetable' | 'onProfileClick'>) => {
+    const { user, onUpdateProfilePicture, ...restProps } = props;
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     
     useEffect(() => {
         const loadTimetable = () => {
@@ -880,12 +1001,25 @@ export const Dashboard = (props: Omit<DashboardProps, 'timetable'>) => {
         return () => window.removeEventListener('storage', loadTimetable);
     }, []);
 
-    const dashboardProps = { ...restProps, user, timetable };
+    // FIX: Added onUpdateProfilePicture to dashboardProps to satisfy the DashboardProps interface for child components.
+    const dashboardProps: DashboardProps = { ...restProps, user, timetable, onUpdateProfilePicture, onProfileClick: () => setIsProfileModalOpen(true) };
 
-    switch (user.role) {
-        case 'admin': return React.createElement(AdminDashboard, dashboardProps);
-        case 'teacher': return React.createElement(TeacherDashboard, dashboardProps);
-        case 'student': return React.createElement(StudentDashboard, dashboardProps);
-        default: return React.createElement("div", null, "Invalid role");
-    }
+    const renderDashboard = () => {
+        switch (user.role) {
+            case 'admin': return React.createElement(AdminDashboard, dashboardProps);
+            case 'teacher': return React.createElement(TeacherDashboard, dashboardProps);
+            case 'student': return React.createElement(StudentDashboard, dashboardProps);
+            default: return React.createElement("div", null, "Invalid role");
+        }
+    };
+    
+    return React.createElement(React.Fragment, null,
+        renderDashboard(),
+        React.createElement(ProfilePictureModal, {
+            isOpen: isProfileModalOpen,
+            onClose: () => setIsProfileModalOpen(false),
+            onSave: onUpdateProfilePicture,
+            currentUser: user
+        })
+    );
 };
