@@ -408,7 +408,6 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
 };
 
 const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: UserFormProps) => {
-    // FIX: Changed role state to be of type string to avoid a TypeScript inference issue with the select element's value prop.
     const [role, setRole] = useState<string>('teacher');
     const [profileId, setProfileId] = useState('');
     const [password, setPassword] = useState('');
@@ -425,7 +424,6 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: Use
         }
         
         try {
-            // FIX: Cast role back to User['role'] for type safety when saving.
             await onSave({ username: profile.email || '', password, role: role as User['role'], profileId });
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -434,21 +432,14 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents }: Use
 
     useEffect(() => { setProfileId(''); }, [role]);
     
-    // FIX: Refactored profileOptions creation to be more explicit and avoid potential TS inference issues.
-    // FIX: Explicitly typed profileOptions as React.ReactNode[] to allow pushing elements with different prop shapes.
+    // FIX: Refactored profileOptions creation to use .map() for better type inference and consistency.
     const profileOptions: React.ReactNode[] = [
-        React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile")
+        React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
+        ...(profiles.length > 0
+            ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email || ''})`))
+            : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
     ];
 
-    if (profiles.length > 0) {
-        profiles.forEach(p => {
-            profileOptions.push(React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email || ''})`));
-        });
-    } else {
-        profileOptions.push(React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`));
-    }
-
-    // FIX: Refactored to use map for creating options to ensure proper type inference.
     const roleData = [
         { value: 'teacher', label: 'Teacher' },
         { value: 'student', label: 'Student' }
