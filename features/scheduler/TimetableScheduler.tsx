@@ -94,6 +94,7 @@ interface GenerateTabProps {
     onGenerate: () => void;
     isLoading: boolean;
     error: string | null;
+    loadingMessage: string;
 }
 
 interface ViewTabProps {
@@ -631,7 +632,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
     );
 };
 
-const GenerateTab = ({ onGenerate, isLoading, error }: GenerateTabProps) => (
+const GenerateTab = ({ onGenerate, isLoading, error, loadingMessage }: GenerateTabProps) => (
     React.createElement("div", { className: "text-center bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-8 rounded-2xl shadow-lg max-w-2xl mx-auto" },
         React.createElement("h3", { className: "text-2xl font-bold text-gray-800 dark:text-gray-100" }, "Generate Timetable"),
         React.createElement("p", { className: "text-gray-500 dark:text-gray-400 my-4" }, "Click the button below to use the AI to generate an optimal, conflict-free timetable based on your setup and constraints."),
@@ -646,7 +647,7 @@ const GenerateTab = ({ onGenerate, isLoading, error }: GenerateTabProps) => (
             isLoading ? (
                 React.createElement(React.Fragment, null,
                     React.createElement(LoadingIcon, null),
-                    "Generating..."
+                    loadingMessage
                 )
             ) : (
                 React.createElement(React.Fragment, null,
@@ -859,6 +860,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState("Initializing AI generation...");
 
   const [modalState, setModalState] = useState<{ isOpen: boolean, mode: 'add' | 'edit', type: EntityType | '', data: Entity | null }>({ isOpen: false, mode: 'add', type: '', data: null });
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -867,6 +869,33 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
   const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({
       class: [], faculty: [], subject: [], room: []
   });
+
+  const loadingMessages = useMemo(() => [
+    "Analyzing your constraints...",
+    "Allocating classrooms and labs...",
+    "Scheduling subjects to avoid conflicts...",
+    "Optimizing faculty schedules...",
+    "Checking for non-consecutive class rules...",
+    "Finalizing timetable structure...",
+    "Almost there, polishing the final schedule..."
+  ], []);
+
+  useEffect(() => {
+    let intervalId: number | undefined;
+    if (isLoading) {
+        setLoadingMessage("Initializing AI generation...");
+        let messageIndex = 0;
+        intervalId = window.setInterval(() => {
+            messageIndex = (messageIndex + 1) % loadingMessages.length;
+            setLoadingMessage(loadingMessages[messageIndex]);
+        }, 2500);
+    }
+    return () => {
+        if (intervalId) {
+            window.clearInterval(intervalId);
+        }
+    };
+  }, [isLoading, loadingMessages]);
 
   useEffect(() => {
     try {
@@ -1024,7 +1053,7 @@ export const TimetableScheduler = ({ onLogout, theme, toggleTheme, classes, facu
       case 'constraints':
         return React.createElement(ConstraintsTab, { constraints: constraints, onConstraintsChange: handleConstraintsChange, classes: classes, subjects: subjects, faculty: faculty });
       case 'generate':
-        return React.createElement(GenerateTab, { onGenerate: handleInitiateGenerate, isLoading: isLoading, error: error });
+        return React.createElement(GenerateTab, { onGenerate: handleInitiateGenerate, isLoading: isLoading, error: error, loadingMessage: loadingMessage });
       case 'view':
         return React.createElement(ViewTab, { timetable: timetable });
       default:

@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -319,6 +321,8 @@ const AttendanceManager = ({ classes, students, attendance, onUpdateAttendance }
     );
 };
 
+// FIX: Refactored the component to pass children as arguments to `React.createElement` instead of using the `children` prop.
+// This resolves a subtle TypeScript type inference issue that caused an error on the `value` prop of `<option>` elements.
 const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error }: UserFormProps) => {
     const [role, setRole] = useState('teacher');
     const [profileId, setProfileId] = useState('');
@@ -337,27 +341,23 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error
     
     useEffect(() => { setProfileId(''); }, [role]);
 
-    const profileOptions = [
-// FIX: Pass string child as a separate argument instead of a 'children' prop to fix a TypeScript type inference issue.
-        React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
-        ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
-        : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
-    ];
-
-    return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4", children: [
-        error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md", children: error }),
+    return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
+        error && React.createElement("div", { key: "error", className: "bg-red-100 text-red-700 p-3 rounded-md" }, error),
         React.createElement("div", { key: "role-selector" }, 
             React.createElement("label", { className: "block font-medium" }, "Role"),
-            React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: [
-// FIX: Pass string child as a separate argument instead of a 'children' prop.
+            React.createElement("select", { value: role, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value), className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
                 React.createElement("option", { key: "teacher", value: "teacher" }, "Teacher"),
-// FIX: Pass string child as a separate argument instead of a 'children' prop.
                 React.createElement("option", { key: "student", value: "student" }, "Student")
-            ]})
+            )
         ),
         React.createElement("div", { key: "profile-selector" },
              React.createElement("label", { className: "block font-medium" }, "Select Profile"),
-             React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600", children: profileOptions })
+            // FIX: Inlined the option generation to resolve a subtle type inference issue with React.createElement.
+             React.createElement("select", { value: profileId, onChange: e => setProfileId(e.target.value), required: true, className: "w-full p-2 border rounded-md dark:bg-slate-700 dark:border-slate-600" },
+                React.createElement("option", { key: "placeholder", value: "", disabled: true }, "Select a profile"),
+                ...(profiles.length > 0 ? profiles.map(p => React.createElement("option", { key: p.id, value: p.id }, `${p.name} (${p.email})`))
+                : [React.createElement("option", { key: "no-profiles", value: "", disabled: true }, `No available ${role} profiles`)])
+             )
         ),
         React.createElement("div", { key: "password-input" },
             React.createElement("label", { className: "block font-medium" }, "Password"),
@@ -367,7 +367,7 @@ const UserForm = ({ onSave, onCancel, availableFaculty, availableStudents, error
             React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
             React.createElement("button", { type: "submit", className: "bg-indigo-600 text-white px-4 py-2 rounded-md" }, "Create User")
         )
-    ] });
+    );
 };
 
 

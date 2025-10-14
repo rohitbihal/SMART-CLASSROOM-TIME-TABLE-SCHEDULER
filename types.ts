@@ -17,7 +17,7 @@ export interface Faculty {
 }
 
 export interface Subject {
-  id: string;
+  id:string;
   name: string;
   code: string;
   type?: 'theory' | 'lab';
@@ -95,3 +95,11 @@ export interface Constraints {
 export type AttendanceStatus = 'present' | 'absent';
 export type AttendanceRecord = { [studentId: string]: AttendanceStatus };
 export type Attendance = { [classId: string]: { [date: string]: AttendanceRecord } };
+
+// User type for authentication
+export interface User {
+  username: string;
+  role: 'admin' | 'teacher' | 'student';
+  _id?: string; // from MongoDB
+  profileId?: string;
+}

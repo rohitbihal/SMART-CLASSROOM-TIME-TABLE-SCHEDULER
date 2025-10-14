@@ -1,23 +1,33 @@
-
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
+import { User } from '../../types';
 
 const API_BASE_URL = '/api';
 
-export const LoginPage = ({ onLogin }) => {
+interface LoginPageProps {
+  onLogin: (user: User, token: string) => void;
+}
+
+interface UserTypeButtonProps {
+    type: string;
+    label: string;
+    icon: React.ReactNode;
+}
+
+export const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('admin');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const demoCredentials = {
+  const demoCredentials: { [key: string]: { user: string; pass: string } } = {
     admin: { user: 'admin@university.edu', pass: 'admin123' },
     teacher: { user: 'teacher@university.edu', pass: 'teacher123' },
     student: { user: 'student@university.edu', pass: 'student123' },
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
@@ -43,7 +53,7 @@ export const LoginPage = ({ onLogin }) => {
         const { token, user } = await response.json();
         onLogin(user, token);
 
-    } catch (err) {
+    } catch (err: unknown) {
         if (err instanceof TypeError && err.message === 'Failed to fetch') {
             setError('Could not connect to the server. Please ensure the backend server is running and check its console for any errors (e.g., missing environment variables).');
         } else {
@@ -59,7 +69,7 @@ export const LoginPage = ({ onLogin }) => {
       setPassword(demoCredentials[role].pass);
   };
 
-  const UserTypeButton = ({ type, label, icon }) => (
+  const UserTypeButton = ({ type, label, icon }: UserTypeButtonProps) => (
     React.createElement("button", {
       type: "button",
       onClick: () => setRole(type),
@@ -89,7 +99,7 @@ export const LoginPage = ({ onLogin }) => {
               type: "text",
               id: "username",
               value: username,
-              onChange: (e) => setUsername(e.target.value),
+              onChange: (e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value),
               className: "mt-1 block w-full px-4 py-3 bg-white/50 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition",
               required: true,
               disabled: isLoading
@@ -101,7 +111,7 @@ export const LoginPage = ({ onLogin }) => {
               type: "password",
               id: "password",
               value: password,
-              onChange: (e) => setPassword(e.target.value),
+              onChange: (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value),
               className: "mt-1 block w-full px-4 py-3 bg-white/50 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition",
               required: true,
               disabled: isLoading

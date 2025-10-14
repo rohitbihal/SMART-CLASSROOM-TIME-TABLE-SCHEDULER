@@ -1,12 +1,12 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
 import { LoadingIcon } from './components/Icons';
-import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance } from './types';
+// FIX: Added AttendanceStatus to imports
+import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus } from './types';
 
 // NOTE: The base URL for the backend server.
 const API_BASE_URL = '/api';
@@ -23,7 +23,11 @@ const getInitialConstraints = (): Constraints => {
     };
 };
 
-const FullScreenLoader = ({ message }) => (
+interface FullScreenLoaderProps {
+    message: string;
+}
+
+const FullScreenLoader = ({ message }: FullScreenLoaderProps) => (
     React.createElement("div", { className: "fixed inset-0 bg-gray-50 dark:bg-slate-900 flex flex-col items-center justify-center z-50" },
         React.createElement(LoadingIcon, null),
         React.createElement("p", { className: "mt-4 text-lg text-gray-600 dark:text-gray-300" }, message)
@@ -31,16 +35,16 @@ const FullScreenLoader = ({ message }) => (
 );
 
 // Helper for authenticated API calls
-// FIX: Add 'any' type to options to allow for properties like 'headers', resolving a TypeScript error.
-const fetchWithAuth = async (url, options: any = {}, token) => {
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
+const fetchWithAuth = async (url: string, options: RequestInit = {}, token: string | null) => {
+    const headers = new Headers(options.headers || {});
+    headers.set('Content-Type', 'application/json');
+
     if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        headers.set('Authorization', `Bearer ${token}`);
     }
+
     const response = await fetch(url, { ...options, headers });
+
     if (response.status === 401 || response.status === 403) {
         // Token is invalid or expired, force logout
         sessionStorage.clear();
@@ -50,6 +54,12 @@ const fetchWithAuth = async (url, options: any = {}, token) => {
     return response;
 };
 
+interface ProtectedRouteProps {
+    user: User | null;
+    allowedRoles: string[];
+    children: React.ReactElement;
+}
+
 /**
  * A component to protect routes based on user authentication and role.
  * @param {object} props - Component props.
@@ -58,7 +68,7 @@ const fetchWithAuth = async (url, options: any = {}, token) => {
  * @param {React.ReactNode} props.children - The component to render if authorized.
  * @returns {React.ReactElement} - The child component or a redirect.
  */
-const ProtectedRoute = ({ user, allowedRoles, children }) => {
+const ProtectedRoute = ({ user, allowedRoles, children }: ProtectedRouteProps) => {
     if (!user) {
         // If no user is logged in, redirect to the login page.
         return React.createElement(Navigate, { to: "/login" });
@@ -73,11 +83,11 @@ const ProtectedRoute = ({ user, allowedRoles, children }) => {
 
 
 export const App = () => {
-  const [user, setUser] = useState(() => {
+  const [user, setUser] = useState<User | null>(() => {
     const savedUser = sessionStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [token, setToken] = useState(() => sessionStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('token'));
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
   
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -86,8 +96,7 @@ export const App = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  // FIX: Initialize with a specific type to avoid `never[]` inference, which caused downstream type errors.
-  const [users, setUsers] = useState<any[]>([]); // NEW: State for user accounts
+  const [users, setUsers] = useState<User[]>([]);
   const [constraints, setConstraints] = useState<Constraints>(getInitialConstraints());
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   
@@ -151,7 +160,7 @@ export const App = () => {
     } catch (error) { console.error("Failed to save attendance data:", error); }
   }, [attendance]);
   
-  const handleLogin = (loggedInUser, authToken) => {
+  const handleLogin = (loggedInUser: User, authToken: string) => {
     setUser(loggedInUser);
     setToken(authToken);
     sessionStorage.setItem('user', JSON.stringify(loggedInUser));
@@ -196,15 +205,18 @@ export const App = () => {
         if (!response.ok) throw new Error(`Failed to save ${type}`);
         const savedItem = await response.json();
         
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
+        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents };
+        const setter = setterMap[type] as React.Dispatch<React.SetStateAction<any[]>>;
+
         if (isAdding) {
             setter(prev => [...prev, savedItem]);
         } else {
             setter(prev => prev.map(item => item.id === savedItem.id ? savedItem : item));
         }
-    } catch (error) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error(`Error saving ${type}:`, error);
-        alert(`Error saving ${type}: ${error.message}`);
+        alert(`Error saving ${type}: ${message}`);
     }
   };
 
@@ -217,15 +229,17 @@ export const App = () => {
         const response = await fetchWithAuth(`${API_BASE_URL}/${type}/${id}`, { method: 'DELETE' }, token);
         if (!response.ok) throw new Error(`Failed to delete ${type}`);
         
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
+        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents };
+        const setter = setterMap[type] as React.Dispatch<React.SetStateAction<any[]>>;
         setter(prev => prev.filter(item => item.id !== id));
-     } catch (error) {
+     } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error(`Error deleting ${type}:`, error);
-        alert(`Error deleting ${type}: ${error.message}`);
+        alert(`Error deleting ${type}: ${message}`);
      }
   };
 
-  const handleSaveUser = async (userData) => {
+  const handleSaveUser = async (userData: any) => {
       if (user?.role !== 'admin') throw new Error("Permission denied.");
       const response = await fetchWithAuth(`${API_BASE_URL}/users`, {
           method: 'POST', body: JSON.stringify(userData)
@@ -238,7 +252,7 @@ export const App = () => {
       setUsers(prev => [...prev, newUser]);
   };
 
-  const handleDeleteUser = async (userId) => {
+  const handleDeleteUser = async (userId: string) => {
       if (user?.role !== 'admin') throw new Error("Permission denied.");
       const response = await fetchWithAuth(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' }, token);
       if (!response.ok) {
@@ -248,7 +262,8 @@ export const App = () => {
       setUsers(prev => prev.filter(u => u._id !== userId));
   };
   
-  const handleUpdateAttendance = (classId, date, studentId, status) => {
+  // FIX: Changed status type from string to AttendanceStatus to match type definition.
+  const handleUpdateAttendance = (classId: string, date: string, studentId: string, status: AttendanceStatus) => {
       setAttendance(prev => ({
           ...prev, [classId]: { ...(prev[classId] || {}), [date]: { ...((prev[classId] && prev[classId][date]) || {}), [studentId]: status } }
       }));
@@ -282,9 +297,10 @@ export const App = () => {
 
         localStorage.removeItem('smartCampusShared');
         alert('Data has been reset successfully.');
-    } catch (error) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         console.error("Error resetting data:", error);
-        alert(`Failed to reset data: ${error.message}`);
+        alert(`Failed to reset data: ${message}`);
     } finally {
         setIsInitialLoad(false);
     }
@@ -306,19 +322,17 @@ export const App = () => {
   return (
     React.createElement(HashRouter, null,
       React.createElement(Routes, null,
-        // FIX: Removed 'apiBaseUrl' prop from LoginPage as it's not defined in the component's props.
         React.createElement(Route, { path: "/login", element: user ? React.createElement(Navigate, { to: "/" }) : React.createElement(LoginPage, { onLogin: handleLogin }) }),
         React.createElement(Route, { path: "/", element: user ? React.createElement(Dashboard, dashboardProps) : React.createElement(Navigate, { to: "/login" }) }),
         React.createElement(Route, {
           path: "/scheduler",
-          // FIX: Pass children explicitly in props to satisfy TypeScript's type checking for the untyped `ProtectedRoute` component.
           element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children: 
             React.createElement(TimetableScheduler, {
                 onLogout: handleLogout, theme: theme, toggleTheme: toggleTheme,
                 classes, faculty, subjects, rooms, students,
                 constraints, setConstraints,
                 onSaveEntity: handleSaveEntity, onDeleteEntity: handleDeleteEntity, onResetData: handleResetData,
-                token
+                token: token || ''
               })
           })
         }),

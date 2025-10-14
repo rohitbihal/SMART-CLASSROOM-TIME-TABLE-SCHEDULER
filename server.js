@@ -412,6 +412,7 @@ The output MUST be a valid JSON array matching the specified schema. Do not incl
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
+                thinkingConfig: { thinkingBudget: 0 },
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.ARRAY,
