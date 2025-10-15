@@ -144,7 +144,16 @@ async function seedDatabase(force = false) {
     } catch (error) { console.error('Error seeding database:', error); }
 }
 
-mongoose.connect(process.env.MONGO_URI).then(() => { console.log('MongoDB connected successfully.'); seedDatabase(); }).catch(err => { console.error('Initial MongoDB connection error:', err); process.exit(1); });
+mongoose.connect(process.env.MONGO_URI).then(() => {
+    console.log('MongoDB connected successfully.');
+    // TEMPORARY DIAGNOSTIC: Force a database reset on the next deployment.
+    // This will ensure all demo user credentials are correct.
+    // After deploying and confirming login works, you can remove the 'true' argument.
+    seedDatabase(true);
+}).catch(err => {
+    console.error('Initial MongoDB connection error:', err);
+    process.exit(1);
+});
 
 app.post('/api/auth/login', async (req, res) => {
     const { username, password, role } = req.body;
@@ -163,7 +172,7 @@ app.post('/api/auth/login', async (req, res) => {
             res.status(401).json({ message: 'Invalid credentials. Please check your email, password, and role.' });
         }
     } catch (error) {
-        console.error("[AUTH] Server error during login:", error);
+        console.error(`[AUTH] Server error during login for user: '${username}' with role: '${role}'. Details:`, error);
         res.status(500).json({ message: "An error occurred during login." });
     }
 });

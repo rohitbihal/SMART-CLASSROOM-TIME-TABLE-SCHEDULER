@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
@@ -49,7 +50,6 @@ const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme, onProfile
         React.createElement("div", null,
             React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100" }, title),
             React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-1" }, subtitle)),
-        // FIX: Corrected typo in prop name from `className` to `className`.
         React.createElement("div", { className: "flex items-center gap-2" },
              React.createElement("button", { onClick: onProfileClick, className: "h-12 w-12 rounded-full bg-white dark:bg-slate-800 border dark:border-slate-700 flex items-center justify-center ring-2 ring-transparent hover:ring-indigo-500 transition", title: "Change Profile Picture" },
                 user.profilePictureUrl ? React.createElement("img", { src: user.profilePictureUrl, alt: "Profile", className: "h-full w-full rounded-full object-cover" }) : React.createElement(ProfileIcon, { className: "h-7 w-7 text-gray-500 dark:text-gray-300" })
@@ -79,7 +79,6 @@ const TimetableGrid = ({ timetable, role = 'student' }: TimetableGridProps) => {
                                 entry ? React.createElement("div", { className: `p-2.5 rounded-lg text-white text-xs ${cellBgColor}` },
                                     React.createElement("div", { className: "font-bold" }, entry.subject),
                                     React.createElement("div", { className: "opacity-80" }, role === 'teacher' ? entry.className : entry.faculty),
-                                    // FIX: Replaced string concatenation with multiple children to resolve potential TS type inference issue.
                                     React.createElement("div", { className: "opacity-80" }, "Room: ", entry.room)
                                 ) : (time === '12:50-01:35' ? React.createElement("div", { className: "text-gray-400 text-xs" }, "Lunch") : null)
                             );
@@ -99,7 +98,8 @@ const PlaceholderContent = ({ title, message, icon }: { title: string; message: 
     )
 );
 
-const TeacherDashboardView = ({ timetable, ...props }: { timetable: TimetableEntry[] }) => {
+// FIX: Removed unused `...props` from signature to prevent passing unsupported props.
+const TeacherDashboardView = ({ timetable }: { timetable: TimetableEntry[] }) => {
     const [activeTab, setActiveTab] = useState('timetable');
 
     const tabs = [
@@ -119,7 +119,8 @@ const TeacherDashboardView = ({ timetable, ...props }: { timetable: TimetableEnt
             default: return React.createElement(PlaceholderContent, {
                 title: "Coming Soon",
                 message: `The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`,
-                icon: tabs.find(t => t.key === activeTab)?.icon || React.createElement("div", null)
+                // FIX: Changed fallback icon from `React.createElement("div", null)` to `React.createElement("div", {})` to avoid potential type inference issues with `React.cloneElement` when props are null.
+                icon: tabs.find(t => t.key === activeTab)?.icon || React.createElement("div", {})
             });
         }
     };
@@ -138,7 +139,8 @@ const TeacherDashboardView = ({ timetable, ...props }: { timetable: TimetableEnt
     );
 };
 
-const StudentDashboardView = ({ timetable, ...props }: { timetable: TimetableEntry[] }) => {
+// FIX: Removed unused `...props` from signature to prevent passing unsupported props.
+const StudentDashboardView = ({ timetable }: { timetable: TimetableEntry[] }) => {
     const [activeTab, setActiveTab] = useState('schedule');
     
     const tabs = [
@@ -160,7 +162,8 @@ const StudentDashboardView = ({ timetable, ...props }: { timetable: TimetableEnt
             default: return React.createElement(PlaceholderContent, {
                 title: "Coming Soon",
                 message: `The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`,
-                icon: tabs.find(t => t.key === activeTab)?.icon || React.createElement("div", null)
+                // FIX: Changed fallback icon from `React.createElement("div", null)` to `React.createElement("div", {})` to avoid potential type inference issues with `React.cloneElement` when props are null.
+                icon: tabs.find(t => t.key === activeTab)?.icon || React.createElement("div", {})
             });
         }
     };
@@ -187,7 +190,7 @@ const StatCard = ({ title, value, color }: { title: string; value: string; color
 );
 
 export const Dashboard = (props: DashboardProps) => {
-    const { user, onLogout, theme, toggleTheme, onUpdateProfilePicture, timetable, ...rest } = props;
+    const { user, onLogout, theme, toggleTheme, onUpdateProfilePicture, timetable } = props;
     const [isProfileModalOpen, setProfileModalOpen] = useState(false);
 
     const { title, subtitle } = useMemo(() => {
@@ -219,8 +222,9 @@ export const Dashboard = (props: DashboardProps) => {
                 onLogout, theme, toggleTheme,
                 onProfileClick: () => setProfileModalOpen(true)
             }),
-            user.role === 'teacher' && React.createElement(TeacherDashboardView, { timetable, ...rest }),
-            user.role === 'student' && React.createElement(StudentDashboardView, { timetable, ...rest })
+            // FIX: Removed spread of `...rest` which passed unsupported props to the view components.
+            user.role === 'teacher' && React.createElement(TeacherDashboardView, { timetable }),
+            user.role === 'student' && React.createElement(StudentDashboardView, { timetable })
         )
     );
 };
