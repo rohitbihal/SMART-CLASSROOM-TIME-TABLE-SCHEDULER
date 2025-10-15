@@ -8,16 +8,20 @@
 //    JWT_SECRET=a_long_random_secret_string_for_signing_tokens
 // 5. Run 'node server.js'
 
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const path = require('path');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
-const { GoogleGenAI, Type } = require("@google/genai");
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Environment Variable Check ---
 if (!process.env.MONGO_URI) {
