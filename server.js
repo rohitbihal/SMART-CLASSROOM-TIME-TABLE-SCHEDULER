@@ -3,9 +3,10 @@
 // 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken bcrypt'
 // 3. Create a '.env' file in the same directory.
 // 4. Add your MongoDB connection string, Gemini API key, and a JWT Secret to the .env file:
-//    MONGO_URI=mongodb+srv://rohitbihal333_db_user:zoEAsv3odCRv46XD@cluster0.zoruciu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+//    MONGO_URI=YOUR_MONGODB_CONNECTION_STRING
 //    API_KEY=YOUR_GEMINI_API_KEY
 //    JWT_SECRET=a_long_random_secret_string_for_signing_tokens
+//    (Get your MONGO_URI from your MongoDB hosting provider, e.g., MongoDB Atlas)
 // 5. Run 'node server.js'
 
 import express from 'express';
