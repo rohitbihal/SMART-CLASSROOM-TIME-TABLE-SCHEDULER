@@ -93,13 +93,47 @@ export interface TimePreferences {
   slotDurationMinutes: number;
 }
 
+export interface FacultyPreference {
+  facultyId: string;
+  unavailability?: { day: string; timeSlot: string }[];
+  preferredDays?: string[];
+  dailySchedulePreference?: 'morning' | 'afternoon' | 'none';
+  maxConsecutiveClasses?: 1 | 2 | 3 | 4;
+  gapPreference?: 'back-to-back' | 'one-hour-gap';
+  coursePreferences?: { subjectId: string; time: 'morning' | 'afternoon' }[];
+}
+
+export interface RoomResourceConstraint {
+  subjectRoomTypeRules?: { subjectId: string; roomType: 'classroom' | 'lab' }[];
+  prioritizeSameRoomForConsecutive?: boolean;
+  resourceRequirements?: { subjectId: string, resource: string }[];
+}
+
+export interface StudentSectionConstraint {
+  maxConsecutiveClasses?: number;
+  coreSubjectIds?: string[];
+  avoidConsecutiveCore?: boolean;
+}
+
+export interface AdvancedConstraint {
+  enableFacultyLoadBalancing?: boolean;
+  blockPeriodRules?: { subjectId: string; periods: 2 | 3 }[];
+  coLocationRules?: { classId: string; facultyIds: [string, string] }[];
+  travelTimeMinutes?: number;
+}
+
 export interface Constraints {
     maxConsecutiveClasses: number;
     timePreferences: TimePreferences;
     chatWindow?: { start: string; end: string; };
     classSpecific: ClassSpecificConstraint[];
     maxConcurrentClassesPerDept: { [department: string]: number };
+    facultyPreferences?: FacultyPreference[];
+    roomResourceConstraints?: RoomResourceConstraint;
+    studentSectionConstraints?: StudentSectionConstraint;
+    advancedConstraints?: AdvancedConstraint;
 }
+
 
 // Attendance Types
 export type AttendanceStatus = 'present' | 'absent';

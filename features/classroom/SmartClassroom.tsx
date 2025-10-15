@@ -1,18 +1,22 @@
 
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
-    LogoutIcon, MoonIcon, SunIcon, SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, BackIcon, ProfileIcon
+    LogoutIcon, MoonIcon, SunIcon, SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, BackIcon, ProfileIcon, AttendanceIcon
 } from '../../components/Icons.tsx';
-import { User, Class, Student, Faculty } from '../../types.ts';
+import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types.ts';
 
 interface SmartClassroomProps {
     user: User; onLogout: () => void; theme: string; toggleTheme: () => void;
     classes: Class[]; faculty: Faculty[]; students: Student[]; users: User[];
+    attendance: Attendance;
     onSaveEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', data: any) => Promise<void>;
     onDeleteEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', id: string) => Promise<void>;
     onSaveUser: (userData: any) => Promise<void>;
     onDeleteUser: (userId: string) => Promise<void>;
+    onSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
 }
 
 const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2", role: "alert" }, message);
@@ -54,8 +58,31 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
     const [editingStudent, setEditingStudent] = useState<Student | { new: true } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+    const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
     const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId && s.name.toLowerCase().includes(searchTerm.toLowerCase())), [students, selectedClassId, searchTerm]);
+
+    const allIdsInView = useMemo(() => studentsInClass.map(s => s.id), [studentsInClass]);
+    const selectedIdsInView = useMemo(() => selectedStudents.filter(id => allIdsInView.includes(id)), [selectedStudents, allIdsInView]);
+
+    useEffect(() => {
+        if (selectAllCheckboxRef.current) {
+            selectAllCheckboxRef.current.indeterminate = selectedIdsInView.length > 0 && selectedIdsInView.length < allIdsInView.length;
+        }
+    }, [selectedIdsInView, allIdsInView]);
+
+    const handleToggleSelectAll = () => {
+        if (selectedIdsInView.length === allIdsInView.length) {
+            setSelectedStudents(prev => prev.filter(id => !allIdsInView.includes(id)));
+        } else {
+            setSelectedStudents(prev => [...new Set([...prev, ...allIdsInView])]);
+        }
+    };
+
+    const handleToggleSelect = (studentId: string) => {
+        setSelectedStudents(prev => prev.includes(studentId) ? prev.filter(id => id !== studentId) : [...prev, studentId]);
+    };
 
     const handleSaveStudent = async (studentData: Partial<Student>) => {
         setIsLoading(true); setFeedback(null);
@@ -84,6 +111,22 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
             setIsLoading(false);
         }
     };
+
+    const handleBulkDelete = async () => {
+        if (selectedStudents.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedStudents.length} selected student(s)?`)) return;
+        setIsLoading(true); setFeedback(null);
+        try {
+            await Promise.all(selectedStudents.map(id => onDeleteEntity('student', id)));
+            setFeedback({ type: 'success', message: `${selectedStudents.length} student(s) deleted successfully!` });
+            setSelectedStudents([]);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "An unknown error occurred.";
+            setFeedback({ type: 'error', message: `Failed to delete students: ${message}` });
+        } finally {
+            setIsLoading(false);
+        }
+    };
     
     return React.createElement(SectionCard, {
         title: "Student Management",
@@ -94,13 +137,23 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
             React.createElement("div", { className: "relative flex-grow" }, React.createElement(SearchIcon, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" }), React.createElement("input", { type: "text", value: searchTerm, onChange: e => setSearchTerm(e.target.value), placeholder: "Search students in this class...", className: "w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md", disabled: isLoading }))
         ),
         (editingStudent && 'new' in editingStudent) && React.createElement(StudentForm, { student: null, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId, isLoading: isLoading }),
-        React.createElement("div", { className: "space-y-2 mt-4 max-h-96 overflow-y-auto pr-2" }, studentsInClass.length > 0 ? studentsInClass.map(student =>
+        studentsInClass.length > 0 && React.createElement("div", { className: "flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm" },
+            React.createElement("div", { className: "flex items-center gap-3" },
+                React.createElement("input", { type: "checkbox", ref: selectAllCheckboxRef, onChange: handleToggleSelectAll, checked: allIdsInView.length > 0 && selectedIdsInView.length === allIdsInView.length, disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
+                React.createElement("label", { className: "font-medium" }, selectedStudents.length > 0 ? `${selectedStudents.length} selected` : 'Select All')
+            ),
+            selectedStudents.length > 0 && React.createElement("button", { onClick: handleBulkDelete, className: "text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null), "Delete Selected")
+        ),
+        React.createElement("div", { className: "space-y-2 mt-2 max-h-96 overflow-y-auto pr-2" }, studentsInClass.length > 0 ? studentsInClass.map(student =>
             (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? React.createElement(StudentForm, { key: student.id, student: student, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId, isLoading: isLoading })
-            : React.createElement("div", { key: student.id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, student.name), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, `Roll: ${student.roll || 'N/A'} | ${student.email || 'No email'}`)),
-                React.createElement("div", { className: "flex gap-2" },
-                    React.createElement("button", { onClick: () => setEditingStudent(student), className: "text-indigo-500 dark:text-indigo-400 disabled:opacity-50", disabled: isLoading }, React.createElement(EditIcon, null)),
-                    React.createElement("button", { onClick: () => handleDeleteStudent(student.id, student.name), className: "text-red-500 dark:text-red-400 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null))
+            : React.createElement("div", { key: student.id, className: "flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                React.createElement("input", { type: "checkbox", checked: selectedStudents.includes(student.id), onChange: () => handleToggleSelect(student.id), disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
+                React.createElement("div", { className: "flex-grow flex justify-between items-center" },
+                    React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, student.name), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, `Roll: ${student.roll || 'N/A'} | ${student.email || 'No email'}`)),
+                    React.createElement("div", { className: "flex gap-2" },
+                        React.createElement("button", { onClick: () => setEditingStudent(student), className: "text-indigo-500 dark:text-indigo-400 disabled:opacity-50", disabled: isLoading }, React.createElement(EditIcon, null)),
+                        React.createElement("button", { onClick: () => handleDeleteStudent(student.id, student.name), className: "text-red-500 dark:text-red-400 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null))
+                    )
                 )
             )
         ) : React.createElement("p", { className: "text-center text-gray-500 p-4" }, "No students found in this class."))
@@ -208,9 +261,32 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+    const selectAllUsersCheckboxRef = useRef<HTMLInputElement>(null);
 
     const profileMap = useMemo(() => { const map = new Map<string, { name: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name })); students.forEach(s => map.set(s.id, { name: s.name })); return map; }, [faculty, students]);
     const filteredUsers = useMemo(() => users.filter(u => u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase())), [users, searchTerm, profileMap]);
+    
+    const allUserIdsInView = useMemo(() => filteredUsers.map(u => u._id!).filter(Boolean), [filteredUsers]);
+    const selectedUserIdsInView = useMemo(() => selectedUsers.filter(id => allUserIdsInView.includes(id)), [selectedUsers, allUserIdsInView]);
+
+    useEffect(() => {
+        if (selectAllUsersCheckboxRef.current) {
+            selectAllUsersCheckboxRef.current.indeterminate = selectedUserIdsInView.length > 0 && selectedUserIdsInView.length < allUserIdsInView.length;
+        }
+    }, [selectedUserIdsInView, allUserIdsInView]);
+
+    const handleToggleSelectAllUsers = () => {
+        if (selectedUserIdsInView.length === allUserIdsInView.length) {
+            setSelectedUsers(prev => prev.filter(id => !allUserIdsInView.includes(id)));
+        } else {
+            setSelectedUsers(prev => [...new Set([...prev, ...allUserIdsInView])]);
+        }
+    };
+
+    const handleToggleUserSelect = (userId: string) => {
+        setSelectedUsers(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
+    };
     
     const handleSave = async (userData: Partial<User>) => {
         setIsSaving(true);
@@ -244,6 +320,23 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
         }
     };
     
+    const handleBulkDeleteUsers = async () => {
+        if (selectedUsers.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedUsers.length} selected user account(s)?`)) return;
+        setIsDeleting(true);
+        setFeedback(null);
+        try {
+            await Promise.all(selectedUsers.map(id => onDeleteUser(id)));
+            setFeedback({ type: 'success', message: `${selectedUsers.length} user account(s) deleted successfully!` });
+            setSelectedUsers([]);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "An unknown error occurred.";
+            setFeedback({ type: 'error', message: `Failed to delete user accounts: ${message}` });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const isLoading = isSaving || isDeleting;
 
     return React.createElement(React.Fragment, null,
@@ -252,10 +345,20 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
             actions: React.createElement("button", { onClick: () => setEditingUser({}), disabled: isLoading, className: "flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50" }, React.createElement(AddIcon, null), "Add User")
         },
             React.createElement("div", { className: "relative mb-4" }, React.createElement(SearchIcon, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" }), React.createElement("input", { type: "text", value: searchTerm, onChange: e => setSearchTerm(e.target.value), placeholder: "Search by name or email...", className: "w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md", disabled: isLoading })),
-            React.createElement("div", { className: "space-y-2 mt-4 max-h-96 overflow-y-auto pr-2" }, filteredUsers.length > 0 ? filteredUsers.map(user =>
-                React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                    React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, `${user.username} | Role: ${user.role}`)),
-                    React.createElement("div", { className: "flex gap-2" }, React.createElement("button", { onClick: () => setEditingUser(user), className: "text-indigo-500 disabled:opacity-50", disabled: isLoading }, React.createElement(EditIcon, null)), React.createElement("button", { onClick: () => setUserToDelete(user), className: "text-red-500 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null)))
+            filteredUsers.length > 0 && React.createElement("div", { className: "flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm" },
+                React.createElement("div", { className: "flex items-center gap-3" },
+                    React.createElement("input", { type: "checkbox", ref: selectAllUsersCheckboxRef, onChange: handleToggleSelectAllUsers, checked: allUserIdsInView.length > 0 && selectedUserIdsInView.length === allUserIdsInView.length, disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
+                    React.createElement("label", { className: "font-medium" }, selectedUsers.length > 0 ? `${selectedUsers.length} selected` : 'Select All')
+                ),
+                selectedUsers.length > 0 && React.createElement("button", { onClick: handleBulkDeleteUsers, className: "text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null), "Delete Selected")
+            ),
+            React.createElement("div", { className: "space-y-2 mt-2 max-h-96 overflow-y-auto pr-2" }, filteredUsers.length > 0 ? filteredUsers.map(user =>
+                React.createElement("div", { key: user._id, className: "flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                    React.createElement("input", { type: "checkbox", checked: selectedUsers.includes(user._id!), onChange: () => handleToggleUserSelect(user._id!), disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
+                    React.createElement("div", { className: "flex-grow flex justify-between items-center" },
+                        React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, `${user.username} | Role: ${user.role}`)),
+                        React.createElement("div", { className: "flex gap-2" }, React.createElement("button", { onClick: () => setEditingUser(user), className: "text-indigo-500 disabled:opacity-50", disabled: isLoading }, React.createElement(EditIcon, null)), React.createElement("button", { onClick: () => setUserToDelete(user), className: "text-red-500 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null)))
+                    )
                 )) : React.createElement("p", { className: "text-center text-gray-500 p-4" }, "No users found."))
         ),
         React.createElement(Modal, { isOpen: !!editingUser, onClose: () => !isSaving && setEditingUser(null), title: editingUser?._id ? "Edit User" : "Add New User" }, editingUser && React.createElement(UserForm, { user: editingUser, onSave: handleSave, onCancel: () => setEditingUser(null), faculty: faculty, students: students, allUsers: users, isLoading: isSaving })),
@@ -386,8 +489,97 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     ));
 };
 
+const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAttendance, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'students' | 'attendance' | 'onSaveClassAttendance'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+    const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [currentRecords, setCurrentRecords] = useState<AttendanceRecord>({});
+    const [isLoading, setIsLoading] = useState(false);
+
+    const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId), [students, selectedClassId]);
+
+    useEffect(() => {
+        const existingRecords = attendance[selectedClassId]?.[selectedDate] || {};
+        const initialRecords = studentsInClass.reduce((acc, student) => {
+            acc[student.id] = existingRecords[student.id] || 'absent';
+            return acc;
+        }, {} as AttendanceRecord);
+        setCurrentRecords(initialRecords);
+    }, [selectedClassId, selectedDate, attendance, studentsInClass]);
+
+    const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+        setCurrentRecords(prev => ({ ...prev, [studentId]: status }));
+    };
+
+    const handleMarkAll = (status: AttendanceStatus) => {
+        const newRecords = studentsInClass.reduce((acc, student) => {
+            acc[student.id] = status;
+            return acc;
+        }, {} as AttendanceRecord);
+        setCurrentRecords(newRecords);
+    };
+
+    const handleSave = async () => {
+        setIsLoading(true);
+        setFeedback(null);
+        try {
+            await onSaveClassAttendance(selectedClassId, selectedDate, currentRecords);
+            setFeedback({ type: 'success', message: `Attendance for ${selectedDate} saved successfully!` });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "An unknown error occurred.";
+            setFeedback({ type: 'error', message: `Failed to save attendance: ${message}` });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const summary = useMemo(() => {
+        const present = Object.values(currentRecords).filter(s => s === 'present').length;
+        const absent = Object.values(currentRecords).filter(s => s === 'absent').length;
+        return { total: studentsInClass.length, present, absent };
+    }, [currentRecords, studentsInClass]);
+
+    return React.createElement(SectionCard, { title: "Attendance Tracking" },
+        React.createElement("div", { className: "flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700" },
+            React.createElement("div", { className: "flex-1" },
+                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Select Class"),
+                // FIX: Explicitly type the event object in the onChange handler to resolve a TypeScript type inference issue.
+                React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading }, classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name)))
+            ),
+            React.createElement("div", { className: "flex-1" },
+                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Select Date"),
+                // FIX: Explicitly type the event object in the onChange handler to ensure type safety.
+                React.createElement("input", { type: "date", value: selectedDate, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value), className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading })
+            )
+        ),
+        React.createElement("div", { className: "bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4" },
+            React.createElement("div", { className: "flex gap-4 font-medium" },
+                React.createElement("span", null, "Total Students: ", summary.total),
+                React.createElement("span", { className: "text-green-600 dark:text-green-400" }, "Present: ", summary.present),
+                React.createElement("span", { className: "text-red-600 dark:text-red-400" }, "Absent: ", summary.absent)
+            ),
+            React.createElement("div", { className: "flex gap-2" },
+                React.createElement("button", { onClick: () => handleMarkAll('present'), className: "text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md", disabled: isLoading }, "Mark All Present"),
+                React.createElement("button", { onClick: () => handleMarkAll('absent'), className: "text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md", disabled: isLoading }, "Mark All Absent")
+            )
+        ),
+        React.createElement("div", { className: "space-y-2 max-h-96 overflow-y-auto pr-2" }, studentsInClass.length > 0 ? studentsInClass.map(student =>
+            React.createElement("div", { key: student.id, className: "flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, student.name), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, "Roll: ", student.roll || 'N/A')),
+                React.createElement("div", { className: "flex gap-2" },
+                    React.createElement("button", { onClick: () => handleStatusChange(student.id, 'present'), className: `px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`, disabled: isLoading }, "Present"),
+                    React.createElement("button", { onClick: () => handleStatusChange(student.id, 'absent'), className: `px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`, disabled: isLoading }, "Absent")
+                )
+            )) : React.createElement("p", { className: "text-center text-gray-500 p-4" }, "No students in this class.")
+        ),
+        React.createElement("div", { className: "flex justify-end mt-6" },
+            React.createElement("button", { onClick: handleSave, className: "bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50", disabled: isLoading || studentsInClass.length === 0 }, isLoading ? "Saving..." : "Save Attendance")
+        )
+    );
+};
+
 export const SmartClassroom = (props: SmartClassroomProps) => {
-    const { onLogout, theme, toggleTheme, students, faculty, classes } = props;
+    // FIX: Destructure all required props to avoid spreading unexpected props to child components.
+    const { user, onLogout, theme, toggleTheme, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance } = props;
     const [activeTab, setActiveTab] = useState('profile');
     const navigate = ReactRouterDOM.useNavigate();
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -443,13 +635,16 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
         { key: 'profile', label: "My Profile", icon: React.createElement(ProfileIcon, { className: 'h-5 w-5' }) },
         { key: 'students', label: "Student Management", icon: React.createElement(StudentIcon, { className: 'h-5 w-5' }) },
         { key: 'users', label: "User Accounts", icon: React.createElement(UsersIcon, { className: 'h-5 w-5' }) },
+        { key: 'attendance', label: "Attendance", icon: React.createElement(AttendanceIcon, { className: 'h-5 w-5' }) },
     ];
 
     const renderContent = () => {
+        // FIX: Pass props explicitly to child components instead of spreading the `props` object, which prevents passing undeclared props and resolves the type error.
         switch (activeTab) {
-            case 'profile': return React.createElement(MyProfileTab, { ...props, setFeedback: setFeedback });
-            case 'students': return React.createElement(StudentManagementTab, { ...props, setFeedback: setFeedback });
-            case 'users': return React.createElement(UserManagementTab, { users: props.users, faculty: props.faculty, students: props.students, onSaveUser: props.onSaveUser, onDeleteUser: props.onDeleteUser, setFeedback: setFeedback });
+            case 'profile': return React.createElement(MyProfileTab, { user, faculty, students, onSaveEntity, onSaveUser, setFeedback });
+            case 'students': return React.createElement(StudentManagementTab, { classes, students, onSaveEntity, onDeleteEntity, setFeedback });
+            case 'users': return React.createElement(UserManagementTab, { users, faculty, students, onSaveUser, onDeleteUser, setFeedback });
+            case 'attendance': return React.createElement(AttendanceManagementTab, { classes, students, attendance, onSaveClassAttendance, setFeedback });
             default: return React.createElement(SectionCard, { title: "Coming Soon" }, React.createElement("p", null, "This feature is under development."));
         }
     };

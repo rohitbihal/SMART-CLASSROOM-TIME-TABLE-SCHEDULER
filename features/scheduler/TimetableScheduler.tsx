@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon, SearchIcon, AvailabilityIcon, AnalyticsIcon } from '../../components/Icons.tsx';
 import { DAYS, TIME_SLOTS } from '../../constants.ts';
 import { generateTimetable } from '../../services/geminiService.ts';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences } from '../../types.ts';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference } from '../../types.ts';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room';
 type Entity = Class | Faculty | Subject | Room;
@@ -37,7 +37,11 @@ const PlaceholderView = ({ title, message }: { title: string, message?: string }
 const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2", role: "alert" }, message);
 const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (React.createElement("div", { className: "bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm mb-6" }, React.createElement("div", { className: "flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4" }, React.createElement("h3", { className: "text-xl font-bold" }, title), actions && React.createElement("div", null, actions)), ...React.Children.toArray(children)));
 const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: string[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (React.createElement("div", { className: "overflow-x-auto" }, React.createElement("table", { className: "w-full text-sm text-left" }, React.createElement("thead", { className: "bg-gray-100 dark:bg-slate-900/50 text-gray-500 uppercase text-xs" }, React.createElement("tr", null, headerPrefix, headers.map(h => React.createElement("th", { key: h, className: "px-6 py-3" }, h)))), React.createElement("tbody", { className: "text-gray-700 dark:text-gray-300" }, data.length > 0 ? data.map(renderRow) : React.createElement("tr", null, React.createElement("td", { colSpan: headers.length + (headerPrefix ? 1 : 0), className: "text-center p-8 text-gray-500" }, emptyMessage))))));
-const Modal = ({ isOpen, onClose, title, children = null, error = null }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; error?: string | null; }) => !isOpen ? null : (React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" }, React.createElement("div", { className: "bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" }, React.createElement("div", { className: "flex justify-between items-center p-4 border-b dark:border-slate-700" }, React.createElement("h2", { className: "text-lg font-bold" }, title), React.createElement("button", { onClick: onClose, className: "text-gray-400" }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M6 18L18 6M6 6l12 12" })))), React.createElement("div", { className: "p-6 overflow-y-auto" }, React.createElement(ErrorDisplay, { message: error }), children))));
+const Modal = ({ isOpen, onClose, title, children = null, error = null, size = 'md' }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; error?: string | null; size?: 'md' | '4xl' }) => {
+    if (!isOpen) return null;
+    const sizeClass = size === '4xl' ? 'max-w-4xl' : 'max-w-md';
+    return (React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" }, React.createElement("div", { className: `bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full ${sizeClass} max-h-[90vh] flex flex-col` }, React.createElement("div", { className: "flex justify-between items-center p-4 border-b dark:border-slate-700" }, React.createElement("h2", { className: "text-lg font-bold" }, title), React.createElement("button", { onClick: onClose, className: "text-gray-400" }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M6 18L18 6M6 6l12 12" })))), React.createElement("div", { className: "p-6 overflow-y-auto" }, React.createElement(ErrorDisplay, { message: error }), children))));
+};
 const FormField = ({ label, children = null }: { label: string, children?: React.ReactNode }) => React.createElement("div", { className: "mb-4" }, React.createElement("label", { className: "block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300" }, label), children);
 const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => React.createElement("input", { ...props, className: "w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100 " + (props.className || '') });
 const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => React.createElement("select", { ...props, className: "w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" });
@@ -50,6 +54,49 @@ const HeaderCheckbox = <T extends { id: string }>({ type, items, selectedItems, 
 
 const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError }: { classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
+    
+    // State for Institution Details
+    const [institutes, setInstitutes] = useState([
+        { id: '1', name: 'Central University of Technology', academicYear: '2024-2025', semester: 'Odd', session: 'Regular' }
+    ]);
+    const [selectedInstituteId, setSelectedInstituteId] = useState(institutes[0]?.id || '');
+    const [instituteForm, setInstituteForm] = useState(
+        institutes.find(i => i.id === selectedInstituteId) || { id: '', name: '', academicYear: '2024-2025', semester: 'Odd', session: 'Regular' }
+    );
+    
+    useEffect(() => {
+        if (selectedInstituteId === '--create-new--') {
+            setInstituteForm({ id: '', name: '', academicYear: '2024-2025', semester: 'Odd', session: 'Regular' });
+        } else {
+            const selectedInst = institutes.find(i => i.id === selectedInstituteId);
+            if (selectedInst) setInstituteForm(selectedInst);
+        }
+    }, [selectedInstituteId, institutes]);
+
+    const handleInstituteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setInstituteForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleSelectInstitute = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedInstituteId(e.target.value);
+    };
+
+    const handleSaveInstitute = () => {
+        if (!instituteForm.name.trim()) {
+            alert("Institution name cannot be empty."); // Replace with a better feedback mechanism
+            return;
+        }
+        if (selectedInstituteId === '--create-new--') {
+            const newInstitute = { ...instituteForm, id: `inst_${Date.now()}` };
+            setInstitutes(prev => [...prev, newInstitute]);
+            setSelectedInstituteId(newInstitute.id);
+        } else {
+            setInstitutes(prev => prev.map(i => i.id === selectedInstituteId ? instituteForm : i));
+        }
+        // Optionally, provide success feedback to the user
+    };
+
+
     const handleSearch = (type: EntityType, value: string) => setSearch(prev => ({ ...prev, [type]: value }));
     // FIX: Made filter function generic to preserve type information
     const filter = <T extends object>(data: T[], query: string) => data.filter(item => Object.values(item).some(val => String(val).toLowerCase().includes(query.toLowerCase())));
@@ -59,42 +106,37 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
     return React.createElement(React.Fragment, null,
         React.createElement(ErrorDisplay, { message: pageError }),
         React.createElement(SectionCard, { title: "Institution Details" },
-            React.createElement("div", { className: "mb-4" },
-                React.createElement(FormField, { label: "Select Institute" },
-                    React.createElement(SelectInput, { defaultValue: "default" },
-                        React.createElement("option", { value: "default", disabled: true }, "Select an existing institute"),
-                        React.createElement("option", null, "Central University of Technology")
-                    )
-                ),
-                React.createElement("button", { className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold mt-2 hover:underline" },
-                    React.createElement(AddIcon, null), "Create New Institute"
+            React.createElement(FormField, { label: "Select Institute" },
+                React.createElement(SelectInput, { value: selectedInstituteId, onChange: handleSelectInstitute },
+                    institutes.map(inst => React.createElement("option", { key: inst.id, value: inst.id }, inst.name)),
+                    React.createElement("option", { value: "--create-new--" }, "Create New Institute...")
                 )
             ),
-            React.createElement("div", { className: "border-t border-gray-200 dark:border-slate-700 pt-4" },
+            React.createElement("div", { className: "border-t border-gray-200 dark:border-slate-700 pt-4 mt-4" },
                 React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4" },
                     React.createElement(FormField, { label: "Institution Name" },
-                        React.createElement(TextInput, { placeholder: "Enter college/university name" })
+                        React.createElement(TextInput, { name: "name", placeholder: "Enter college/university name", value: instituteForm.name, onChange: handleInstituteFormChange })
                     ),
                     React.createElement(FormField, { label: "Academic Year" },
-                        React.createElement(TextInput, { placeholder: "e.g., 2024-2025", defaultValue: "2024-2025" })
+                        React.createElement(TextInput, { name: "academicYear", placeholder: "e.g., 2024-2025", value: instituteForm.academicYear, onChange: handleInstituteFormChange })
                     ),
                     React.createElement(FormField, { label: "Semester" },
-                        React.createElement(SelectInput, { defaultValue: "Odd" },
+                        React.createElement(SelectInput, { name: "semester", value: instituteForm.semester, onChange: handleInstituteFormChange },
                             React.createElement("option", { value: "Odd" }, "Odd Semester (Aug-Dec)"),
                             React.createElement("option", { value: "Even" }, "Even Semester (Jan-May)")
                         )
                     ),
                     React.createElement(FormField, { label: "Academic Session" },
-                        React.createElement(SelectInput, { defaultValue: "Regular" },
-                            React.createElement("option", null, "Regular"),
-                            React.createElement("option", null, "Summer School"),
-                            React.createElement("option", null, "Winter School")
+                        React.createElement(SelectInput, { name: "session", value: instituteForm.session, onChange: handleInstituteFormChange },
+                            React.createElement("option", { value: "Regular" }, "Regular"),
+                            React.createElement("option", { value: "Summer School" }, "Summer School"),
+                            React.createElement("option", { value: "Winter School" }, "Winter School")
                         )
                     )
                 ),
                 React.createElement("div", { className: "mt-6 flex justify-end" },
-                    React.createElement("button", { type: "button", className: "bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" },
-                        "Add Institute"
+                    React.createElement("button", { type: "button", onClick: handleSaveInstitute, className: "bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2" },
+                        selectedInstituteId === '--create-new--' ? "Add Institute" : "Save Changes"
                     )
                 )
             )
@@ -137,7 +179,7 @@ const TimePreferencesVisual = ({ prefs, onChange }: { prefs: TimePreferences, on
     const lunchLeft = timeToPercent(prefs.lunchStartTime);
     const lunchWidth = durationToPercent(prefs.lunchDurationMinutes);
 
-    return React.createElement(SectionCard, { title: "Time Preferences" },
+    return React.createElement(SectionCard, { title: "Institutional Time Preferences" },
         React.createElement("div", { className: "space-y-6" },
             React.createElement("div", null,
                 React.createElement("h4", { className: "font-semibold mb-3 text-gray-700 dark:text-gray-300" }, "Working Days"),
@@ -170,10 +212,170 @@ const TimePreferencesVisual = ({ prefs, onChange }: { prefs: TimePreferences, on
     );
 };
 
+const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, subjects }: { constraints: Constraints; onConstraintsChange: (c: Constraints) => void; faculty: Faculty[], subjects: Subject[] }) => {
+    const [selectedFacultyId, setSelectedFacultyId] = useState<string>('');
+    const [isUnavailabilityModalOpen, setIsUnavailabilityModalOpen] = useState(false);
+
+    const currentPref = useMemo(() => {
+        return constraints.facultyPreferences?.find(p => p.facultyId === selectedFacultyId) || { facultyId: selectedFacultyId };
+    }, [selectedFacultyId, constraints.facultyPreferences]);
+
+    const handlePrefChange = (field: keyof FacultyPreference, value: any) => {
+        if (!selectedFacultyId) return;
+        const newPrefs = [...(constraints.facultyPreferences || [])];
+        let prefIndex = newPrefs.findIndex(p => p.facultyId === selectedFacultyId);
+
+        let newPref: FacultyPreference;
+        if (prefIndex === -1) {
+            newPref = { facultyId: selectedFacultyId, [field]: value };
+            newPrefs.push(newPref);
+        } else {
+            newPref = { ...newPrefs[prefIndex], [field]: value };
+            newPrefs[prefIndex] = newPref;
+        }
+        onConstraintsChange({ ...constraints, facultyPreferences: newPrefs });
+    };
+    
+    const handleUnavailabilityToggle = (day: string, timeSlot: string) => {
+        if (!selectedFacultyId) return;
+        const currentUnavailability = currentPref.unavailability || [];
+        const slotExists = currentUnavailability.some(slot => slot.day === day && slot.timeSlot === timeSlot);
+        const newUnavailability = slotExists
+            ? currentUnavailability.filter(slot => !(slot.day === day && slot.timeSlot === timeSlot))
+            : [...currentUnavailability, { day, timeSlot }];
+        handlePrefChange('unavailability', newUnavailability);
+    };
+
+    const WeeklyUnavailabilityGrid = () => {
+        const unavailabilitySet = new Set((currentPref.unavailability || []).map(s => `${s.day}:${s.timeSlot}`));
+        return (
+            React.createElement("div", { className: "overflow-x-auto" },
+                React.createElement("table", { className: "w-full border-collapse text-xs table-fixed" },
+                    React.createElement("thead", null,
+                        React.createElement("tr", null,
+                            React.createElement("th", { className: "p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 w-24" }, "Time"),
+                            ...DAYS.map(day => React.createElement("th", { key: day, className: "p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 capitalize" }, day.substring(0, 3)))
+                        )
+                    ),
+                    React.createElement("tbody", null,
+                        ...TIME_SLOTS.map(time => (
+                            React.createElement("tr", { key: time },
+                                React.createElement("td", { className: "p-2 border dark:border-slate-600 font-medium whitespace-nowrap" }, time),
+                                ...DAYS.map(day => {
+                                    const isUnavailable = unavailabilitySet.has(`${day}:${time}`);
+                                    return React.createElement("td", {
+                                        key: `${day}-${time}`,
+                                        onClick: () => handleUnavailabilityToggle(day, time),
+                                        className: `p-2 border dark:border-slate-600 text-center cursor-pointer transition-colors ${isUnavailable ? 'bg-red-500/80 hover:bg-red-600' : 'bg-green-500/20 hover:bg-green-500/40'}`
+                                    });
+                                })
+                            )
+                        ))
+                    )
+                )
+            )
+        );
+    };
+
+    const handleDayToggle = (day: string) => {
+        const currentDays = currentPref.preferredDays || [];
+        const newDays = currentDays.includes(day) ? currentDays.filter(d => d !== day) : [...currentDays, day];
+        handlePrefChange('preferredDays', newDays);
+    }
+
+    return React.createElement("div", null,
+        React.createElement(Modal, {
+            isOpen: isUnavailabilityModalOpen,
+            onClose: () => setIsUnavailabilityModalOpen(false),
+            title: `Weekly Unavailability for ${faculty.find(f => f.id === selectedFacultyId)?.name || '...'}`,
+            size: "4xl"
+        },
+            React.createElement("p", { className: "text-sm text-gray-500 dark:text-gray-400 mb-4" }, "Click on a time slot to toggle its availability. Red slots are unavailable."),
+            React.createElement(WeeklyUnavailabilityGrid, null)
+        ),
+        React.createElement(FormField, { label: "Time Preferences for" },
+            React.createElement(SelectInput, { value: selectedFacultyId, onChange: e => setSelectedFacultyId(e.target.value) },
+                React.createElement("option", { value: "" }, "Select a faculty member..."),
+                ...faculty.map(f => React.createElement("option", { key: f.id, value: f.id }, f.name))
+            )
+        ),
+        selectedFacultyId && React.createElement("div", { className: "space-y-6 pt-4 border-t dark:border-slate-700 mt-4" },
+            React.createElement(SectionCard, { title: "Availability" },
+                 React.createElement("div", { className: "mb-4" },
+                     React.createElement("button", { onClick: () => setIsUnavailabilityModalOpen(true), className: "bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 font-semibold py-2 px-4 rounded-md" }, "Set Weekly Unavailability")
+                 ),
+                 React.createElement("h4", { className: "font-semibold mb-2 text-gray-700 dark:text-gray-300" }, "Preferred Days"),
+                 React.createElement("div", { className: "flex flex-wrap gap-2" }, DAYS.map(day =>
+                    React.createElement("button", { key: day, onClick: () => handleDayToggle(day), className: `px-3 py-1 text-sm font-semibold rounded-full capitalize ${currentPref.preferredDays?.includes(day) ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`}, day.substring(0,3))
+                 ))
+            ),
+            React.createElement(SectionCard, { title: "Scheduling Rules (Soft Constraints)" },
+                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6" },
+                    React.createElement("div", null,
+                         React.createElement("h4", { className: "font-semibold mb-2" }, "Daily Schedule Preference"),
+                         React.createElement("div", {className: "space-y-2"}, ...['morning', 'afternoon', 'none'].map(pref => React.createElement("label", { key: pref, className: "flex items-center gap-2" }, React.createElement("input", { type: "radio", name: "dailySchedule", value: pref, checked: currentPref.dailySchedulePreference === pref, onChange: e => handlePrefChange('dailySchedulePreference', e.target.value) }), React.createElement("span", {className: "capitalize"}, pref === 'none' ? 'No Preference' : `Prefer ${pref}s`))))
+                    ),
+                    React.createElement("div", null,
+                         React.createElement("h4", { className: "font-semibold mb-2" }, "Max Consecutive Classes"),
+                         React.createElement(SelectInput, { value: currentPref.maxConsecutiveClasses || 3, onChange: e => handlePrefChange('maxConsecutiveClasses', parseInt(e.target.value))}, ...[1, 2, 3, 4].map(n => React.createElement("option", { key: n, value: n }, n)))
+                    ),
+                    React.createElement("div", { className: "col-span-1 md:col-span-2" },
+                        React.createElement("h4", { className: "font-semibold mb-2" }, "Gaps Between Classes"),
+                        React.createElement("div", { className: "flex gap-4" },...[['back-to-back', 'Try to schedule back-to-back'], ['one-hour-gap', 'Prefer at least one-hour gaps']].map(([val, label]) => React.createElement("label", { key: val, className: "flex items-center gap-2" }, React.createElement("input", { type: "radio", name: "gapPreference", value: val, checked: currentPref.gapPreference === val, onChange: e => handlePrefChange('gapPreference', e.target.value) }), label)))
+                    )
+                )
+            ),
+             React.createElement(SectionCard, { title: "Course-Specific Preferences" }, React.createElement("p", null, "Feature coming soon."))
+        )
+    );
+};
+
+const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classes, faculty, subjects }: { constraints: Constraints; onConstraintsChange: (c: Constraints) => void; classes: Class[], faculty: Faculty[], subjects: Subject[] }) => {
+    
+    const handleToggle = (category: 'room' | 'student' | 'advanced', field: string, value: boolean) => {
+        const keyMap = { room: 'roomResourceConstraints', student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
+        const categoryKey = keyMap[category];
+        onConstraintsChange({ ...constraints, [categoryKey]: { ...constraints[categoryKey], [field]: value } });
+    };
+
+    const handleNumberChange = (category: 'student' | 'advanced', field: string, value: string) => {
+        const keyMap = { student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
+        const categoryKey = keyMap[category];
+        onConstraintsChange({ ...constraints, [categoryKey]: { ...constraints[categoryKey], [field]: parseInt(value) || 0 } });
+    };
+
+    return React.createElement("div", { className: "space-y-6" },
+        React.createElement(SectionCard, { title: "Category 1: Room & Resource Constraints" },
+            React.createElement("div", { className: "space-y-4" },
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold mb-2" }, "Subject-Specific Room Type"), React.createElement("p", { className: "text-sm text-gray-500" }, "Rule builder coming soon.")),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold" }, "Room Capacity"), React.createElement("p", { className: "text-sm text-gray-500" }, "Room capacity is automatically checked against class size during generation.")),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold mb-2" }, "Resource Booking"), React.createElement("p", { className: "text-sm text-gray-500" }, "Feature coming soon.")),
+                React.createElement("label", { className: "flex items-center gap-2 cursor-pointer" }, React.createElement("input", { type: "checkbox", checked: constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false, onChange: (e) => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked) }), "Prioritize keeping a faculty's consecutive classes in the same room.")
+            )
+        ),
+        React.createElement(SectionCard, { title: "Category 2: Student & Section Constraints" },
+             React.createElement("div", { className: "space-y-4" },
+                React.createElement("div", null, React.createElement("label", { className: "font-semibold mb-1 block" }, "Max Consecutive Classes for Students/Section"), React.createElement(TextInput, { type: "number", value: constraints.studentSectionConstraints?.maxConsecutiveClasses || 4, onChange: e => handleNumberChange('student', 'maxConsecutiveClasses', e.target.value), className: "max-w-xs" })),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold mb-2" }, "Core Subject Spacing"), React.createElement("p", { className: "text-sm text-gray-500" }, "Feature coming soon.")),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold" }, "Lunch Break for Sections"), React.createElement("p", { className: "text-sm text-gray-500" }, "A single lunch break for the institution is defined in the 'Time & Day' tab."))
+             )
+        ),
+        React.createElement(SectionCard, { title: "Category 3: Advanced Faculty & Institutional Constraints" },
+            React.createElement("div", { className: "space-y-4" },
+                React.createElement("label", { className: "flex items-center gap-2 cursor-pointer" }, React.createElement("input", { type: "checkbox", checked: constraints.advancedConstraints?.enableFacultyLoadBalancing || false, onChange: e => handleToggle('advanced', 'enableFacultyLoadBalancing', e.target.checked) }), "Enable weekly load balancing for faculty."),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold mb-2" }, "Twin/Block Periods"), React.createElement("p", { className: "text-sm text-gray-500" }, "Rule builder coming soon.")),
+                React.createElement("div", null, React.createElement("h4", { className: "font-semibold mb-2" }, "Teacher Co-location Constraint"), React.createElement("p", { className: "text-sm text-gray-500" }, "Rule builder coming soon.")),
+                React.createElement("div", null, React.createElement("label", { className: "font-semibold mb-1 block" }, "Travel Time (for Multi-Campus Institutions)"), React.createElement(TextInput, { type: "number", placeholder: "Minutes", value: constraints.advancedConstraints?.travelTimeMinutes || 0, onChange: e => handleNumberChange('advanced', 'travelTimeMinutes', e.target.value), className: "max-w-xs" }))
+            )
+        )
+    );
+};
+
+
 const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, faculty }: { constraints: Constraints; onConstraintsChange: (newConstraints: Constraints) => void; classes: Class[]; subjects: Subject[]; faculty: Faculty[]; }) => {
     const [activeSubTab, setActiveSubTab] = useState('global');
     const handleGlobalChange = (e: React.ChangeEvent<HTMLInputElement>) => { onConstraintsChange({ ...constraints, [e.target.name]: parseInt(e.target.value, 10) }); };
-    const subTabs = [ { key: 'global', label: 'Global' }, { key: 'fixed_classes', label: 'Fixed Classes (DCPD)' }, { key: 'time_prefs', label: 'Time Preferences' }, { key: 'inter_branch', label: 'Inter-Branch Combinations' }, { key: 'additional', label: 'Additional Constraints' }, { key: 'notifications', label: 'Notification Settings' }, ];
+    const subTabs = [ { key: 'global', label: 'Global' }, { key: 'time_day', label: 'Time & Day' }, { key: 'faculty', label: 'Faculty Preferences' }, { key: 'additional', label: 'Additional Constraints' }, { key: 'fixed_classes', label: 'Fixed Classes' }];
     const SubTabButton = ({ subTab, label }: { subTab: string; label: string; }) => (React.createElement("button", { onClick: () => setActiveSubTab(subTab), className: `px-4 py-2 text-sm font-semibold rounded-md transition-colors ${ activeSubTab === subTab ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700' }` }, label));
     
     const handleTimePreferencesChange = (newTimePreferences: TimePreferences) => {
@@ -184,10 +386,10 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
         switch (activeSubTab) {
             case 'global': return React.createElement(SectionCard, { title: "Global Constraints" },
                 React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6" },
-                    React.createElement(FormField, { label: "Max Consecutive Classes" }, React.createElement(TextInput, { type: "number", name: "maxConsecutiveClasses", value: constraints.maxConsecutiveClasses, onChange: handleGlobalChange, min: 1 }))
+                    React.createElement(FormField, { label: "Max Consecutive Classes (for Faculty)" }, React.createElement(TextInput, { type: "number", name: "maxConsecutiveClasses", value: constraints.maxConsecutiveClasses, onChange: handleGlobalChange, min: 1 }))
                 ));
             case 'fixed_classes':
-                return React.createElement(SectionCard, { title: "Fixed Classes (DCPD)" },
+                return React.createElement(SectionCard, { title: "Fixed Classes" },
                     React.createElement("form", { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end" },
                         React.createElement(FormField, { label: "Class/Section" },
                             React.createElement(SelectInput, { defaultValue: "" },
@@ -211,10 +413,15 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                                 ...subjects.map(s => React.createElement("option", { key: s.id, value: s.id }, s.name))
                             )
                         )
-                    )
+                    ),
+                    React.createElement("p", { className: "text-sm text-gray-500 dark:text-gray-400 mt-4" }, "This feature for setting pre-defined classes is under development.")
                 );
-            case 'time_prefs':
+            case 'time_day':
                 return React.createElement(TimePreferencesVisual, { prefs: constraints.timePreferences, onChange: handleTimePreferencesChange });
+            case 'faculty':
+                return React.createElement(FacultyPreferencesContent, { constraints, onConstraintsChange, faculty, subjects });
+            case 'additional':
+                return React.createElement(AdditionalConstraintsContent, { constraints, onConstraintsChange, classes, faculty, subjects });
             default: return React.createElement(SectionCard, { title: subTabs.find(t => t.key === activeSubTab)?.label || 'Constraints' }, React.createElement(PlaceholderView, { title: "Coming Soon", message: "This constraint type is under development." }));
         }
     };

@@ -151,6 +151,19 @@ export const App = () => {
             if (!response.ok) await handleApiError(response); // Optionally revert on error
         } catch (error) { console.error("Failed to update attendance:", error); }
     };
+
+    const handleSaveClassAttendance = async (classId: string, date: string, records: { [studentId: string]: AttendanceStatus }) => {
+        setAttendance(prev => {
+            const newAttendance = { ...prev };
+            if (!newAttendance[classId]) newAttendance[classId] = {};
+            newAttendance[classId][date] = records;
+            return newAttendance;
+        });
+        try {
+            const response = await fetchWithAuth(`${API_BASE_URL}/attendance/class`, { method: 'PUT', body: JSON.stringify({ classId, date, records }) }, token);
+            if (!response.ok) await handleApiError(response); // Optionally revert state on error
+        } catch (error) { console.error("Failed to save class attendance:", error); }
+    };
     
     const handleResetData = async () => {
         setAppState('loading');
@@ -236,7 +249,6 @@ export const App = () => {
             React.createElement(ReactRouterDOM.Route, {
                 path: "/smart-classroom",
                 element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children:
-                    // FIX: Removed unsupported props `updateConstraints` and `onUpdateAttendance` and avoided spreading `commonDashboardProps` to only pass props defined in `SmartClassroomProps`.
                     React.createElement(SmartClassroom, {
                         user: user,
                         onLogout: handleLogout,
@@ -246,10 +258,12 @@ export const App = () => {
                         faculty: faculty,
                         students: students,
                         users: users,
+                        attendance: attendance,
                         onSaveEntity: handleSaveEntity,
                         onDeleteEntity: handleDeleteEntity,
                         onSaveUser: handleSaveUser,
                         onDeleteUser: handleDeleteUser,
+                        onSaveClassAttendance: handleSaveClassAttendance,
                     })
                 })
             }),

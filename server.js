@@ -297,6 +297,23 @@ app.put('/api/attendance', authMiddleware, adminOrTeacher, async (req, res) => {
         res.status(200).json({ success: true });
     } catch (e) { handleApiError(res, e, 'attendance update'); }
 });
+
+app.put('/api/attendance/class', authMiddleware, adminOrTeacher, async (req, res) => {
+    const { classId, date, records } = req.body;
+    if (!classId || !date || !records) {
+        return res.status(400).json({ message: "Missing classId, date, or records." });
+    }
+    try {
+        const recordsArray = Object.entries(records).map(([studentId, status]) => ({ studentId, status }));
+        await Attendance.updateOne(
+            { classId, date },
+            { $set: { classId, date, records: recordsArray } },
+            { upsert: true }
+        );
+        res.status(200).json({ success: true, message: 'Attendance saved.' });
+    } catch (e) { handleApiError(res, e, 'bulk attendance update'); }
+});
+
 app.get('/api/chat/:classId', authMiddleware, async (req, res) => { try { const messages = await ChatMessage.find({ classId: req.params.classId }).sort({ timestamp: 1 }); res.json(messages); } catch (e) { handleApiError(res, e, 'fetching chat'); } });
 app.post('/api/chat', authMiddleware, async (req, res) => { try { const newMessage = new ChatMessage(req.body); await newMessage.save(); res.status(201).json(newMessage); } catch (e) { handleApiError(res, e, 'posting chat message'); } });
 
