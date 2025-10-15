@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage.tsx';
@@ -151,17 +152,6 @@ export const App = () => {
         } catch (error) { console.error("Failed to update attendance:", error); }
     };
     
-    const handleUpdateProfilePicture = async (dataUrl: string) => {
-        if (!user) return;
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/user/profile-picture`, { method: 'PUT', body: JSON.stringify({ dataUrl }) }, token);
-            if (!response.ok) await handleApiError(response);
-            const updatedUser = { ...user, profilePictureUrl: dataUrl };
-            setUser(updatedUser);
-            sessionStorage.setItem('user', JSON.stringify(updatedUser));
-        } catch (error) { console.error("Failed to update profile picture:", error); }
-    };
-
     const handleResetData = async () => {
         setAppState('loading');
         try {
@@ -205,7 +195,7 @@ export const App = () => {
     }
 
     const commonDashboardProps = {
-        user, onLogout: handleLogout, theme, toggleTheme, onUpdateProfilePicture: handleUpdateProfilePicture,
+        user, onLogout: handleLogout, theme, toggleTheme,
         classes, faculty, subjects, students, users,
         constraints, timetable, attendance, token
     };

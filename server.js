@@ -1,4 +1,5 @@
 
+
 // To run this server:
 // 1. In your project directory, run 'npm init -y'
 // 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken bcrypt'
@@ -61,7 +62,6 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     role: { type: String, required: true, enum: ['admin', 'teacher', 'student'] },
     profileId: { type: String, required: true, unique: true },
-    profilePictureUrl: { type: String, default: '' }
 });
 userSchema.index({ username: 1, role: 1 }, { unique: true });
 
@@ -146,10 +146,7 @@ async function seedDatabase(force = false) {
 
 mongoose.connect(process.env.MONGO_URI).then(() => {
     console.log('MongoDB connected successfully.');
-    // TEMPORARY DIAGNOSTIC: Force a database reset on the next deployment.
-    // This will ensure all demo user credentials are correct.
-    // After deploying and confirming login works, you can remove the 'true' argument.
-    seedDatabase(true);
+    seedDatabase();
 }).catch(err => {
     console.error('Initial MongoDB connection error:', err);
     process.exit(1);
@@ -162,7 +159,7 @@ app.post('/api/auth/login', async (req, res) => {
         if (user) {
             const isMatch = await bcrypt.compare(password, user.password);
             if (isMatch) {
-                const userPayload = { username, role, _id: user._id, profileId: user.profileId, profilePictureUrl: user.profilePictureUrl };
+                const userPayload = { username, role, _id: user._id, profileId: user.profileId };
                 const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
                 res.json({ token, user: userPayload });
             } else {
@@ -238,7 +235,6 @@ app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student'));
 app.get('/api/users', authMiddleware, adminOnly, async (req, res) => { try { res.json(await User.find({ role: { $ne: 'admin' } })); } catch (e) { handleApiError(res, e, 'fetching users'); } });
 app.post('/api/users', authMiddleware, adminOnly, async (req, res) => { try { const { username, password, role, profileId } = req.body; const hashedPassword = await bcrypt.hash(password, saltRounds); const newUser = new User({ username, password: hashedPassword, role, profileId }); await newUser.save(); res.status(201).json(newUser); } catch (e) { handleApiError(res, e, 'user creation'); } });
 app.delete('/api/users/:id', authMiddleware, adminOnly, async (req, res) => { try { const user = await User.findById(req.params.id); if (!user) return res.status(404).json({ message: "User not found" }); if (user.role === 'admin') return res.status(403).json({ message: "Cannot delete admin user" }); await User.findByIdAndDelete(req.params.id); res.status(204).send(); } catch (e) { handleApiError(res, e, 'user deletion'); } });
-app.put('/api/user/profile-picture', authMiddleware, async (req, res) => { try { const { dataUrl } = req.body; const user = await User.findByIdAndUpdate(req.user._id, { profilePictureUrl: dataUrl }, { new: true }); res.json({ profilePictureUrl: user.profilePictureUrl }); } catch (e) { handleApiError(res, e, 'profile picture update'); } });
 
 // --- Timetable, Constraints, Attendance, Chat ---
 app.put('/api/constraints', authMiddleware, adminOnly, async (req, res) => { try { const updatedConstraints = await Constraints.findOneAndUpdate({ identifier: 'global_constraints' }, req.body, { new: true, upsert: true }); res.json(updatedConstraints); } catch (e) { handleApiError(res, e, 'constraints update'); } });

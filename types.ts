@@ -102,7 +102,6 @@ export interface User {
   role: 'admin' | 'teacher' | 'student';
   _id?: string; // from MongoDB
   profileId?: string;
-  profilePictureUrl?: string;
   // Optional password field for user creation payloads.
   password?: string;
 }

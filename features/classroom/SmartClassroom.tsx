@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
@@ -16,8 +17,7 @@ interface SmartClassroomProps {
 }
 
 const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2", role: "alert" }, message);
-const StatCard = ({ title, value, color }: { title: string; value: string; color: string }) => ( React.createElement("div", { className: `p-6 rounded-2xl text-white shadow-lg bg-gradient-to-br ${color}` }, React.createElement("p", { className: "text-sm opacity-80" }, title), React.createElement("p", { className: "text-3xl font-bold mt-1" }, value)));
-const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-md" }, React.createElement("div", { className: "flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4" }, React.createElement("h3", { className: "text-xl font-bold" }, title), actions && React.createElement("div", null, actions)), children));
+const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (React.createElement("div", { className: "bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm" }, React.createElement("div", { className: "flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4" }, React.createElement("h3", { className: "text-xl font-bold" }, title), actions && React.createElement("div", null, actions)), children));
 const PlaceholderView = ({ title }: { title: string }) => ( React.createElement("div", { className: "flex-grow flex items-center justify-center h-96 bg-gray-100 dark:bg-slate-800/50 rounded-2xl p-8" }, React.createElement("div", { className: "text-center" }, React.createElement("h2", { className: "text-3xl font-bold text-slate-400" }, title), React.createElement("p", { className: "text-slate-500" }, "This feature is under construction."))));
 
 const StudentForm = ({ student, onSave, onCancel, classId }: { student: Student | null; onSave: (data: Partial<Student>) => Promise<void>; onCancel: () => void; classId: string; }) => {
@@ -102,14 +102,8 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                     React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 py-2 px-4 border dark:border-slate-700 rounded-lg flex items-center gap-2" }, React.createElement(LogoutIcon, null), "Logout")
                 )
             ),
-             React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" },
-                React.createElement(StatCard, { title: "Total Students", value: props.students.length.toString(), color: "from-indigo-500 to-purple-500" }),
-                React.createElement(StatCard, { title: "Total Classes", value: props.classes.length.toString(), color: "from-sky-500 to-cyan-500" }),
-                React.createElement(StatCard, { title: "Total Faculty", value: props.faculty.length.toString(), color: "from-green-500 to-lime-500" }),
-                React.createElement(StatCard, { title: "User Accounts", value: props.users.length.toString(), color: "from-red-500 to-pink-500" })
-            ),
-            React.createElement("nav", { className: "bg-white/80 dark:bg-slate-800/50 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8" },
-                tabs.map(tab => React.createElement("button", { key: tab.key, onClick: () => setActiveTab(tab.key), className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${activeTab === tab.key ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}`}, tab.icon, tab.label))
+            React.createElement("nav", { className: "bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8" },
+                tabs.map(tab => React.createElement("button", { key: tab.key, onClick: () => setActiveTab(tab.key), className: `flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}, tab.icon, tab.label))
             ),
             React.createElement("main", null, renderContent())
         )
