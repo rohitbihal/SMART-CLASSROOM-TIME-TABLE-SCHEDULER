@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
@@ -50,7 +48,6 @@ const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme, onProfile
         React.createElement("div", null,
             React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100" }, title),
             React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-1" }, subtitle)),
-// Fix: Corrected typo from `className` to `className`.
         React.createElement("div", {className: "flex items-center gap-2"},
              React.createElement("button", { onClick: onProfileClick, className: "h-12 w-12 rounded-full bg-white dark:bg-slate-800 border dark:border-slate-700 flex items-center justify-center ring-2 ring-transparent hover:ring-indigo-500 transition", title: "Change Profile Picture" },
                 user.profilePictureUrl ? React.createElement("img", { src: user.profilePictureUrl, alt: "Profile", className: "h-full w-full rounded-full object-cover" }) : React.createElement(ProfileIcon, { className: "h-7 w-7 text-gray-500 dark:text-gray-300" })
@@ -66,21 +63,22 @@ const TimetableGrid = ({ timetable, role = 'student' }: TimetableGridProps) => {
         return React.createElement("div", { className: "bg-white dark:bg-slate-800/80 backdrop-blur-lg border-2 border-dashed border-gray-300 dark:border-slate-700 p-8 rounded-2xl text-center min-h-[500px] flex flex-col justify-center items-center" }, React.createElement(SchedulerIcon, { className: "h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" }), React.createElement("h3", { className: "text-xl font-bold" }, "Timetable Not Available"), React.createElement("p", { className: "text-gray-500 mt-2" }, "Your schedule will appear here once it has been published by the admin."));
     }
     const getEntry = (day: string, time: string) => timetable.find(e => e.day.toLowerCase() === day.toLowerCase() && e.time === time);
-    const cellBgColor = role === 'teacher' ? 'bg-green-500' : 'bg-indigo-500';
+    const cellBgColor = role === 'teacher' ? 'bg-green-500/90' : 'bg-indigo-500/90';
     return (
         React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-4 sm:p-6 rounded-2xl shadow-md overflow-x-auto" },
             React.createElement("table", { className: "w-full border-collapse text-sm" },
                 React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", { className: "p-3 font-semibold text-left text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700" }, "Time"), DAYS.map(day => React.createElement("th", { key: day, className: "p-3 font-semibold text-center capitalize text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700" }, day)))),
                 React.createElement("tbody", null, TIME_SLOTS.map(time => (
                     React.createElement("tr", { key: time, className: "dark:text-gray-200" },
-                        React.createElement("td", { className: "p-3 font-medium border-b dark:border-slate-700" }, time),
+                        React.createElement("td", { className: "p-3 font-medium border-b dark:border-slate-700 whitespace-nowrap" }, time),
                         DAYS.map(day => {
                             const entry = getEntry(day, time);
                             return React.createElement("td", { key: day, className: "p-2 border-b dark:border-slate-700 text-center" },
                                 entry ? React.createElement("div", { className: `p-2.5 rounded-lg text-white text-xs ${cellBgColor}` },
                                     React.createElement("div", { className: "font-bold" }, entry.subject),
                                     React.createElement("div", { className: "opacity-80" }, role === 'teacher' ? entry.className : entry.faculty),
-                                    React.createElement("div", { className: "opacity-80" }, "Room: ", entry.room)
+                                    // FIX: Concatenated children to resolve potential TS type inference issue.
+                                    React.createElement("div", { className: "opacity-80" }, "Room: " + entry.room)
                                 ) : (time === '12:50-01:35' ? React.createElement("div", { className: "text-gray-400 text-xs" }, "Lunch") : null)
                             );
                         })
@@ -91,9 +89,9 @@ const TimetableGrid = ({ timetable, role = 'student' }: TimetableGridProps) => {
     );
 };
 
-const PlaceholderContent = ({ title, message, icon }: { title: string; message: string; icon: React.ReactNode }) => (
-    React.createElement("div", { className: "flex flex-col items-center justify-center h-96 bg-gray-100 dark:bg-slate-800 rounded-2xl p-8" },
-        React.cloneElement(icon as React.ReactElement, { className: "h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" }),
+const PlaceholderContent = ({ title, message, icon }: { title: string; message: string; icon: React.ReactElement }) => (
+    React.createElement("div", { className: "flex flex-col items-center justify-center h-96 bg-gray-100 dark:bg-slate-800/50 rounded-2xl p-8" },
+        React.cloneElement(icon, { className: "h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" }),
         React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, title),
         React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-2 text-center" }, message)
     )
@@ -119,7 +117,6 @@ const TeacherDashboardView = ({ timetable, ...props }: { timetable: TimetableEnt
             default: return React.createElement(PlaceholderContent, {
                 title: "Coming Soon",
                 message: `The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`,
-// Fix: Corrected typo from `activetTab` to `activeTab`.
                 icon: tabs.find(t => t.key === activeTab)?.icon || React.createElement("div", null)
             });
         }
@@ -127,10 +124,10 @@ const TeacherDashboardView = ({ timetable, ...props }: { timetable: TimetableEnt
     
     return React.createElement("div", null,
         React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" },
-            React.createElement(StatCard, { title: "Classes This Week", value: "12", color: "from-blue-500 to-blue-400" }),
-            React.createElement(StatCard, { title: "Pending Requests", value: "3", color: "from-yellow-500 to-yellow-400" }),
-            React.createElement(StatCard, { title: "New Notifications", value: "2", color: "from-red-500 to-red-400" }),
-            React.createElement(StatCard, { title: "Workload Utilization", value: "85%", color: "from-green-500 to-green-400" })
+            React.createElement(StatCard, { title: "Classes This Week", value: "12", color: "from-indigo-500 to-blue-500" }),
+            React.createElement(StatCard, { title: "Pending Requests", value: "3", color: "from-purple-500 to-indigo-500" }),
+            React.createElement(StatCard, { title: "New Notifications", value: "2", color: "from-blue-500 to-sky-500" }),
+            React.createElement(StatCard, { title: "Workload Utilization", value: "85%", color: "from-sky-500 to-indigo-500" })
         ),
         React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 backdrop-blur-lg border border-gray-200 dark:border-slate-700 p-2 rounded-xl shadow-md flex flex-wrap gap-2 mb-8" },
             tabs.map(tab => React.createElement("button", { key: tab.key, onClick: () => setActiveTab(tab.key), className: `flex items-center gap-2 px-4 py-3 text-sm font-semibold rounded-lg transition-all ${activeTab === tab.key ? 'bg-green-600 text-white shadow-lg shadow-green-600/30' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'}`}, tab.icon, tab.label))
@@ -147,6 +144,7 @@ const StudentDashboardView = ({ timetable, ...props }: { timetable: TimetableEnt
         { key: 'ims', label: 'IMS', icon: React.createElement(IMSIcon, { className: 'h-5 w-5' }) },
         { key: 'smart-tools', label: 'Smart Tools', icon: React.createElement(SmartToolsIcon, { className: 'h-5 w-5' }) },
         { key: 'subjects', label: 'Subjects', icon: React.createElement(BookOpenIcon, { className: 'h-5 w-5' }) },
+        { key: 'upcoming', label: 'Upcoming Classes', icon: React.createElement(SchedulerIcon, { className: 'h-5 w-5' })},
         { key: 'notifications', label: 'Notifications', icon: React.createElement(NotificationsIcon, { className: 'h-5 w-5' }) },
         { key: 'exams', label: 'Exams', icon: React.createElement(ExamsIcon, { className: 'h-5 w-5' }) },
         { key: 'chat', label: 'Chat', icon: React.createElement(ChatIcon, { className: 'h-5 w-5' }) },
@@ -190,13 +188,12 @@ export const Dashboard = (props: DashboardProps) => {
     const { user, onLogout, theme, toggleTheme, onUpdateProfilePicture, timetable, ...rest } = props;
     const [isProfileModalOpen, setProfileModalOpen] = useState(false);
 
-    const { title, subtitle, name } = useMemo(() => {
+    const { title, subtitle } = useMemo(() => {
         if (user.role === 'teacher') {
             const facultyProfile = props.faculty.find(f => f.id === user.profileId);
             return {
                 title: "Teacher Dashboard",
-                subtitle: `Welcome, ${facultyProfile?.name || user.username}`,
-                name: facultyProfile?.name
+                subtitle: `Welcome, ${facultyProfile?.name || user.username} | ${facultyProfile?.department || 'N/A'}`,
             };
         }
         if (user.role === 'student') {
@@ -204,15 +201,25 @@ export const Dashboard = (props: DashboardProps) => {
             const classProfile = props.classes.find(c => c.id === studentProfile?.classId);
             return {
                 title: "Student Dashboard",
-                subtitle: `Welcome, ${studentProfile?.name || user.username} | ${classProfile?.name || ''} | Roll: ${studentProfile?.roll || 'N/A'}`,
-                name: studentProfile?.name
+                subtitle: `Welcome, ${studentProfile?.name || user.username} | ${classProfile?.name || ''} | Roll No: ${studentProfile?.roll || 'N/A'}`,
             };
         }
-        return { title: "Dashboard", subtitle: `Welcome, ${user.username}`, name: user.username };
+        return { title: "Dashboard", subtitle: `Welcome, ${user.username}` };
     }, [user, props.faculty, props.students, props.classes]);
 
+    const backgroundClass = user.role === 'teacher' 
+        ? "bg-gradient-to-br from-green-500 to-teal-500" 
+        : "bg-gradient-to-br from-indigo-600 to-purple-600";
+
+    const DashboardWrapper = ({ children }: { children: React.ReactNode }) => (
+        React.createElement("div", { className: "min-h-screen" },
+            React.createElement("div", { className: `absolute top-0 left-0 w-full h-64 -z-10 ${backgroundClass} opacity-20 dark:opacity-30 blur-3xl` }),
+            React.createElement("div", { className: "p-4 sm:p-6 lg:p-8" }, children)
+        )
+    );
+
     return (
-        React.createElement("div", { className: "p-4 sm:p-6 lg:p-8" },
+        React.createElement(DashboardWrapper, null,
             React.createElement(ProfilePictureModal, { isOpen: isProfileModalOpen, onClose: () => setProfileModalOpen(false), onSave: onUpdateProfilePicture, currentUser: user }),
             React.createElement(Header, {
                 user,

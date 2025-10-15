@@ -1,9 +1,6 @@
-
-
 import React, { useState, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
-// Fix: Added BackIcon to imports
     LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SearchIcon, StudentIcon, ChatIcon, AttendanceIcon, IMSIcon, NotificationsIcon, MeetingIcon, CalendarIcon, QuizzesIcon, GradebookIcon, TutorialsIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, BackIcon
 } from '../../components/Icons';
 import { User, Class, Student, Faculty, Constraints, Attendance, AttendanceStatus } from '../../types';
@@ -16,8 +13,8 @@ interface SmartClassroomProps {
     classes: Class[]; faculty: Faculty[]; students: Student[]; users: User[];
     constraints: Constraints | null; updateConstraints: (c: Constraints) => void;
     attendance: Attendance; onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void;
-    onSaveEntity: (type: 'student', data: any) => Promise<void>;
-    onDeleteEntity: (type: 'student', id: string) => Promise<void>;
+    onSaveEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', data: any) => Promise<void>;
+    onDeleteEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', id: string) => Promise<void>;
     onSaveUser: (userData: any) => Promise<void>;
     onDeleteUser: (userId: string) => Promise<void>;
 }
@@ -50,9 +47,7 @@ const GroupsManager = ({ classes, students, onSaveEntity, onDeleteEntity, constr
     const selectedClass = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 
     const handleChatWindowChange = (e: React.ChangeEvent<HTMLInputElement>) => constraints && updateConstraints({ ...constraints, chatWindow: { ...(constraints.chatWindow || { start: '', end: '' }), [e.target.name]: e.target.value } });
-// Fix: Pass the entity type 'student' to onSaveEntity as the first argument.
     const handleSaveStudent = async (studentData: Partial<Student>) => { await onSaveEntity('student', studentData); setEditingStudent(null); };
-// Fix: Pass the entity type 'student' to onDeleteEntity as the first argument.
     const handleDeleteStudent = async (studentId: string) => { setListError(null); try { await onDeleteEntity('student', studentId); } catch(err) { setListError(err instanceof Error ? err.message : "Could not delete student."); } };
     
     return React.createElement("div", { className: "flex-grow grid grid-cols-12 gap-6" },
@@ -139,8 +134,8 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                 return React.createElement(GroupsManager, {
                     classes: props.classes,
                     students: props.students,
-                    onSaveEntity: (data) => props.onSaveEntity('student', data),
-                    onDeleteEntity: (id) => props.onDeleteEntity('student', id),
+                    onSaveEntity: props.onSaveEntity,
+                    onDeleteEntity: props.onDeleteEntity,
                     constraints: props.constraints,
                     updateConstraints: props.updateConstraints,
                 });

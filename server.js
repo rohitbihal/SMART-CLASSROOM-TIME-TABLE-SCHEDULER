@@ -7,7 +7,7 @@
 //    MONGO_URI=YOUR_MONGODB_CONNECTION_STRING
 //    API_KEY=YOUR_GEMINI_API_KEY
 //    JWT_SECRET=a_long_random_secret_string_for_signing_tokens
-//    (Get your MONGO_URI from your MongoDB hosting provider, e.g., MongoDB Atlas)
+//    (Get your MONO_URI from your MongoDB hosting provider, e.g., MongoDB Atlas)
 // 5. Run 'node server.js'
 
 import express from 'express';
@@ -45,6 +45,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Serve static files from the 'dist' directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
 const saltRounds = 10;
@@ -256,7 +257,60 @@ app.post('/api/chat', authMiddleware, async (req, res) => { try { const newMessa
 // --- Reset and Generation ---
 app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => { try { await seedDatabase(true); res.status(200).json({ message: 'Database reset successfully.' }); } catch (e) { handleApiError(res, e, 'data reset'); } });
 
-const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => { /* Omitted for brevity, no changes needed here */ `...`; };
+const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
+    const facultyMap = Object.fromEntries(faculty.map(f => [f.id, f.name]));
+    const subjectsWithFacultyNames = subjects.map(s => ({ ...s, assignedFaculty: facultyMap[s.assignedFacultyId] || 'Unassigned' }));
+
+    return `
+You are an expert AI timetable scheduler for a college. Your task is to generate a conflict-free, optimized weekly timetable based on the provided data and constraints.
+
+**Objective:**
+Create a timetable for all specified classes, assigning subjects, faculty, and rooms to available time slots from Monday to Saturday, while strictly adhering to all given constraints.
+
+**Input Data:**
+
+1.  **Time Slots:** ${JSON.stringify(TIME_SLOTS.filter(ts => ts !== constraints.lunchBreak))}
+2.  **Working Days:** ${JSON.stringify(constraints.workingDays)}
+3.  **Classes:** ${JSON.stringify(classes, null, 2)}
+4.  **Faculty:** ${JSON.stringify(faculty, null, 2)}
+5.  **Subjects (with assigned faculty):** ${JSON.stringify(subjectsWithFacultyNames, null, 2)}
+6.  **Rooms:** ${JSON.stringify(rooms, null, 2)}
+
+**Constraints to Follow Strictly:**
+
+1.  **Global Constraints:**
+    *   A class cannot have more than ${constraints.maxConsecutiveClasses} consecutive lectures without a break.
+    *   The lunch break is fixed at ${constraints.lunchBreak} every day. No classes should be scheduled during this slot.
+    *   A faculty member cannot teach more than one class at the same time.
+    *   A classroom cannot be assigned to more than one class at the same time.
+    *   A class cannot attend more than one subject at the same time.
+
+2.  **Resource Constraints:**
+    *   Lab subjects (type: 'lab') must be assigned to Lab rooms (type: 'lab'). Theory subjects (type: 'theory') must be assigned to Classroom rooms (type: 'classroom').
+    *   The number of students in a class must not exceed the capacity of the assigned room.
+
+3.  **Workload Constraint:**
+    *   Each subject must be scheduled for exactly its specified 'hoursPerWeek'. Each time slot is one hour.
+
+4.  **Class-Specific Constraints:** ${constraints.classSpecific.length > 0 ? JSON.stringify(constraints.classSpecific, null, 2) : "None"}
+
+**Output Format:**
+Your output must be a valid JSON array of timetable entry objects. Do not include any explanations, introductory text, or markdown formatting. The output must be only the JSON array.
+
+Each object in the array must have the following structure:
+{
+  "className": "string",  // e.g., "CSE-3-A"
+  "subject": "string",    // e.g., "Data Structures"
+  "faculty": "string",    // e.g., "Dr. Rajesh Kumar"
+  "room": "string",       // e.g., "CS-101"
+  "day": "string",        // e.g., "monday" (must be lowercase)
+  "time": "string",       // e.g., "09:30-10:20"
+  "type": "string"        // e.g., "theory" or "lab"
+}
+
+Now, generate the timetable.
+`;
+};
 const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['theory', 'lab'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type'] } };
 app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "API_KEY is not configured on the server." }); }
@@ -277,6 +331,7 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
     }
 });
 
+// Fallback route for client-side routing
 app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });

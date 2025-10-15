@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon, ShieldIcon } from '../../components/Icons';
 import { User } from '../../types';
@@ -86,11 +85,12 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
   );
 
   return (
-    React.createElement("div", { className: "min-h-screen flex items-center justify-center bg-transparent p-4 bg-gradient-to-br from-[#4f46e5] to-[#a259ff]" },
-      React.createElement("div", { className: "w-full max-w-md bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-900/50 p-8 border border-gray-200 dark:border-slate-700" },
+    React.createElement("div", { className: "min-h-screen flex items-center justify-center bg-transparent p-4 bg-gradient-to-br from-[#6366f1] to-[#a855f7]" },
+      React.createElement("div", { className: "w-full max-w-md bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-2xl shadow-indigo-900/50 p-8 border border-gray-200 dark:border-slate-700" },
         React.createElement("div", { className: "text-center mb-8" },
           React.createElement(ShieldIcon, { className: "h-12 w-12 mx-auto text-indigo-500"}),
-          React.createElement("h1", { className: "text-2xl font-bold text-gray-800 dark:text-gray-100 mt-4" }, "Smart College Timetable Scheduler"),
+          React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100 mt-4" }, "Smart College"),
+          React.createElement("h2", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100" }, "Timetable Scheduler"),
           React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-2" }, `${capitalRole} Login`)
         ),
         React.createElement("div", { className: "bg-gray-200/50 dark:bg-slate-900/50 rounded-xl p-1.5 flex gap-1.5 mb-6" },
@@ -129,14 +129,14 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
           React.createElement("div", { className: "flex flex-col gap-4 mt-8" },
             React.createElement("button", {
               type: "submit",
-              className: "w-full flex justify-center items-center gap-3 py-3 px-4 border border-transparent rounded-lg shadow-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition-transform transform hover:scale-105 disabled:bg-indigo-400 disabled:cursor-not-allowed",
+              className: "w-full flex justify-center items-center gap-3 py-3 px-4 border border-transparent rounded-lg shadow-lg text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 font-semibold transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed",
               disabled: isLoading
             }, React.createElement(LoginIcon, null), isLoading ? 'Logging in...' : 'Login'),
              React.createElement("div", { className: "text-center" },
                 React.createElement("button", {
                     type: "button",
                     onClick: handleFillDemo,
-                    className: "text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition",
+                    className: "text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition disabled:opacity-50",
                     disabled: isLoading
                 }, "ⓘ Demo Credentials")
             )

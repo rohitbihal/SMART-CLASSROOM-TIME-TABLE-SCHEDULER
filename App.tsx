@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -205,7 +203,6 @@ export const App = () => {
         );
     }
 
-// Fix: Corrected onLogout and onUpdateProfilePicture to pass the handler functions instead of using incorrect shorthand properties.
     const commonDashboardProps = {
         user, onLogout: handleLogout, theme, toggleTheme, onUpdateProfilePicture: handleUpdateProfilePicture,
         classes, faculty, subjects, students, users,
