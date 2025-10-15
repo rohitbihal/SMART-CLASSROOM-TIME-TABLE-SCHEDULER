@@ -267,7 +267,18 @@ app.put('/api/users/:id', authMiddleware, adminOnly, async (req, res) => {
 app.delete('/api/users/:id', authMiddleware, adminOnly, async (req, res) => { try { const user = await User.findById(req.params.id); if (!user) return res.status(404).json({ message: "User not found" }); if (user.role === 'admin') return res.status(403).json({ message: "Cannot delete admin user" }); await User.findByIdAndDelete(req.params.id); res.status(204).send(); } catch (e) { handleApiError(res, e, 'user deletion'); } });
 
 // --- Timetable, Constraints, Attendance, Chat ---
-app.put('/api/constraints', authMiddleware, adminOnly, async (req, res) => { try { const updatedConstraints = await Constraints.findOneAndUpdate({ identifier: 'global_constraints' }, req.body, { new: true, upsert: true }); res.json(updatedConstraints); } catch (e) { handleApiError(res, e, 'constraints update'); } });
+app.put('/api/constraints', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const updatedConstraints = await Constraints.findOneAndUpdate(
+            { identifier: 'global_constraints' },
+            { $set: req.body }, // Use $set to merge fields instead of overwriting
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+        res.json(updatedConstraints);
+    } catch (e) {
+        handleApiError(res, e, 'constraints update');
+    }
+});
 app.post('/api/timetable', authMiddleware, adminOnly, async (req, res) => { try { await TimetableEntry.deleteMany({}); await TimetableEntry.insertMany(req.body); res.status(201).json(req.body); } catch (e) { handleApiError(res, e, 'timetable save'); } });
 app.put('/api/attendance', authMiddleware, adminOrTeacher, async (req, res) => {
     const { classId, date, studentId, status } = req.body;
@@ -388,6 +399,9 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
     if (!process.env.API_KEY) { return res.status(500).json({ message: "API_KEY is not configured on the server." }); }
     try {
         const { classes, faculty, subjects, rooms, constraints } = req.body;
+        if (!constraints || !constraints.timePreferences) {
+            throw new Error("Cannot generate timetable because time preferences are missing from the constraints configuration.");
+        }
         const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({

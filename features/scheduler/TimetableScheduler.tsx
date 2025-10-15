@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddIcon, BackIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, LogoutIcon, MoonIcon, SaveIcon, SetupIcon, SunIcon, ViewIcon, SearchIcon, AvailabilityIcon, AnalyticsIcon } from '../../components/Icons.tsx';
@@ -58,15 +59,15 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
     return React.createElement(React.Fragment, null,
         React.createElement(ErrorDisplay, { message: pageError }),
         React.createElement(SectionCard, { title: "Institution Details" },
-            React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-4" },
+            React.createElement("div", { className: "mb-4" },
                 React.createElement(FormField, { label: "Select Institute" },
                     React.createElement(SelectInput, { defaultValue: "default" },
                         React.createElement("option", { value: "default", disabled: true }, "Select an existing institute"),
                         React.createElement("option", null, "Central University of Technology")
                     )
                 ),
-                React.createElement("button", { className: "flex items-center justify-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-2.5 rounded-md h-fit" },
-                    React.createElement(AddIcon, null), "Create New"
+                React.createElement("button", { className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold mt-2 hover:underline" },
+                    React.createElement(AddIcon, null), "Create New Institute"
                 )
             ),
             React.createElement("div", { className: "border-t border-gray-200 dark:border-slate-700 pt-4" },
@@ -75,10 +76,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                         React.createElement(TextInput, { placeholder: "Enter college/university name" })
                     ),
                     React.createElement(FormField, { label: "Academic Year" },
-                        React.createElement(SelectInput, { defaultValue: "2024-2025" },
-                            React.createElement("option", null, "2024-2025"),
-                            React.createElement("option", null, "2025-2026")
-                        )
+                        React.createElement(TextInput, { placeholder: "e.g., 2024-2025", defaultValue: "2024-2025" })
                     ),
                     React.createElement(FormField, { label: "Semester" },
                         React.createElement(SelectInput, { defaultValue: "Odd" },
@@ -89,7 +87,8 @@ const SetupTab = ({ classes, faculty, subjects, rooms, openModal, handleDelete, 
                     React.createElement(FormField, { label: "Academic Session" },
                         React.createElement(SelectInput, { defaultValue: "Regular" },
                             React.createElement("option", null, "Regular"),
-                            React.createElement("option", null, "Summer")
+                            React.createElement("option", null, "Summer School"),
+                            React.createElement("option", null, "Winter School")
                         )
                     )
                 ),
