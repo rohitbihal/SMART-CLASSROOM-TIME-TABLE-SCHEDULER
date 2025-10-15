@@ -114,7 +114,7 @@ async function seedDatabase(force = false) {
     } catch (error) { console.error('Error seeding database:', error); }
 }
 
-mongoose.connect(process.env.MONGO_URI).then(() => { console.log('MongoDB connected successfully.'); seedDatabase(); }).catch(err => { console.error('Initial MongoDB connection error:', err); process.exit(1); });
+mongoose.connect(process.env.MONGO_URI).then(() => { console.log('MongoDB connected successfully.'); seedDatabase(true); }).catch(err => { console.error('Initial MongoDB connection error:', err); process.exit(1); });
 
 app.post('/api/auth/login', async (req, res) => {
     const { username, password, role } = req.body;

@@ -11,14 +11,16 @@ import { TimetableEntry, Class, Faculty, Subject, Constraints, ChatMessage, Stud
 // --- Prop Interfaces ---
 
 interface TabContainerProps {
-    children: React.ReactNode;
+    // Fix: Made children optional to work with React.createElement when children are passed as arguments.
+    children?: React.ReactNode;
     className?: string;
 }
 
 interface TabButtonProps {
     isActive: boolean;
     onClick: () => void;
-    children: React.ReactNode;
+    // Fix: Made children optional to work with React.createElement when children are passed as arguments.
+    children?: React.ReactNode;
 }
 
 interface HeaderProps {
