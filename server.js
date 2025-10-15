@@ -118,22 +118,30 @@ mongoose.connect(process.env.MONGO_URI).then(() => { console.log('MongoDB connec
 
 app.post('/api/auth/login', async (req, res) => {
     const { username, password, role } = req.body;
+    console.log(`[AUTH] Login attempt for user: '${username}' with role: '${role}'`);
+
     try {
         const user = await User.findOne({ username, role });
+
         if (user) {
+            console.log(`[AUTH] User '${username}' found. Comparing password...`);
             const isMatch = await bcrypt.compare(password, user.password);
+            
             if (isMatch) {
+                console.log(`[AUTH] Password comparison successful for '${username}'. Generating token.`);
                 const userPayload = { username, role, _id: user._id, profileId: user.profileId };
                 const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
                 res.json({ token, user: userPayload });
             } else {
+                console.log(`[AUTH] Password comparison failed for '${username}'.`);
                 res.status(401).json({ message: 'Invalid credentials. Please check your email, password, and role.' });
             }
         } else {
+            console.log(`[AUTH] User '${username}' with role '${role}' not found.`);
             res.status(401).json({ message: 'Invalid credentials. Please check your email, password, and role.' });
         }
     } catch (error) {
-        console.error("Login error:", error);
+        console.error("[AUTH] Server error during login:", error);
         res.status(500).json({ message: "An error occurred during login." });
     }
 });

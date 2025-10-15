@@ -93,6 +93,7 @@ interface UpcomingClassesProps {
     upcoming: TimetableEntry[];
 }
 
+// Fix: Removed `timetable` and `onProfileClick` from DashboardProps as they are handled internally by the Dashboard component.
 interface DashboardProps {
     user: User;
     onLogout: () => void;
@@ -115,8 +116,6 @@ interface DashboardProps {
     onDeleteUser: (userId: string) => Promise<void>;
     onUpdateProfilePicture: (dataUrl: string) => void;
     token: string | null;
-    timetable: TimetableEntry[];
-    onProfileClick: () => void;
 }
 
 interface ModalProps {
@@ -524,4 +523,209 @@ const UserManager = ({ faculty, students, users, onSaveUser, onDeleteUser }: Use
         }
     };
 
-    return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-
+    // Fix: Added the UI for the UserManager component which was missing due to a truncated file.
+    return React.createElement("div", { className: "bg-white/80 dark:bg-slate-800/50 p-6 rounded-2xl shadow-md" },
+        React.createElement(Modal, {
+            isOpen: modalOpen,
+            onClose: () => setModalOpen(false),
+            title: "Add New User"
+        },
+            React.createElement(UserForm, {
+                onSave: handleSave,
+                onCancel: () => setModalOpen(false),
+                availableFaculty: availableFaculty,
+                availableStudents: availableStudents
+            })
+        ),
+        React.createElement(Modal, {
+            isOpen: !!confirmDeleteUser,
+            onClose: () => setConfirmDeleteUser(null),
+            title: "Confirm Deletion"
+        },
+            React.createElement("div", null,
+                React.createElement("p", { className: "text-gray-600 dark:text-gray-300" }, `Are you sure you want to delete the user '${confirmDeleteUser?.username}'?`),
+                React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+                    React.createElement("button", { onClick: () => setConfirmDeleteUser(null), className: "bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-md" }, "Cancel"),
+                    React.createElement("button", { onClick: executeDelete, className: "bg-red-600 text-white px-4 py-2 rounded-md" }, "Delete")
+                )
+            )
+        ),
+        React.createElement("div", { className: "flex justify-between items-center mb-4" },
+            React.createElement("h3", { className: "font-bold text-lg" }, "Manage Users"),
+            React.createElement("button", { onClick: () => setModalOpen(true), className: "flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 font-semibold" },
+                React.createElement(AddIcon, null), "Add User"
+            )
+        ),
+        React.createElement(ErrorDisplay, { message: listError }),
+        React.createElement("div", { className: "space-y-2 mt-4" },
+            users.map(user =>
+                React.createElement("div", { key: user._id, className: "flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
+                    React.createElement("div", null,
+                        React.createElement("p", { className: "font-semibold" }, user.username),
+                        React.createElement("p", { className: "text-xs text-gray-500" }, `Role: ${user.role} | Profile: ${facultyMap.get(user.profileId) || studentMap.get(user.profileId) || 'N/A'}`)
+                    ),
+                    React.createElement("button", { onClick: () => handleDeleteRequest(user), className: "text-red-500 hover:text-red-700" },
+                        React.createElement(DeleteIcon, null)
+                    )
+                )
+            )
+        )
+    );
+};
+
+// Fix: Added missing PlaceholderContent component implementation.
+const PlaceholderContent = ({ title, icon, message }: PlaceholderContentProps) => (
+    React.createElement("div", { className: "text-center p-8" },
+        React.createElement("div", { className: "text-gray-400 dark:text-gray-500 mb-4" }, React.cloneElement(icon as React.ReactElement, { className: "h-12 w-12 mx-auto" })),
+        React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, title),
+        message && React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-2" }, message)
+    )
+);
+
+// Fix: Added missing ProfilePictureModal component implementation
+const ProfilePictureModal = ({ isOpen, onClose, onSave, currentUser }: ProfilePictureModalProps) => {
+    const [imageSrc, setImageSrc] = useState<string | null>(currentUser.profilePictureUrl || null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                setError("File is too large. Please select an image under 2MB.");
+                return;
+            }
+            setError(null);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImageSrc(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSaveClick = () => {
+        if (imageSrc) {
+            onSave(imageSrc);
+            onClose();
+        }
+    };
+
+    return React.createElement(Modal, { isOpen, onClose, title: "Update Profile Picture", error },
+        React.createElement("div", { className: "flex flex-col items-center" },
+            React.createElement("div", { className: "w-40 h-40 rounded-full bg-gray-200 dark:bg-slate-700 mb-4 flex items-center justify-center overflow-hidden" },
+                imageSrc ? React.createElement("img", { src: imageSrc, alt: "Profile Preview", className: "w-full h-full object-cover" }) : React.createElement(ProfileIcon, { className: "w-20 h-20 text-gray-400" })
+            ),
+            React.createElement("input", { type: "file", accept: "image/*", ref: fileInputRef, onChange: handleFileChange, className: "hidden" }),
+            React.createElement("button", { onClick: () => fileInputRef.current?.click(), className: "flex items-center gap-2 bg-gray-200 dark:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold mb-4" },
+                React.createElement(UploadIcon, null), "Choose Image"
+            ),
+            React.createElement("div", { className: "flex gap-2 w-full" },
+                React.createElement("button", { onClick: onClose, className: "flex-1 bg-gray-100 dark:bg-slate-700 font-semibold py-2 px-4 rounded-lg" }, "Cancel"),
+                React.createElement("button", { onClick: handleSaveClick, disabled: !imageSrc, className: "flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg disabled:bg-indigo-400" }, "Save")
+            )
+        )
+    );
+};
+
+// Fix: Added the main Dashboard component which was missing and is now exported.
+export const Dashboard = ({
+    user, onLogout, theme, toggleTheme, classes, faculty, subjects, students, users, constraints, updateConstraints,
+    chatMessages, onSendMessage, attendance, onUpdateAttendance,
+    onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onUpdateProfilePicture
+}: DashboardProps) => {
+    const [activeTab, setActiveTab] = useState('timetable');
+    const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+    const [isProfileModalOpen, setProfileModalOpen] = useState(false);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('smartCampusShared');
+            if (saved) {
+                setTimetable(JSON.parse(saved).timetable || []);
+            }
+        } catch (e) { console.error("Could not load timetable from storage", e); }
+    }, []);
+
+    const handleProfileClick = () => setProfileModalOpen(true);
+
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 18) return 'Good Afternoon';
+        return 'Good Evening';
+    };
+
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'timetable':
+                return React.createElement(TimetableGrid, { timetable: timetable, role: user.role as 'student' | 'teacher' });
+            case 'chat': {
+                const classIdForUser = user.role === 'student' ? students.find(s => s.id === user.profileId)?.classId :
+                                       user.role === 'teacher' ? (subjects.find(s => s.assignedFacultyId === user.profileId) ? classes[0]?.id : undefined) : // Teacher needs a class context
+                                       classes[0]?.id; // Admin default
+                return classIdForUser ?
+                    React.createElement(ChatComponent, { messages: chatMessages, onSendMessage: onSendMessage, user: user, constraints: constraints, classId: classIdForUser, channel: 'general' }) :
+                    React.createElement(PlaceholderContent, { icon: React.createElement(ChatIcon, {}), title: "Chat Unavailable", message: "Cannot determine your class for chat."});
+            }
+            case 'classroom':
+                return React.createElement(ClassroomManager, { classes, students, onSaveEntity, onDeleteEntity, constraints, updateConstraints });
+            case 'attendance':
+                return React.createElement(AttendanceManager, { classes, students, attendance, onUpdateAttendance });
+            case 'users':
+                return React.createElement(UserManager, { faculty, students, users, onSaveUser, onDeleteUser });
+            default:
+                 return React.createElement(TimetableGrid, { timetable: timetable, role: user.role as 'student' | 'teacher' });
+        }
+    };
+
+    const tabs: { key: string; label: string; icon: React.ReactNode; roles: User['role'][] }[] = [
+        { key: 'timetable', label: 'My Timetable', icon: React.createElement(SchedulerIcon, { className: 'h-5 w-5' }), roles: ['student', 'teacher'] },
+        { key: 'chat', label: 'Class Chat', icon: React.createElement(ChatIcon, {}), roles: ['student', 'teacher'] },
+        { key: 'classroom', label: 'Classrooms', icon: React.createElement(StudentIcon, {}), roles: ['admin', 'teacher'] },
+        { key: 'attendance', label: 'Attendance', icon: React.createElement(AttendanceIcon, { className: 'h-5 w-5' }), roles: ['admin', 'teacher'] },
+        { key: 'users', label: 'Users', icon: React.createElement(UsersIcon, { className: 'h-5 w-5' }), roles: ['admin'] },
+        { key: 'scheduler', label: 'Scheduler', icon: React.createElement(AIIcon, { className: 'h-5 w-5' }), roles: ['admin'] },
+    ];
+    
+    const availableTabs = tabs.filter(tab => tab.roles.includes(user.role));
+    
+    useEffect(() => {
+        if (!availableTabs.find(t => t.key === activeTab)) {
+            setActiveTab(availableTabs[0]?.key || 'timetable');
+        }
+    }, [user.role]);
+    
+    const renderTabContent = () => {
+        if (activeTab === 'scheduler') {
+            return React.createElement(ReactRouterDOM.Navigate, { to: "/scheduler" });
+        }
+        return renderContent();
+    };
+
+    return React.createElement("div", { className: "p-4 sm:p-6 lg:p-8" },
+        React.createElement(ProfilePictureModal, {
+            isOpen: isProfileModalOpen,
+            onClose: () => setProfileModalOpen(false),
+            onSave: onUpdateProfilePicture,
+            currentUser: user
+        }),
+        React.createElement(Header, {
+            user,
+            title: `${getGreeting()}, ${user.username.split('@')[0]}!`,
+            subtitle: `Welcome to your ${user.role} dashboard.`,
+            onLogout,
+            theme,
+            toggleTheme,
+            onProfileClick: handleProfileClick
+        }),
+        React.createElement(Tabs, {}, availableTabs.map(tab => 
+            React.createElement(TabButton, {
+                key: tab.key,
+                isActive: activeTab === tab.key,
+                onClick: () => setActiveTab(tab.key)
+            }, tab.icon, tab.label)
+        )),
+        React.createElement("div", null, renderTabContent())
+    );
+};
