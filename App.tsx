@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage.tsx';
@@ -238,13 +239,19 @@ export const App = () => {
             React.createElement(ReactRouterDOM.Route, {
                 path: "/smart-classroom",
                 element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children:
+                    // FIX: Removed unsupported props `updateConstraints` and `onUpdateAttendance` and avoided spreading `commonDashboardProps` to only pass props defined in `SmartClassroomProps`.
                     React.createElement(SmartClassroom, {
-                        ...commonDashboardProps,
-                        updateConstraints: handleUpdateConstraints,
-                        onUpdateAttendance: handleUpdateAttendance,
-                        onSaveEntity: handleSaveEntity, 
+                        user: user,
+                        onLogout: handleLogout,
+                        theme: theme,
+                        toggleTheme: toggleTheme,
+                        classes: classes,
+                        faculty: faculty,
+                        students: students,
+                        users: users,
+                        onSaveEntity: handleSaveEntity,
                         onDeleteEntity: handleDeleteEntity,
-                        onSaveUser: handleSaveUser, 
+                        onSaveUser: handleSaveUser,
                         onDeleteUser: handleDeleteUser,
                     })
                 })

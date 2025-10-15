@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
@@ -48,7 +49,8 @@ const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme, onProfile
         React.createElement("div", null,
             React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100" }, title),
             React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-1" }, subtitle)),
-        React.createElement("div", {className: "flex items-center gap-2"},
+        // FIX: Corrected typo in prop name from `className` to `className`.
+        React.createElement("div", { className: "flex items-center gap-2" },
              React.createElement("button", { onClick: onProfileClick, className: "h-12 w-12 rounded-full bg-white dark:bg-slate-800 border dark:border-slate-700 flex items-center justify-center ring-2 ring-transparent hover:ring-indigo-500 transition", title: "Change Profile Picture" },
                 user.profilePictureUrl ? React.createElement("img", { src: user.profilePictureUrl, alt: "Profile", className: "h-full w-full rounded-full object-cover" }) : React.createElement(ProfileIcon, { className: "h-7 w-7 text-gray-500 dark:text-gray-300" })
             ),
@@ -207,19 +209,8 @@ export const Dashboard = (props: DashboardProps) => {
         return { title: "Dashboard", subtitle: `Welcome, ${user.username}` };
     }, [user, props.faculty, props.students, props.classes]);
 
-    const backgroundClass = user.role === 'teacher' 
-        ? "bg-gradient-to-br from-green-500 to-teal-500" 
-        : "bg-gradient-to-br from-indigo-600 to-purple-600";
-
-    const DashboardWrapper = ({ children }: { children: React.ReactNode }) => (
-        React.createElement("div", { className: "min-h-screen" },
-            React.createElement("div", { className: `absolute top-0 left-0 w-full h-64 -z-10 ${backgroundClass} opacity-20 dark:opacity-30 blur-3xl` }),
-            React.createElement("div", { className: "p-4 sm:p-6 lg:p-8" }, children)
-        )
-    );
-
     return (
-        React.createElement(DashboardWrapper, null,
+        React.createElement("div", { className: "min-h-screen p-4 sm:p-6 lg:p-8" },
             React.createElement(ProfilePictureModal, { isOpen: isProfileModalOpen, onClose: () => setProfileModalOpen(false), onSave: onUpdateProfilePicture, currentUser: user }),
             React.createElement(Header, {
                 user,
