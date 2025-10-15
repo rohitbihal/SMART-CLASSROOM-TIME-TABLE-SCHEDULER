@@ -18,15 +18,18 @@ interface HeaderProps { user: User; title: string; subtitle: string; onLogout: (
 
 const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme }: HeaderProps) => (
     React.createElement("div", { className: "flex justify-between items-center mb-8" },
-        React.createElement("div", null,
+        // FIX: Replaced `null` props with `{}` to avoid TypeScript type inference issues.
+        React.createElement("div", {},
             React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100" }, title),
             React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-1" }, subtitle)),
         React.createElement("div", { className: "flex items-center gap-2" },
              React.createElement("div", { className: "h-10 w-10 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center ring-2 ring-gray-300 dark:ring-slate-600" },
                 React.createElement(ProfileIcon, { className: "h-6 w-6 text-gray-500 dark:text-gray-300" })
             ),
-            React.createElement("button", { onClick: toggleTheme, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold p-3 rounded-lg flex items-center gap-2 transition" }, theme === 'dark' ? React.createElement(SunIcon, null) : React.createElement(MoonIcon, null)),
-            React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition" }, React.createElement(LogoutIcon, null), " Logout")
+            // FIX: Replaced implicit `null` props with `{}` to avoid TypeScript type inference issues.
+            React.createElement("button", { onClick: toggleTheme, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold p-3 rounded-lg flex items-center gap-2 transition" }, theme === 'dark' ? React.createElement(SunIcon, {}) : React.createElement(MoonIcon, {})),
+            // FIX: Replaced implicit `null` props with `{}` to avoid TypeScript type inference issues.
+            React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition" }, React.createElement(LogoutIcon, {}), " Logout")
         )
     )
 );
@@ -40,8 +43,10 @@ const TimetableGrid = ({ timetable, role = 'student' }: { timetable: TimetableEn
     return (
         React.createElement("div", { className: "bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 sm:p-6 rounded-2xl shadow-md overflow-x-auto" },
             React.createElement("table", { className: "w-full border-collapse text-sm" },
-                React.createElement("thead", null, React.createElement("tr", null, React.createElement("th", { className: "p-3 font-semibold text-left text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700" }, "Time"), DAYS.map(day => React.createElement("th", { key: day, className: "p-3 font-semibold text-center capitalize text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700" }, day)))),
-                React.createElement("tbody", null, TIME_SLOTS.map(time => (
+                // FIX: Replaced `null` props with `{}` to avoid TypeScript type inference issues.
+                React.createElement("thead", {}, React.createElement("tr", {}, React.createElement("th", { className: "p-3 font-semibold text-left text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700" }, "Time"), DAYS.map(day => React.createElement("th", { key: day, className: "p-3 font-semibold text-center capitalize text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700" }, day)))),
+                // FIX: Replaced `null` props with `{}` to avoid TypeScript type inference issues.
+                React.createElement("tbody", {}, TIME_SLOTS.map(time => (
                     React.createElement("tr", { key: time, className: "dark:text-gray-200" },
                         React.createElement("td", { className: "p-3 font-medium border-b dark:border-slate-700 whitespace-nowrap" }, time),
                         DAYS.map(day => {

@@ -20,6 +20,7 @@ export interface Subject {
   id:string;
   name: string;
   code: string;
+  department: string;
   type?: 'theory' | 'lab';
   hoursPerWeek: number;
   assignedFacultyId: string;
