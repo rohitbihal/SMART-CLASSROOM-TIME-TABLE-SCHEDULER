@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
@@ -27,9 +28,11 @@ const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme }: HeaderP
                 React.createElement(ProfileIcon, { className: "h-6 w-6 text-gray-500 dark:text-gray-300" })
             ),
             // FIX: Replaced implicit `null` props with `{}` to avoid TypeScript type inference issues.
-            React.createElement("button", { onClick: toggleTheme, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold p-3 rounded-lg flex items-center gap-2 transition" }, theme === 'dark' ? React.createElement(SunIcon, {}) : React.createElement(MoonIcon, {})),
+            // FIX: Changed props from `{}` to `null` for components without props to resolve typing error.
+            React.createElement("button", { onClick: toggleTheme, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold p-3 rounded-lg flex items-center gap-2 transition" }, theme === 'dark' ? React.createElement(SunIcon, null) : React.createElement(MoonIcon, null)),
             // FIX: Replaced implicit `null` props with `{}` to avoid TypeScript type inference issues.
-            React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition" }, React.createElement(LogoutIcon, {}), " Logout")
+            // FIX: Changed props from `{}` to `null` for components without props to resolve typing error.
+            React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition" }, React.createElement(LogoutIcon, null), " Logout")
         )
     )
 );
@@ -66,7 +69,8 @@ const TimetableGrid = ({ timetable, role = 'student' }: { timetable: TimetableEn
     );
 };
 
-const PlaceholderContent = ({ title, message, icon }: { title: string; message: string; icon: React.ReactElement }) => (
+// FIX: Updated the type of the `icon` prop to be more specific, ensuring that `React.cloneElement` can correctly infer that `className` is a valid prop.
+const PlaceholderContent = ({ title, message, icon }: { title: string; message: string; icon: React.ReactElement<{ className?: string }> }) => (
     React.createElement("div", { className: "flex flex-col items-center justify-center h-96 bg-gray-100 dark:bg-slate-800/50 rounded-2xl p-8" },
         React.cloneElement(icon, { className: "h-16 w-16 text-gray-400 dark:text-gray-500 mb-4" }),
         React.createElement("h3", { className: "text-xl font-bold text-gray-800 dark:text-gray-100" }, title),

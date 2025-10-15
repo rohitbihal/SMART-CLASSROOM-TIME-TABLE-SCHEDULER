@@ -64,15 +64,25 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ username: 1, role: 1 }, { unique: true });
 
 const timetableEntrySchema = new mongoose.Schema({ className: String, subject: String, faculty: String, room: String, day: String, time: String, type: String });
+
+const timePreferencesSchema = new mongoose.Schema({
+    workingDays: { type: [String], default: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] },
+    startTime: { type: String, default: '09:00' },
+    endTime: { type: String, default: '17:00' },
+    lunchStartTime: { type: String, default: '13:00' },
+    lunchDurationMinutes: { type: Number, default: 60 },
+    slotDurationMinutes: { type: Number, default: 60 },
+}, { _id: false });
+
 const constraintsSchema = new mongoose.Schema({
     identifier: { type: String, default: 'global_constraints', unique: true },
-    maxConsecutiveClasses: Number,
-    workingDays: [String],
-    lunchBreak: String,
+    maxConsecutiveClasses: { type: Number, default: 3 },
+    timePreferences: { type: timePreferencesSchema, default: () => ({}) },
     chatWindow: { start: String, end: String },
     classSpecific: [Object],
     maxConcurrentClassesPerDept: mongoose.Schema.Types.Mixed
 });
+
 const attendanceSchema = new mongoose.Schema({
     classId: String,
     date: String,
@@ -106,13 +116,18 @@ const MOCK_STUDENTS = [ { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: 
 const MOCK_USERS = [ { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' }, { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' }, { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' } ];
 const MOCK_CONSTRAINTS = {
     maxConsecutiveClasses: 3,
-    workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
-    lunchBreak: "12:50-01:35",
+    timePreferences: {
+        workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        startTime: '09:00',
+        endTime: '17:00',
+        lunchStartTime: '13:00',
+        lunchDurationMinutes: 60,
+        slotDurationMinutes: 60,
+    },
     chatWindow: { start: '09:00', end: '17:00' },
     classSpecific: [],
     maxConcurrentClassesPerDept: { 'CSE': 4 },
 };
-const TIME_SLOTS = [ '09:30-10:20', '10:20-11:10', '11:10-12:00', '12:00-12:50', '12:50-01:35', '01:35-02:20', '02:20-03:05', '03:05-03:50', '03:50-04:35' ];
 
 async function seedDatabase(force = false) {
     try {
@@ -232,6 +247,23 @@ app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student'));
 // --- User Management ---
 app.get('/api/users', authMiddleware, adminOnly, async (req, res) => { try { res.json(await User.find({ role: { $ne: 'admin' } })); } catch (e) { handleApiError(res, e, 'fetching users'); } });
 app.post('/api/users', authMiddleware, adminOnly, async (req, res) => { try { const { username, password, role, profileId } = req.body; const hashedPassword = await bcrypt.hash(password, saltRounds); const newUser = new User({ username, password: hashedPassword, role, profileId }); await newUser.save(); res.status(201).json(newUser); } catch (e) { handleApiError(res, e, 'user creation'); } });
+app.put('/api/users/:id', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { username, password, role, profileId } = req.body;
+        const userToUpdate = await User.findById(req.params.id);
+        if (!userToUpdate) return res.status(404).json({ message: 'User not found' });
+        if (userToUpdate.role === 'admin') return res.status(403).json({ message: "Cannot modify admin user" });
+
+        const updateData = { username, role, profileId };
+        if (password && password.length > 0) {
+            updateData.password = await bcrypt.hash(password, saltRounds);
+        }
+        const updatedUser = await User.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
+        res.json(updatedUser);
+    } catch (e) {
+        handleApiError(res, e, 'user update');
+    }
+});
 app.delete('/api/users/:id', authMiddleware, adminOnly, async (req, res) => { try { const user = await User.findById(req.params.id); if (!user) return res.status(404).json({ message: "User not found" }); if (user.role === 'admin') return res.status(403).json({ message: "Cannot delete admin user" }); await User.findByIdAndDelete(req.params.id); res.status(204).send(); } catch (e) { handleApiError(res, e, 'user deletion'); } });
 
 // --- Timetable, Constraints, Attendance, Chat ---
@@ -260,9 +292,46 @@ app.post('/api/chat', authMiddleware, async (req, res) => { try { const newMessa
 // --- Reset and Generation ---
 app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => { try { await seedDatabase(true); res.status(200).json({ message: 'Database reset successfully.' }); } catch (e) { handleApiError(res, e, 'data reset'); } });
 
+// --- Prompt Generation Helpers ---
+const timeToMinutes = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+const minutesToTime = (totalMinutes) => {
+    const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+    const minutes = (totalMinutes % 60).toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+const generateTimeSlotsForPrompt = (prefs) => {
+    const slots = [];
+    const startMins = timeToMinutes(prefs.startTime);
+    const endMins = timeToMinutes(prefs.endTime);
+    const lunchStartMins = timeToMinutes(prefs.lunchStartTime);
+    const lunchEndMins = lunchStartMins + prefs.lunchDurationMinutes;
+    const slotDuration = prefs.slotDurationMinutes;
+    let currentMins = startMins;
+    while (currentMins < endMins) {
+        const slotEndMins = currentMins + slotDuration;
+        const overlapsWithLunch = (currentMins < lunchEndMins && slotEndMins > lunchStartMins);
+        if (!overlapsWithLunch && slotEndMins <= endMins) {
+            slots.push(`${minutesToTime(currentMins)}-${minutesToTime(slotEndMins)}`);
+        }
+        currentMins += slotDuration;
+    }
+    return slots;
+};
+const formatLunchSlotForPrompt = (prefs) => {
+    const lunchStartMins = timeToMinutes(prefs.lunchStartTime);
+    const lunchEndMins = lunchStartMins + prefs.lunchDurationMinutes;
+    return `${minutesToTime(lunchStartMins)}-${minutesToTime(lunchEndMins)}`;
+};
+
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
     const facultyMap = Object.fromEntries(faculty.map(f => [f.id, f.name]));
     const subjectsWithFacultyNames = subjects.map(s => ({ ...s, assignedFaculty: facultyMap[s.assignedFacultyId] || 'Unassigned' }));
+    const { timePreferences } = constraints;
+    const timeSlots = generateTimeSlotsForPrompt(timePreferences);
+    const lunchSlot = formatLunchSlotForPrompt(timePreferences);
 
     return `
 You are an expert AI timetable scheduler for a college. Your task is to generate a conflict-free, optimized weekly timetable based on the provided data and constraints.
@@ -272,8 +341,8 @@ Create a timetable for all specified classes, assigning subjects, faculty, and r
 
 **Input Data:**
 
-1.  **Time Slots:** ${JSON.stringify(TIME_SLOTS.filter(ts => ts !== constraints.lunchBreak))}
-2.  **Working Days:** ${JSON.stringify(constraints.workingDays)}
+1.  **Time Slots:** ${JSON.stringify(timeSlots)}
+2.  **Working Days:** ${JSON.stringify(timePreferences.workingDays)}
 3.  **Classes:** ${JSON.stringify(classes, null, 2)}
 4.  **Faculty:** ${JSON.stringify(faculty, null, 2)}
 5.  **Subjects (with assigned faculty):** ${JSON.stringify(subjectsWithFacultyNames, null, 2)}
@@ -283,7 +352,7 @@ Create a timetable for all specified classes, assigning subjects, faculty, and r
 
 1.  **Global Constraints:**
     *   A class cannot have more than ${constraints.maxConsecutiveClasses} consecutive lectures without a break.
-    *   The lunch break is fixed at ${constraints.lunchBreak} every day. No classes should be scheduled during this slot.
+    *   The lunch break is fixed at ${lunchSlot} every day. No classes should be scheduled during this slot.
     *   A faculty member cannot teach more than one class at the same time.
     *   A classroom cannot be assigned to more than one class at the same time.
     *   A class cannot attend more than one subject at the same time.

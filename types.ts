@@ -83,10 +83,19 @@ export interface FacultyAvailabilityConstraint {
     timeSlot: string;
 }
 export type ClassSpecificConstraint = NonConsecutiveConstraint | PreferredTimeConstraint | FacultyAvailabilityConstraint;
+
+export interface TimePreferences {
+  workingDays: string[];
+  startTime: string; // e.g., "09:00"
+  endTime: string;   // e.g., "17:00"
+  lunchStartTime: string; // e.g., "13:00"
+  lunchDurationMinutes: number;
+  slotDurationMinutes: number;
+}
+
 export interface Constraints {
     maxConsecutiveClasses: number;
-    workingDays: string[];
-    lunchBreak: string;
+    timePreferences: TimePreferences;
     chatWindow?: { start: string; end: string; };
     classSpecific: ClassSpecificConstraint[];
     maxConcurrentClassesPerDept: { [department: string]: number };

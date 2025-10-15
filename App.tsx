@@ -170,10 +170,17 @@ export const App = () => {
     };
     
     const handleSaveUser = async (userData: any) => {
-      const response = await fetchWithAuth(`${API_BASE_URL}/users`, { method: 'POST', body: JSON.stringify(userData) }, token);
+      const isAdding = !userData._id;
+      const url = isAdding ? `${API_BASE_URL}/users` : `${API_BASE_URL}/users/${userData._id}`;
+      const method = isAdding ? 'POST' : 'PUT';
+
+      const bodyData = { ...userData };
+      if (!isAdding) delete bodyData._id;
+
+      const response = await fetchWithAuth(url, { method, body: JSON.stringify(bodyData) }, token);
       if (!response.ok) await handleApiError(response);
-      const newUser = await response.json();
-      setUsers(prev => [...prev, newUser]);
+      const savedUser = await response.json();
+      setUsers(prev => isAdding ? [...prev, savedUser] : prev.map(u => u._id === savedUser._id ? savedUser : u));
     };
     const handleDeleteUser = async (userId: string) => {
       const response = await fetchWithAuth(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' }, token);
