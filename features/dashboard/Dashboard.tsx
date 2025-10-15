@@ -668,7 +668,8 @@ export const Dashboard = ({
                                        classes[0]?.id; // Admin default
                 return classIdForUser ?
                     React.createElement(ChatComponent, { messages: chatMessages, onSendMessage: onSendMessage, user: user, constraints: constraints, classId: classIdForUser, channel: 'general' }) :
-                    React.createElement(PlaceholderContent, { icon: React.createElement(ChatIcon, {}), title: "Chat Unavailable", message: "Cannot determine your class for chat."});
+                    // FIX: Pass a className to ChatIcon to avoid a TypeScript error when the icon is cloned in PlaceholderContent.
+                    React.createElement(PlaceholderContent, { icon: React.createElement(ChatIcon, { className: 'h-5 w-5' }), title: "Chat Unavailable", message: "Cannot determine your class for chat."});
             }
             case 'classroom':
                 return React.createElement(ClassroomManager, { classes, students, onSaveEntity, onDeleteEntity, constraints, updateConstraints });
@@ -683,7 +684,8 @@ export const Dashboard = ({
 
     const tabs: { key: string; label: string; icon: React.ReactNode; roles: User['role'][] }[] = [
         { key: 'timetable', label: 'My Timetable', icon: React.createElement(SchedulerIcon, { className: 'h-5 w-5' }), roles: ['student', 'teacher'] },
-        { key: 'chat', label: 'Class Chat', icon: React.createElement(ChatIcon, {}), roles: ['student', 'teacher'] },
+        // FIX: Added a className to ChatIcon for consistency and to avoid potential type inference issues.
+        { key: 'chat', label: 'Class Chat', icon: React.createElement(ChatIcon, { className: 'h-5 w-5' }), roles: ['student', 'teacher'] },
         { key: 'classroom', label: 'Classrooms', icon: React.createElement(StudentIcon, {}), roles: ['admin', 'teacher'] },
         { key: 'attendance', label: 'Attendance', icon: React.createElement(AttendanceIcon, { className: 'h-5 w-5' }), roles: ['admin', 'teacher'] },
         { key: 'users', label: 'Users', icon: React.createElement(UsersIcon, { className: 'h-5 w-5' }), roles: ['admin'] },
