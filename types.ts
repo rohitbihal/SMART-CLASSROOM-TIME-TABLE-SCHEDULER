@@ -103,6 +103,6 @@ export interface User {
   _id?: string; // from MongoDB
   profileId?: string;
   profilePictureUrl?: string;
-  // FIX: Added optional password field for user creation.
+  // Optional password field for user creation payloads.
   password?: string;
 }

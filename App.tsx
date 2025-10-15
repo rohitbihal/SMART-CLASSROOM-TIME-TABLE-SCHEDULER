@@ -1,6 +1,8 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+// Fix: Use wildcard import for react-router-dom to address potential module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
@@ -70,11 +72,11 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ user, allowedRoles, children }: ProtectedRouteProps) => {
     if (!user) {
         // If no user is logged in, redirect to the login page.
-        return React.createElement(Navigate, { to: "/login" });
+        return React.createElement(ReactRouterDOM.Navigate, { to: "/login" });
     }
     if (!allowedRoles.includes(user.role)) {
         // If the user's role is not in the allowed list, redirect to the main dashboard.
-        return React.createElement(Navigate, { to: "/" });
+        return React.createElement(ReactRouterDOM.Navigate, { to: "/" });
     }
     // If authenticated and authorized, render the child component.
     return children;
@@ -305,19 +307,19 @@ export const App = () => {
   // If user is not logged in, render only the login-related routes.
   // This structure ensures TypeScript knows `user` is null.
   if (!user) {
-    return React.createElement(HashRouter, null,
-      React.createElement(Routes, null,
-        React.createElement(Route, { path: "/login", element: React.createElement(LoginPage, { onLogin: handleLogin }) }),
-        React.createElement(Route, { path: "*", element: React.createElement(Navigate, { to: "/login" }) })
+    return React.createElement(ReactRouterDOM.HashRouter, null,
+      React.createElement(ReactRouterDOM.Routes, null,
+        React.createElement(ReactRouterDOM.Route, { path: "/login", element: React.createElement(LoginPage, { onLogin: handleLogin }) }),
+        React.createElement(ReactRouterDOM.Route, { path: "*", element: React.createElement(ReactRouterDOM.Navigate, { to: "/login" }) })
       )
     );
   }
   
   // If user is logged in, `user` is of type `User`. Render the authenticated app routes.
-  return React.createElement(HashRouter, null,
-    React.createElement(Routes, null,
-      React.createElement(Route, { path: "/login", element: React.createElement(Navigate, { to: "/" }) }),
-      React.createElement(Route, { path: "/", element: React.createElement(Dashboard, {
+  return React.createElement(ReactRouterDOM.HashRouter, null,
+    React.createElement(ReactRouterDOM.Routes, null,
+      React.createElement(ReactRouterDOM.Route, { path: "/login", element: React.createElement(ReactRouterDOM.Navigate, { to: "/" }) }),
+      React.createElement(ReactRouterDOM.Route, { path: "/", element: React.createElement(Dashboard, {
           user: user,
           onLogout: handleLogout,
           theme: theme,
@@ -340,7 +342,7 @@ export const App = () => {
           token: token,
           onUpdateProfilePicture: handleUpdateProfilePicture
       }) }),
-      React.createElement(Route, {
+      React.createElement(ReactRouterDOM.Route, {
         path: "/scheduler",
         element: React.createElement(ProtectedRoute, { user: user, allowedRoles: ['admin'], children: 
           React.createElement(TimetableScheduler, {
@@ -352,7 +354,7 @@ export const App = () => {
             })
         })
       }),
-      React.createElement(Route, { path: "*", element: React.createElement(Navigate, { to: "/" }) })
+      React.createElement(ReactRouterDOM.Route, { path: "*", element: React.createElement(ReactRouterDOM.Navigate, { to: "/" }) })
     )
   );
 };
