@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { User } from '../../types';
-import { LogoutIcon, MoonIcon, ProfileIcon, SchedulerIcon, StudentIcon, SunIcon } from '../../components/Icons';
+import { User } from '../../types.ts';
+import { LogoutIcon, MoonIcon, ProfileIcon, SchedulerIcon, StudentIcon, SunIcon } from '../../components/Icons.tsx';
 
 interface ModuleSelectionPageProps {
     user: User;

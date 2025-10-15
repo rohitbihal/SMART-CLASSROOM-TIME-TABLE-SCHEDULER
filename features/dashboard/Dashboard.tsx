@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
     LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, UploadIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AvailabilityIcon, RequestsIcon, AttendanceIcon
-} from '../../components/Icons';
-import { DAYS, TIME_SLOTS } from '../../constants';
-import { TimetableEntry, User, Class, Subject, Student, Faculty, Attendance, AttendanceStatus } from '../../types';
+} from '../../components/Icons.tsx';
+import { DAYS, TIME_SLOTS } from '../../constants.ts';
+import { TimetableEntry, User, Class, Subject, Student, Faculty, Attendance, AttendanceStatus } from '../../types.ts';
 
 interface DashboardProps {
     user: User; onLogout: () => void; theme: string; toggleTheme: () => void;
@@ -77,8 +77,8 @@ const TimetableGrid = ({ timetable, role = 'student' }: TimetableGridProps) => {
                                 entry ? React.createElement("div", { className: `p-2.5 rounded-lg text-white text-xs ${cellBgColor}` },
                                     React.createElement("div", { className: "font-bold" }, entry.subject),
                                     React.createElement("div", { className: "opacity-80" }, role === 'teacher' ? entry.className : entry.faculty),
-                                    // FIX: Concatenated children to resolve potential TS type inference issue.
-                                    React.createElement("div", { className: "opacity-80" }, "Room: " + entry.room)
+                                    // FIX: Replaced string concatenation with multiple children to resolve potential TS type inference issue.
+                                    React.createElement("div", { className: "opacity-80" }, "Room: ", entry.room)
                                 ) : (time === '12:50-01:35' ? React.createElement("div", { className: "text-gray-400 text-xs" }, "Lunch") : null)
                             );
                         })

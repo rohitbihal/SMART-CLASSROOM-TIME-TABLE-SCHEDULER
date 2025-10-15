@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon, ShieldIcon } from '../../components/Icons';
-import { User } from '../../types';
+import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon, ShieldIcon } from '../../components/Icons.tsx';
+import { User } from '../../types.ts';
 
 const API_BASE_URL = '/api';
 

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import { LoginPage } from './features/auth/LoginPage';
-import { Dashboard } from './features/dashboard/Dashboard';
-import { ModuleSelectionPage } from './features/dashboard/ModuleSelectionPage';
-import { SmartClassroom } from './features/classroom/SmartClassroom';
-import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
-import { LoadingIcon } from './components/Icons';
-import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus, TimetableEntry } from './types';
+import { LoginPage } from './features/auth/LoginPage.tsx';
+import { Dashboard } from './features/dashboard/Dashboard.tsx';
+import { ModuleSelectionPage } from './features/dashboard/ModuleSelectionPage.tsx';
+import { SmartClassroom } from './features/classroom/SmartClassroom.tsx';
+import { TimetableScheduler } from './features/scheduler/TimetableScheduler.tsx';
+import { LoadingIcon } from './components/Icons.tsx';
+import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus, TimetableEntry } from './types.ts';
 
 const API_BASE_URL = '/api';
 

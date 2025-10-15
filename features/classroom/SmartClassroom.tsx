@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
     LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SearchIcon, StudentIcon, ChatIcon, AttendanceIcon, IMSIcon, NotificationsIcon, MeetingIcon, CalendarIcon, QuizzesIcon, GradebookIcon, TutorialsIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, BackIcon
-} from '../../components/Icons';
-import { User, Class, Student, Faculty, Constraints, Attendance, AttendanceStatus } from '../../types';
+} from '../../components/Icons.tsx';
+import { User, Class, Student, Faculty, Constraints, Attendance, AttendanceStatus } from '../../types.ts';
 
 // Re-using management components from the old Dashboard by adapting them for this new layout
 // They are defined here to be self-contained within this new module.
