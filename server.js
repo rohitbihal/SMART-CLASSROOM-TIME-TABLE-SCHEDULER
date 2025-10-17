@@ -1,3 +1,4 @@
+
 // To run this server:
 // 1. In your project directory, run 'npm init -y'
 // 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken bcrypt'
@@ -178,13 +179,10 @@ async function seedDatabase() {
 
 mongoose.connect(process.env.MONGO_URI).then(async () => {
     console.log('MongoDB connected successfully.');
-    const userCount = await User.countDocuments();
-    if (userCount === 0) {
-        console.log("Database appears to be empty. Running initial data seed.");
-        await seedDatabase();
-    } else {
-        console.log("Database already contains data. Skipping initial seed.");
-    }
+    // The seedDatabase function is idempotent, so it's safe to run on every startup.
+    // It will only add documents if they don't already exist.
+    console.log("Ensuring database has initial seed data...");
+    await seedDatabase();
 }).catch(err => {
     console.error('Initial MongoDB connection error:', err);
     process.exit(1);

@@ -74,7 +74,7 @@ const StudentDashboardView = ({ user, timetable, chatMessages, onSendMessage, cl
             default: return <PlaceholderContent
                 title="Coming Soon"
                 message={`The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`}
-                icon={tabs.find(t => t.key === activeTab)?.icon || <div className="" />}
+                icon={tabs.find(t => t.key === activeTab)?.icon || <ChatIcon className="h-5 w-5" />}
             />;
         }
     };
