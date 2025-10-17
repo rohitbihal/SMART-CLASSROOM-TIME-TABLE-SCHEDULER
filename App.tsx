@@ -1,7 +1,5 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { HashRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, NavLink, useLocation, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { TimetableGrid } from './features/dashboard/TimetableGrid';
@@ -501,48 +499,26 @@ const AppLayout = ({ user, onLogout, theme, toggleTheme, children }: { user: Use
 // --- END: NEW LAYOUT COMPONENTS ---
 
 // --- START: MODIFIED TEACHER DASHBOARD ---
-const TeacherDashboard = (props: {
+const TeacherDashboardLayout = (props: {
     user: User;
     faculty: Faculty[];
-    timetable: TimetableEntry[];
-    students: Student[];
-    classes: Class[];
-    subjects: Subject[];
-    attendance: Attendance;
-    handleSaveClassAttendance: (classId: string, date: string, records: { [studentId: string]: AttendanceStatus; }) => Promise<void>;
-    constraints: Constraints | null;
-    handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
 }) => {
-    const location = useLocation();
-    const { user, faculty, timetable, students, classes, subjects, attendance, handleSaveClassAttendance, constraints, handleUpdateConstraints } = props;
+    const { user, faculty } = props;
 
-    const facultyProfile = faculty.find(f => f.id === user.profileId);
+    const facultyProfile = useMemo(() => faculty.find(f => f.id === user.profileId), [faculty, user.profileId]);
+
     if (!facultyProfile) {
         return <div className="p-8">Could not find teacher profile.</div>;
     }
     const subtitle = `Welcome, ${facultyProfile.name} | ${facultyProfile.department}`;
-
-    const renderContent = () => {
-        switch(location.pathname) {
-            case '/': return <TimetableGrid timetable={timetable} role="teacher" />;
-            case '/attendance': return <TeacherAttendancePage classes={classes} students={students} attendance={attendance} onSaveClassAttendance={handleSaveClassAttendance} />;
-            case '/ims': return <IMSPage />;
-            case '/smart-tools': return <SmartToolsPage />;
-            case '/availability': return <AvailabilityPage facultyProfile={facultyProfile} constraints={constraints} onUpdateConstraints={handleUpdateConstraints} />;
-            case '/requests': return <RequestsPage />;
-            case '/notifications': return <NotificationsPage />;
-            case '/chat': return <TeacherChatPage user={user} classes={classes} students={students} facultyProfile={facultyProfile} />;
-            default: return <Navigate to="/" />;
-        }
-    };
-
+    
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Teacher Dashboard</h1>
                 <p className="text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
             </div>
-            {renderContent()}
+            <Outlet />
         </div>
     );
 };
@@ -613,7 +589,13 @@ export const App = () => {
         const isAdding = !data.id;
         const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;
         const method = isAdding ? 'POST' : 'PUT';
-        const response = await fetchWithAuth(url, { method, body: JSON.stringify(isAdding ? { ...data, id: `id_${Date.now()}` } : data) }, token);
+        
+        const payload = { ...data };
+        if (isAdding) {
+            delete payload.id; // Let the server generate the ID for new entities.
+        }
+
+        const response = await fetchWithAuth(url, { method, body: JSON.stringify(payload) }, token);
         if (!response.ok) await handleApiError(response);
         const savedItem = await response.json();
         const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type] as React.Dispatch<React.SetStateAction<any[]>>;
@@ -776,6 +758,11 @@ export const App = () => {
         );
     }
 
+    const teacherDashboardProps = {
+        user: user, 
+        faculty: faculty, 
+    };
+
     return (
         <HashRouter>
             <AppLayout user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme}>
@@ -808,23 +795,16 @@ export const App = () => {
                         </>
                     )}
                     {user.role === 'teacher' && (
-                        <>
-                            <Route
-                                path="*"
-                                element={<TeacherDashboard 
-                                    user={user} 
-                                    faculty={faculty} 
-                                    timetable={timetable}
-                                    students={students}
-                                    classes={classes}
-                                    subjects={subjects}
-                                    attendance={attendance}
-                                    handleSaveClassAttendance={handleSaveClassAttendance}
-                                    constraints={constraints}
-                                    handleUpdateConstraints={handleUpdateConstraints}
-                                />}
-                            />
-                        </>
+                        <Route path="/" element={<TeacherDashboardLayout {...teacherDashboardProps} />}>
+                             <Route index element={<TimetableGrid timetable={timetable} role="teacher" constraints={constraints} />} />
+                             <Route path="attendance" element={<TeacherAttendancePage classes={classes} students={students} attendance={attendance} onSaveClassAttendance={handleSaveClassAttendance} />} />
+                             <Route path="ims" element={<IMSPage />} />
+                             <Route path="smart-tools" element={<SmartToolsPage />} />
+                             <Route path="availability" element={<AvailabilityPage facultyProfile={faculty.find(f => f.id === user.profileId)!} constraints={constraints} onUpdateConstraints={handleUpdateConstraints} />} />
+                             <Route path="requests" element={<RequestsPage />} />
+                             <Route path="notifications" element={<NotificationsPage />} />
+                             <Route path="chat" element={<TeacherChatPage user={user} classes={classes} students={students} facultyProfile={faculty.find(f => f.id === user.profileId)} />} />
+                        </Route>
                     )}
                     <Route path="*" element={<Navigate to="/" />} />
                 </Routes>

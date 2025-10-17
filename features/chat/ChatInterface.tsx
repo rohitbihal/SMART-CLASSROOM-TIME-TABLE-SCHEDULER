@@ -6,7 +6,7 @@ import { SendIcon, ProfileIcon, AIIcon } from '../../components/Icons';
 interface ChatInterfaceProps {
     user: User;
     messages: ChatMessage[];
-    onSendMessage: (text: string) => Promise<void>;
+    onSendMessage: (text: string, messageId: string) => Promise<void>;
     isLoading: boolean;
     classProfile?: Class;
 }
@@ -66,7 +66,8 @@ export const ChatInterface = ({ user, messages, onSendMessage, isLoading, classP
         e.preventDefault();
         const trimmedMessage = newMessage.trim();
         if (trimmedMessage) {
-            onSendMessage(trimmedMessage);
+            const messageId = `user-msg-${Date.now()}`;
+            onSendMessage(trimmedMessage, messageId);
             setNewMessage('');
         }
     };
@@ -86,8 +87,8 @@ export const ChatInterface = ({ user, messages, onSendMessage, isLoading, classP
     return (
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-md flex flex-col h-[70vh]">
             <div ref={chatContainerRef} className="flex-1 p-6 space-y-6 overflow-y-auto">
-                {displayMessages.map((msg, index) => 
-                    <Message key={`${msg.timestamp}-${index}`} msg={msg} isUser={msg.author === user.username} />
+                {displayMessages.map((msg) => 
+                    <Message key={msg.id} msg={msg} isUser={msg.author === user.username} />
                 )}
                 {isLoading && <TypingIndicator />}
             </div>

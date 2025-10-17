@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../App';
@@ -502,362 +500,272 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
     const handleToggle = (category: 'room' | 'student' | 'advanced', field: string, value: boolean) => {
         const keyMap = { room: 'roomResourceConstraints', student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
         const categoryKey = keyMap[category];
-        onConstraintsChange({ ...constraints, [categoryKey]: { ...constraints[categoryKey], [field]: value } });
+        onConstraintsChange({ ...constraints, [categoryKey]: { ...(constraints[categoryKey] as any), [field]: value } });
     };
 
     const handleNumberChange = (category: 'student' | 'advanced', field: string, value: string) => {
         const keyMap = { student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
         const categoryKey = keyMap[category];
-        onConstraintsChange({ ...constraints, [categoryKey]: { ...constraints[categoryKey], [field]: parseInt(value) || 0 } });
+        onConstraintsChange({ ...constraints, [categoryKey]: { ...(constraints[categoryKey] as any), [field]: parseInt(value) || 0 } });
     };
 
     return (
         <div className="space-y-6">
-            <SectionCard title="Category 1: Room & Resource Constraints">
+            <SectionCard title="Room & Resource Constraints">
+                <label className="flex items-center gap-3">
+                    <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
+                    <span>Prioritize keeping consecutive classes for the same section in the same room.</span>
+                </label>
+            </SectionCard>
+            <SectionCard title="Student Section Constraints">
                 <div className="space-y-4">
-                    <div><h4 className="font-semibold mb-2">Subject-Specific Room Type</h4><p className="text-sm text-gray-500">Rule builder coming soon.</p></div>
-                    <div><h4 className="font-semibold">Room Capacity</h4><p className="text-sm text-gray-500">Room capacity is automatically checked against class size during generation.</p></div>
-                    <div><h4 className="font-semibold mb-2">Resource Booking</h4><p className="text-sm text-gray-500">Feature coming soon.</p></div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="prioritizeSameRoom" name="prioritizeSameRoom" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={(e) => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
-                        Prioritize keeping a faculty's consecutive classes in the same room.
+                    <label className="flex items-center gap-3">
+                        <input type="checkbox" checked={constraints.studentSectionConstraints?.avoidConsecutiveCore || false} onChange={e => handleToggle('student', 'avoidConsecutiveCore', e.target.checked)} />
+                        <span>Avoid scheduling two core subjects back-to-back for the same section.</span>
                     </label>
+                    <div className="flex items-center gap-3">
+                        <label htmlFor="max-consecutive-student" className="whitespace-nowrap">Max consecutive classes for any student section:</label>
+                        <TextInput type="number" id="max-consecutive-student" value={constraints.studentSectionConstraints?.maxConsecutiveClasses || 4} onChange={e => handleNumberChange('student', 'maxConsecutiveClasses', e.target.value)} className="w-20" />
+                    </div>
                 </div>
             </SectionCard>
-            <SectionCard title="Category 2: Student & Section Constraints">
+            <SectionCard title="Advanced & Logistical Constraints">
                  <div className="space-y-4">
-                    <div><label className="font-semibold mb-1 block" htmlFor="studentMaxConsecutive">Max Consecutive Classes for Students/Section</label><TextInput type="number" id="studentMaxConsecutive" name="studentMaxConsecutive" value={constraints.studentSectionConstraints?.maxConsecutiveClasses || 4} onChange={e => handleNumberChange('student', 'maxConsecutiveClasses', e.target.value)} className="max-w-xs" /></div>
-                    <div><h4 className="font-semibold mb-2">Core Subject Spacing</h4><p className="text-sm text-gray-500">Feature coming soon.</p></div>
-                    <div><h4 className="font-semibold">Lunch Break for Sections</h4><p className="text-sm text-gray-500">A single lunch break for the institution is defined in the 'Time & Day' tab.</p></div>
-                 </div>
-            </SectionCard>
-            <SectionCard title="Category 3: Advanced Faculty & Institutional Constraints">
-                <div className="space-y-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="loadBalancing" name="loadBalancing" checked={constraints.advancedConstraints?.enableFacultyLoadBalancing || false} onChange={(e) => handleToggle('advanced', 'enableFacultyLoadBalancing', e.target.checked)} />
-                        Enable weekly load balancing for faculty.
+                    <label className="flex items-center gap-3">
+                        <input type="checkbox" checked={constraints.advancedConstraints?.enableFacultyLoadBalancing || false} onChange={e => handleToggle('advanced', 'enableFacultyLoadBalancing', e.target.checked)} />
+                        <span>Enable automatic faculty load balancing across the week.</span>
                     </label>
-                    <div><h4 className="font-semibold mb-2">Twin/Block Periods</h4><p className="text-sm text-gray-500">Rule builder coming soon.</p></div>
-                    <div><h4 className="font-semibold mb-2">Teacher Co-location Constraint</h4><p className="text-sm text-gray-500">Rule builder coming soon.</p></div>
-                    <div><label className="font-semibold mb-1 block" htmlFor="travelTime">Travel Time (for Multi-Campus Institutions)</label><TextInput type="number" id="travelTime" name="travelTime" placeholder="Minutes" value={constraints.advancedConstraints?.travelTimeMinutes || 0} onChange={e => handleNumberChange('advanced', 'travelTimeMinutes', e.target.value)} className="max-w-xs" /></div>
+                    <div className="flex items-center gap-3">
+                        <label htmlFor="travel-time" className="whitespace-nowrap">Travel time between different campus buildings (in minutes):</label>
+                        <TextInput type="number" id="travel-time" value={constraints.advancedConstraints?.travelTimeMinutes || 0} onChange={e => handleNumberChange('advanced', 'travelTimeMinutes', e.target.value)} className="w-20" />
+                    </div>
                 </div>
             </SectionCard>
         </div>
     );
 };
 
-
-const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, faculty }: { constraints: Constraints; onConstraintsChange: (newConstraints: Constraints) => void; classes: Class[]; subjects: Subject[]; faculty: Faculty[]; }) => {
-    const [activeSubTab, setActiveSubTab] = useState('global');
-    const handleGlobalChange = (e: React.ChangeEvent<HTMLInputElement>) => { onConstraintsChange({ ...constraints, [e.target.name]: parseInt(e.target.value, 10) }); };
-    const subTabs = [ { key: 'global', label: 'Global' }, { key: 'time_day', label: 'Time & Day' }, { key: 'faculty', label: 'Faculty Preferences' }, { key: 'additional', label: 'Additional Constraints' }, { key: 'fixed_classes', label: 'Fixed Classes' }];
-    const SubTabButton = ({ subTab, label }: { subTab: string; label: string; }) => <button onClick={() => setActiveSubTab(subTab)} className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors ${ activeSubTab === subTab ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700' }`}>{label}</button>;
+const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classes }: { constraints: Constraints | null; setConstraints: (c: Constraints) => void; faculty: Faculty[], subjects: Subject[], classes: Class[] }) => {
+    const [activeSubTab, setActiveSubTab] = useState('time');
     
-    const handleTimePreferencesChange = (newTimePreferences: TimePreferences) => {
-        onConstraintsChange({ ...constraints, timePreferences: newTimePreferences });
-    };
+    if (!constraints) return <LoadingIcon />;
 
-    const renderSubContent = () => {
-        switch (activeSubTab) {
-            case 'global': return (
-                <SectionCard title="Global Constraints">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField label="Max Consecutive Classes (for Faculty)" htmlFor="maxConsecutiveClasses">
-                            <TextInput type="number" id="maxConsecutiveClasses" name="maxConsecutiveClasses" value={constraints.maxConsecutiveClasses} onChange={handleGlobalChange} min={1} />
-                        </FormField>
-                    </div>
-                </SectionCard>
-            );
-            case 'fixed_classes': return (
-                <SectionCard title="Fixed Classes">
-                    <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                        <FormField label="Class/Section" htmlFor="fixed-class">
-                            <SelectInput id="fixed-class" name="fixed-class" defaultValue="">
-                                <option value="" disabled>Select Class</option>
-                                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            </SelectInput>
-                        </FormField>
-                        <FormField label="Day" htmlFor="fixed-day">
-                            <SelectInput id="fixed-day" name="fixed-day" defaultValue="monday">
-                                {DAYS.map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
-                            </SelectInput>
-                        </FormField>
-                        <FormField label="Time Slot" htmlFor="fixed-time">
-                            <SelectInput id="fixed-time" name="fixed-time" defaultValue="09:30-10:20">
-                                {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                            </SelectInput>
-                        </FormField>
-                        <FormField label="Subject" htmlFor="fixed-subject">
-                            <SelectInput id="fixed-subject" name="fixed-subject" defaultValue="">
-                                <option value="" disabled>Select Subject</option>
-                                {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </SelectInput>
-                        </FormField>
-                    </form>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">This feature for setting pre-defined classes is under development.</p>
-                </SectionCard>
-            );
-            case 'time_day':
-                return <TimePreferencesVisual prefs={constraints.timePreferences} onChange={handleTimePreferencesChange} />;
-            case 'faculty':
-                return <FacultyPreferencesContent constraints={constraints} onConstraintsChange={onConstraintsChange} faculty={faculty} subjects={subjects} />;
-            case 'additional':
-                return <AdditionalConstraintsContent constraints={constraints} onConstraintsChange={onConstraintsChange} classes={classes} faculty={faculty} subjects={subjects} />;
-            default: return (
-                <SectionCard title={subTabs.find(t => t.key === activeSubTab)?.label || 'Constraints'}>
-                    <PlaceholderContent title="Coming Soon" message="This constraint type is under development." icon={<ConstraintsIcon />} />
-                </SectionCard>
-            );
-        }
-    };
+    const subTabs = [
+        { key: 'time', label: 'Time & Day', icon: <ConstraintsIcon /> },
+        { key: 'faculty', label: 'Faculty Preferences', icon: <AvailabilityIcon /> },
+        { key: 'additional', label: 'Additional Rules', icon: <AnalyticsIcon /> }
+    ];
+    
     return (
-        <>
-            <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-6">
-                {subTabs.map(tab => <SubTabButton key={tab.key} subTab={tab.key} label={tab.label} />)}
+        <div className="space-y-6">
+             <div className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2">
+                {subTabs.map(tab => (
+                     <button key={tab.key} onClick={() => setActiveSubTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>{tab.icon} {tab.label}</button>
+                ))}
             </div>
-            {renderSubContent()}
-        </>
+
+            {activeSubTab === 'time' && <TimePreferencesVisual prefs={constraints.timePreferences} onChange={(newPrefs) => setConstraints({ ...constraints, timePreferences: newPrefs })} />}
+            {activeSubTab === 'faculty' && <FacultyPreferencesContent constraints={constraints} onConstraintsChange={setConstraints} faculty={faculty} subjects={subjects} />}
+            {activeSubTab === 'additional' && <AdditionalConstraintsContent constraints={constraints} onConstraintsChange={setConstraints} classes={classes} faculty={faculty} subjects={subjects} />}
+
+        </div>
     );
 };
+const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: TimetableEntry[] | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
 
-const GenerateTab = ({ onGenerate, isLoading, error, loadingMessage }: { onGenerate: () => void; isLoading: boolean; error: string | null; loadingMessage: string; }) => (
-    <div className="text-center bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-lg max-w-2xl mx-auto">
-        <h3 className="text-2xl font-bold">Generate Timetable</h3>
-        <p className="text-gray-500 my-4">Click below to use the AI to generate a timetable based on your setup and constraints.</p>
-        {error && (
-            <div className="bg-red-500/10 border-red-500/50 text-red-700 px-4 py-3 rounded-lg text-left my-4">
-                <p className="font-bold mb-1">Generation Failed</p>
-                <p className="text-sm">The AI scheduler encountered a problem. Please review your data and constraints, and try again.</p>
-                <p className="text-xs mt-2 font-mono bg-red-200/50 dark:bg-red-900/50 p-2 rounded">{error}</p>
-            </div>
-        )}
-        <button onClick={onGenerate} disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-lg flex items-center justify-center gap-3 disabled:bg-indigo-400">
-            {isLoading ? <><LoadingIcon /> {loadingMessage}</> : <><GenerateIcon /> Start AI Generation</>}
-        </button>
-    </div>
-);
-
-const ViewTab = ({ timetable, classes }: { timetable: TimetableEntry[]; classes: Class[] }) => {
-    const [selectedClass, setSelectedClass] = useState(classes[0]?.name || 'All');
-    const filteredTimetable = useMemo(() => selectedClass === 'All' ? timetable : timetable.filter(e => e.className === selectedClass), [timetable, selectedClass]);
-
-    const downloadExcel = () => {
-        const headers = "Day,Time,Class,Subject,Faculty,Room,Type";
-        const rows = filteredTimetable.map(e => [e.day, e.time, e.className, e.subject, e.faculty, e.room, e.type].join(','));
-        const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join("\n");
+    const downloadAsExcel = () => {
+        if (!generationResult) return;
+        const headers = ["Day", "Time", "Class", "Subject", "Faculty", "Room", "Type"];
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(",") + "\n" 
+            + generationResult.map(e => [e.day, e.time, e.className, e.subject, e.faculty, e.room, e.type].join(",")).join("\n");
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI(csvContent));
-        // Using .xls extension can sometimes trick systems into opening the CSV directly in Excel.
-        link.setAttribute("download", `timetable_${selectedClass.replace(/\s+/g, '_')}.xls`);
+        link.setAttribute("download", "timetable.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    const downloadPDF = () => {
-        alert('PDF download functionality is under development.');
-    };
-
-    if (timetable.length === 0) return <SectionCard title="View Timetable"><p>No timetable has been generated yet.</p></SectionCard>;
+    const lunchSlot = useMemo(() => {
+        if (constraints?.timePreferences) {
+            const { lunchStartTime, lunchDurationMinutes } = constraints.timePreferences;
+            const [hours, minutes] = lunchStartTime.split(':').map(Number);
+            const startTotalMinutes = hours * 60 + minutes;
+            const endTotalMinutes = startTotalMinutes + lunchDurationMinutes;
+            const endHours = Math.floor(endTotalMinutes / 60).toString().padStart(2, '0');
+            const endMinutes = (endTotalMinutes % 60).toString().padStart(2, '0');
+            return `${lunchStartTime}-${endHours}:${endMinutes}`;
+        }
+        return '12:50-01:35'; // Fallback
+    }, [constraints]);
 
     return (
-        <SectionCard title="Generated Timetable">
-            <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
-                <div>
-                    <label htmlFor="view-class-select" className="mr-2">Select Class:</label>
-                    <SelectInput id="view-class-select" name="view-class-select" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
-                        <option value="All">All Classes</option>
-                        {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </SelectInput>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold mr-2">View Options:</span>
-                    <button onClick={downloadExcel} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg"><DownloadIcon />Download as Excel</button>
-                    <button onClick={downloadPDF} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg"><DownloadIcon />Download as PDF</button>
-                </div>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                    <thead>
-                        <tr>
-                            <th className="p-3 font-semibold text-left text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700">Time</th>
-                            {DAYS.map(day => <th key={day} className="p-3 font-semibold text-center capitalize text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700">{day}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {TIME_SLOTS.map(time => (
-                            <tr key={time} className="dark:text-gray-200">
-                                <td className="p-3 font-medium border-b dark:border-slate-700 whitespace-nowrap">{time}</td>
-                                {DAYS.map(day => {
-                                    const entries = filteredTimetable.filter(e => e.day.toLowerCase() === day.toLowerCase() && e.time === time);
-                                    return (
-                                        <td key={day} className="p-1 border-b dark:border-slate-700 align-top">
-                                            {entries.length > 0 ? entries.map((entry, i) => (
-                                                <div key={i} className="p-2 rounded-lg text-white text-xs bg-indigo-500 mb-1">
-                                                    <div className="font-bold">{entry.subject}</div>
-                                                    <div className="opacity-80">{selectedClass === 'All' ? entry.className : entry.faculty}</div>
-                                                    <div className="opacity-80">Room: {entry.room}</div>
-                                                </div>
-                                            )) : (time === '12:50-01:35' ? <div className="text-center text-gray-400 text-xs py-2">Lunch</div> : null)}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </SectionCard>
+        <div className="space-y-6">
+            <SectionCard title="Generate Timetable" actions={
+                <button onClick={onGenerate} disabled={isLoading} className="flex items-center gap-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">
+                    {isLoading ? <><LoadingIcon className="h-5 w-5" /> Generating...</> : <><GenerateIcon /> Generate Timetable</>}
+                </button>
+            }>
+                <p className="text-gray-500 dark:text-gray-400">Click the "Generate" button to use the AI to create an optimized timetable based on all your setup data and constraints. This process may take a few moments.</p>
+            </SectionCard>
+            <ErrorDisplay message={error} />
+            {generationResult && (
+                <SectionCard title="Generated Timetable Preview" actions={
+                    <div className="flex gap-2">
+                         <button onClick={downloadAsExcel} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700 font-semibold px-3 py-1.5 rounded-md"><DownloadIcon />Download as Excel</button>
+                         <button onClick={onSave} className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md"><SaveIcon />Save & Publish</button>
+                         <button onClick={onClear} className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md"><DeleteIcon />Clear</button>
+                    </div>
+                }>
+                    <div className="overflow-x-auto max-h-[80vh]">
+                        <table className="w-full text-sm">
+                             <thead>
+                                <tr>
+                                    <th className="p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700">Time</th>
+                                    {DAYS.map(day => <th key={day} className="p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 capitalize">{day}</th>)}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {TIME_SLOTS.map(time => (
+                                    <tr key={time}>
+                                        <td className="p-2 border dark:border-slate-600 font-medium">{time}</td>
+                                        {DAYS.map(day => (
+                                            <td key={day} className={`p-1 border dark:border-slate-600 align-top ${time === lunchSlot ? 'bg-gray-100 dark:bg-slate-900/50' : ''}`}>
+                                                {time === lunchSlot ? <div className="text-center font-semibold p-2">Lunch</div> :
+                                                    generationResult.filter(e => e.day === day && e.time === time).map((entry, idx) => (
+                                                        <div key={idx} className="p-2 rounded-lg bg-indigo-500 text-white text-xs mb-1">
+                                                            <p className="font-bold">{entry.className}</p>
+                                                            <p>{entry.subject}</p>
+                                                            <p className="opacity-80">{entry.faculty}</p>
+                                                            <p className="opacity-80">Room: {entry.room}</p>
+                                                        </div>
+                                                    ))
+                                                }
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </SectionCard>
+            )}
+        </div>
     );
 };
+const ViewTab = ({ students, classes, faculty }: { students: Student[], classes: Class[], faculty: Faculty[] }) => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PlaceholderContent title="Detailed View" message="This section will provide detailed views and analytics for the generated timetable. Feature is under development." icon={<ViewIcon />} />
+        <PlaceholderContent title="Analytics" message="This section will provide analytics on faculty load, room utilization, and student schedules. Feature is under development." icon={<AnalyticsIcon />} />
+    </div>
+);
 
-export const TimetableScheduler = ({ classes, faculty, subjects, rooms, students, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable }: TimetableSchedulerProps) => {
-  const [activeTab, setActiveTab] = useState('setup');
-  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState("Initializing AI generation...");
-  const [modalState, setModalState] = useState<{ isOpen: boolean, mode: 'add' | 'edit', type: EntityType | '', data: Entity | null, error: string | null }>({ isOpen: false, mode: 'add', type: '', data: null, error: null });
-  const [isImportModalOpen, setIsImportModalOpen] = useState<{isOpen: boolean, type: EntityType | ''}>({isOpen: false, type: ''});
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'generate' | 'bulkDelete' | 'reset', payload?: any, message: string, onConfirm: () => void } | null>(null);
-  const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [] });
+export const TimetableScheduler = (props: TimetableSchedulerProps) => {
+    const { classes, faculty, subjects, rooms, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable } = props;
+    const [activeTab, setActiveTab] = useState('setup');
+    const [modal, setModal] = useState<{ mode: 'add' | 'edit'; type: EntityType; data: Entity | null } | null>(null);
+    const [pageError, setPageError] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generationError, setGenerationError] = useState<string | null>(null);
+    const [generatedTimetable, setGeneratedTimetable] = useState<TimetableEntry[] | null>(null);
+    const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [] });
+    const [importModalType, setImportModalType] = useState<EntityType | null>(null);
 
-  const loadingMessages = useMemo(() => ["Analyzing constraints...", "Allocating classrooms...", "Scheduling subjects...", "Optimizing schedules...", "Finalizing timetable..."], []);
-  useEffect(() => { let i: number; if (isLoading) { setLoadingMessage("Initializing..."); let idx = 0; i = window.setInterval(() => { idx = (idx + 1) % loadingMessages.length; setLoadingMessage(loadingMessages[idx]); }, 2500); } return () => { if (i) window.clearInterval(i); }; }, [isLoading, loadingMessages]);
-  
-  const handleGenerate = useCallback(async () => {
-    if (!constraints) { setError("Constraints are not loaded yet."); return; }
-    setConfirmAction(null); setIsLoading(true); setError(null);
-    try {
-      const result = await generateTimetable(classes, faculty, subjects, rooms, constraints, token);
-      await onSaveTimetable(result);
-      setTimetable(result); // Update local state for ViewTab
-      setActiveTab('view');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred during timetable generation.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classes, faculty, subjects, rooms, constraints, token, onSaveTimetable]);
-
-  const handleInitiateGenerate = useCallback(() => {
-    setError(null);
-    if (classes.length === 0 || subjects.length === 0 || faculty.length === 0 || rooms.length === 0) {
-        setError("Please add classes, subjects, faculty, and rooms before generating a timetable.");
-        return;
-    }
-    setConfirmAction({ type: 'generate', message: 'This will generate a new timetable. Any existing timetable data will be overwritten upon saving. Are you sure?', onConfirm: handleGenerate });
-  }, [classes, faculty, subjects, rooms, handleGenerate]);
-  
-  const handleSave = async (type: EntityType, data: Entity) => { try { await onSaveEntity(type, data); closeModal(); } catch(err) { setModalState(p => ({ ...p, error: err instanceof Error ? err.message : "An error occurred." })); } };
-  const handleDelete = async (type: EntityType, id: string) => { try { await onDeleteEntity(type, id); } catch(err) { setPageError(err instanceof Error ? err.message : `Failed to delete.`); } };
-  const openModal = (mode: 'add' | 'edit', type: EntityType, data: Entity | null = null) => setModalState({ isOpen: true, mode, type, data, error: null });
-  const closeModal = () => setModalState({ isOpen: false, mode: 'add', type: '', data: null, error: null });
-  const openImportModal = (type: EntityType) => setIsImportModalOpen({isOpen: true, type: type});
-
-    const handleToggleSelect = (type: EntityType, id: string) => {
-        setSelectedItems(prev => ({
-            ...prev,
-            [type]: prev[type].includes(id) ? prev[type].filter(itemId => itemId !== id) : [...prev[type], id]
-        }));
-    };
-    const handleToggleSelectAll = (type: EntityType, displayedItems: any[]) => {
-        const displayedIds = displayedItems.map(item => item.id);
-        const allSelected = displayedIds.every(id => selectedItems[type].includes(id));
-        setSelectedItems(prev => ({
-            ...prev,
-            [type]: allSelected ? prev[type].filter(id => !displayedIds.includes(id)) : [...new Set([...prev[type], ...displayedIds])]
-        }));
-    };
-    const handleInitiateBulkDelete = (type: EntityType) => {
-        if (selectedItems[type].length === 0) {
-            setPageError(`No ${type} items selected for deletion.`);
-            return;
-        }
-        setConfirmAction({
-            type: 'bulkDelete',
-            payload: type,
-            message: `Are you sure you want to delete ${selectedItems[type].length} selected ${type}(s)? This action cannot be undone.`,
-            onConfirm: () => handleConfirmBulkDelete(type)
-        });
-    };
-    const handleConfirmBulkDelete = async (type: EntityType) => {
+    const handleSave = async (type: EntityType, data: Entity) => {
         setPageError(null);
         try {
-            await Promise.all(selectedItems[type].map(id => onDeleteEntity(type, id)));
-            setSelectedItems(prev => ({ ...prev, [type]: [] })); // Clear selection
-        } catch (err) {
-            setPageError(err instanceof Error ? err.message : `Failed to delete some items.`);
-        } finally {
-            setConfirmAction(null);
+            await onSaveEntity(type, data);
+            setModal(null);
+        } catch (error) {
+            setPageError(error instanceof Error ? error.message : "An unknown error occurred.");
+        }
+    };
+    const handleDelete = async (type: EntityType, id: string) => { if (window.confirm('Are you sure?')) await onDeleteEntity(type, id); };
+    const handleResetData = async () => { if (window.confirm('Are you sure you want to reset ALL data to the initial defaults? This cannot be undone.')) await onResetData(); };
+    
+    const handleToggleSelect = (type: EntityType, id: string) => {
+        setSelectedItems(prev => ({ ...prev, [type]: prev[type].includes(id) ? prev[type].filter(i => i !== id) : [...prev[type], id] }));
+    };
+    const handleToggleSelectAll = (type: EntityType, displayedItems: any[]) => {
+        const ids = displayedItems.map(item => item.id);
+        const allSelected = ids.every(id => selectedItems[type].includes(id));
+        if (allSelected) {
+            setSelectedItems(prev => ({ ...prev, [type]: prev[type].filter(i => !ids.includes(i)) }));
+        } else {
+            setSelectedItems(prev => ({ ...prev, [type]: [...new Set([...prev[type], ...ids])] }));
         }
     };
 
-  const renderModalContent = () => {
-    const { isOpen, mode, type, data, error: modalError } = modalState;
-    if (!isOpen || !type) return null;
-    const title = `${mode === 'add' ? 'Add' : 'Edit'} ${type.charAt(0).toUpperCase() + type.slice(1)}`;
-    switch (type) {
-      case 'class': return <Modal isOpen={isOpen} onClose={closeModal} title={title} error={modalError}><ClassForm initialData={data as Class | null} onSave={(d) => handleSave(type, d)} /></Modal>;
-      case 'faculty': return <Modal isOpen={isOpen} onClose={closeModal} title={title} error={modalError}><FacultyForm initialData={data as Faculty | null} onSave={(d) => handleSave(type, d)} /></Modal>;
-      case 'subject': return <Modal isOpen={isOpen} onClose={closeModal} title={title} error={modalError}><SubjectForm initialData={data as Subject | null} onSave={(d) => handleSave(type, d)} faculty={faculty} /></Modal>;
-      case 'room': return <Modal isOpen={isOpen} onClose={closeModal} title={title} error={modalError}><RoomForm initialData={data as Room | null} onSave={(d) => handleSave(type, d)} /></Modal>;
-      default: return null;
-    }
-  };
-  
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'setup': return <SetupTab classes={classes} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} onUpdateConstraints={setConstraints} openModal={openModal} handleDelete={handleDelete} handleResetData={onResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={handleInitiateBulkDelete} pageError={pageError} openImportModal={openImportModal} />;
-      case 'constraints': return constraints ? <ConstraintsTab constraints={constraints} onConstraintsChange={setConstraints} classes={classes} subjects={subjects} faculty={faculty} /> : <LoadingIcon />;
-      case 'availability': return <PlaceholderContent title="Faculty Availability" message="This section will allow managing faculty availability and preferences." icon={<AvailabilityIcon />} />;
-      case 'generate': return <GenerateTab onGenerate={handleInitiateGenerate} isLoading={isLoading} error={error} loadingMessage={loadingMessage} />;
-      case 'view': return <ViewTab timetable={timetable} classes={classes} />;
-      case 'analytics': return <PlaceholderContent title="Analytics Dashboard" message="This section will provide insights and reports on the generated timetables." icon={<AnalyticsIcon />} />;
-      default: return null;
-    }
-  };
+    const handleGenerate = useCallback(async () => {
+        setIsGenerating(true);
+        setGenerationError(null);
+        try {
+            if (!constraints) throw new Error("Constraints are not loaded.");
+            const result = await generateTimetable(classes, faculty, subjects, rooms, constraints, token);
+            setGeneratedTimetable(result);
+        } catch (error) {
+            setGenerationError(error instanceof Error ? error.message : "An unknown error occurred.");
+        } finally {
+            setIsGenerating(false);
+        }
+    }, [classes, faculty, subjects, rooms, constraints, token]);
 
-  const TabButton = ({ tab, label, icon }: { tab: string, label: string, icon: React.ReactNode }) => <button onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>{icon}{label}</button>;
+    const handleSaveTimetable = async () => {
+        if (!generatedTimetable) return;
+        try {
+            await onSaveTimetable(generatedTimetable);
+            alert("Timetable saved and published successfully!");
+        } catch (error) {
+            setGenerationError(error instanceof Error ? error.message : "Failed to save the timetable.");
+        }
+    };
+    
+    const tabs = [
+        { key: 'setup', label: 'Setup', icon: <SetupIcon /> },
+        { key: 'constraints', label: 'Constraints', icon: <ConstraintsIcon /> },
+        { key: 'generate', label: 'Generate', icon: <GenerateIcon /> },
+        { key: 'view', label: 'View & Analytics', icon: <ViewIcon /> },
+    ];
+    
+    const renderContent = () => {
+        switch (activeTab) {
+            case 'setup': return <SetupTab {...props} onUpdateConstraints={setConstraints} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={setImportModalType} />;
+            case 'constraints': return <ConstraintsTab {...props} />;
+            case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
+            case 'view': return <ViewTab {...props} />;
+            default: return null;
+        }
+    };
+    
+    const forms: { [key in EntityType]: React.FC<any> } = { class: ClassForm, faculty: FacultyForm, subject: SubjectForm, room: RoomForm };
+    const FormComponent = modal ? forms[modal.type] : null;
 
-  return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
-      {renderModalContent()}
-      <ImportModal isOpen={isImportModalOpen.isOpen} onClose={() => setIsImportModalOpen({isOpen: false, type: ''})} entityType={isImportModalOpen.type} />
-       <Modal
-            isOpen={!!confirmAction}
-            onClose={() => setConfirmAction(null)}
-            title="Please Confirm"
-        >
-        {confirmAction && (
-            <div>
-                <p className="mb-4">{confirmAction.message}</p>
-                <div className="flex justify-end gap-2">
-                    <button onClick={() => setConfirmAction(null)} className="bg-gray-200 dark:bg-slate-700 py-2 px-4 rounded-lg">Cancel</button>
-                    <button onClick={confirmAction.onConfirm} className="bg-indigo-600 text-white py-2 px-4 rounded-lg">Confirm</button>
+    return (
+        <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold">Timetable Scheduler</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">AI-Powered Scheduling and Management</p>
                 </div>
-            </div>
-        )}
-      </Modal>
-      <header className="flex justify-between items-center mb-6">
-         <div>
-          <h1 className="text-3xl font-bold">Smart College Timetable Scheduler</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">AI-Powered Academic Scheduling for Inter-Course Management</p>
+                <button onClick={handleResetData} className="bg-red-500/10 text-red-700 dark:text-red-300 font-semibold text-sm py-2 px-4 rounded-lg">Reset All Data</button>
+            </header>
+            <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8">
+                {tabs.map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>
+                        {tab.icon}{tab.label}
+                    </button>
+                ))}
+            </nav>
+            <main className="space-y-6">
+                {renderContent()}
+            </main>
+            {modal && FormComponent && (
+                <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError}>
+                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} />
+                </Modal>
+            )}
+             <ImportModal isOpen={!!importModalType} onClose={() => setImportModalType(null)} entityType={importModalType || ''} />
         </div>
-      </header>
-      <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex justify-between items-center gap-2 mb-8">
-        <div className="flex flex-wrap gap-2">
-            <TabButton tab="setup" label="Setup" icon={<SetupIcon />} />
-            <TabButton tab="constraints" label="Constraints" icon={<ConstraintsIcon />} />
-            <TabButton tab="availability" label="Availability" icon={<AvailabilityIcon className="h-5 w-5" />} />
-            <TabButton tab="generate" label="Generate" icon={<GenerateIcon />} />
-            <TabButton tab="view" label="View Timetable" icon={<ViewIcon />} />
-            <TabButton tab="analytics" label="Analytics" icon={<AnalyticsIcon className="h-5 w-5" />} />
-        </div>
-      </nav>
-      <main>{renderContent()}</main>
-    </div>
-  );
+    );
 };

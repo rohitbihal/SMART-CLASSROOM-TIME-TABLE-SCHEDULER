@@ -1,4 +1,3 @@
-
 // To run this server:
 // 1. In your project directory, run 'npm init -y'
 // 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken bcrypt'
@@ -75,6 +74,16 @@ const timePreferencesSchema = new mongoose.Schema({
     slotDurationMinutes: { type: Number, default: 60 },
 }, { _id: false });
 
+const facultyPreferenceSchema = new mongoose.Schema({
+    facultyId: { type: String, required: true },
+    unavailability: [{ day: String, timeSlot: String, _id: false }],
+    preferredDays: [String],
+    dailySchedulePreference: String,
+    maxConsecutiveClasses: Number,
+    gapPreference: String,
+    coursePreferences: [{ subjectId: String, time: String, _id: false }],
+}, { _id: false });
+
 const institutionDetailsSchema = new mongoose.Schema({
     name: { type: String, default: 'Central University of Technology' },
     academicYear: { type: String, default: '2024-2025' },
@@ -87,6 +96,7 @@ const constraintsSchema = new mongoose.Schema({
     maxConsecutiveClasses: { type: Number, default: 3 },
     timePreferences: { type: timePreferencesSchema, default: () => ({}) },
     institutionDetails: { type: institutionDetailsSchema, default: () => ({}) },
+    facultyPreferences: { type: [facultyPreferenceSchema], default: [] },
     chatWindow: { start: String, end: String },
     classSpecific: [Object],
     maxConcurrentClassesPerDept: mongoose.Schema.Types.Mixed
@@ -99,8 +109,9 @@ const attendanceSchema = new mongoose.Schema({
 });
 attendanceSchema.index({ classId: 1, date: 1 }, { unique: true });
 const chatMessageSchema = new mongoose.Schema({
+    id: { type: String, unique: true, required: true },
     author: String, role: String, text: String,
-    timestamp: Number, classId: String
+    timestamp: Number, classId: String, channel: String
 });
 
 
@@ -127,11 +138,11 @@ const MOCK_CONSTRAINTS = {
     maxConsecutiveClasses: 3,
     timePreferences: {
         workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-        startTime: '09:00',
-        endTime: '17:00',
-        lunchStartTime: '13:00',
-        lunchDurationMinutes: 60,
-        slotDurationMinutes: 60,
+        startTime: '09:30',
+        endTime: '16:35',
+        lunchStartTime: '12:50',
+        lunchDurationMinutes: 45,
+        slotDurationMinutes: 50,
     },
     institutionDetails: {
         name: 'Central University of Technology',
@@ -266,7 +277,20 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
 const createRouterFor = (type) => {
     const router = express.Router();
     const Model = collections[type];
-    router.post('/', async (req, res) => { try { const newItem = new Model(req.body); await newItem.save(); res.status(201).json(newItem); } catch (e) { handleApiError(res, e, `${type} creation`); } });
+    router.post('/', async (req, res) => {
+        try {
+            const doc = { ...req.body };
+            if (!doc.id) {
+                // Generate a unique ID if one isn't provided by the client
+                doc.id = new mongoose.Types.ObjectId().toString();
+            }
+            const newItem = new Model(doc);
+            await newItem.save();
+            res.status(201).json(newItem);
+        } catch (e) {
+            handleApiError(res, e, `${type} creation`);
+        }
+    });
     router.put('/:id', async (req, res) => { try { const updated = await Model.findOneAndUpdate({ id: req.params.id }, req.body, { new: true, runValidators: true }); if (!updated) return res.status(404).json({ message: 'Not found' }); res.json(updated); } catch (e) { handleApiError(res, e, `${type} update`); } });
     router.delete('/:id', async (req, res) => { try { const deleted = await Model.findOneAndDelete({ id: req.params.id }); if (!deleted) return res.status(404).json({ message: 'Not found' }); res.status(204).send(); } catch (e) { handleApiError(res, e, `${type} deletion`); } });
     return router;
@@ -380,16 +404,18 @@ ${history.map(h => `${h.author}: ${h.text}`).join('\n')}
 app.post('/api/chat/ask', authMiddleware, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
     
-    const { messageText, classId } = req.body;
+    const { messageText, classId, messageId } = req.body;
     const { user } = req;
 
     try {
         // 1. Save user's message
         const userMessage = new ChatMessage({
+            id: messageId,
             text: messageText,
             classId: classId,
             author: user.username,
             role: user.role,
+            channel: 'query',
             timestamp: Date.now(),
         });
         await userMessage.save();
@@ -422,10 +448,12 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
         
         // 4. Save AI's response
         const aiMessage = new ChatMessage({
+            id: `ai-msg-${Date.now()}`,
             text: aiResponseText,
             classId: classId,
             author: 'Campus AI',
             role: 'admin', // Representing the system
+            channel: 'query',
             timestamp: Date.now(),
         });
         await aiMessage.save();
@@ -437,8 +465,6 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
         handleApiError(res, error, 'AI chat processing');
     }
 });
-
-app.post('/api/chat', authMiddleware, async (req, res) => { try { const newMessage = new ChatMessage(req.body); await newMessage.save(); res.status(201).json(newMessage); } catch (e) { handleApiError(res, e, 'posting chat message'); } });
 
 // --- Reset and Generation ---
 app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
@@ -555,7 +581,7 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash", contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
+            config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 },
         });
         const parsedResponse = JSON.parse(response.text.trim());
         if (!Array.isArray(parsedResponse)) { throw new Error("AI returned data that was not in the expected array format."); }

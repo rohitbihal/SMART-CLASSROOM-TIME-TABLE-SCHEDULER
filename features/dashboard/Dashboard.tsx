@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon
@@ -14,7 +12,7 @@ interface DashboardProps {
     timetable: TimetableEntry[];
     classes: Class[]; subjects: Subject[]; students: Student[]; faculty: Faculty[];
     attendance: Attendance; onUpdateAttendance: (classId: string, date: string, studentId: string, status: AttendanceStatus) => void;
-    chatMessages: ChatMessage[]; onSendMessage: (messageText: string, classId: string) => Promise<void>;
+    chatMessages: ChatMessage[]; onSendMessage: (messageText: string, messageId: string) => Promise<void>;
     users: User[];
     constraints: Constraints | null;
     token: string | null;
@@ -37,14 +35,14 @@ const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme }: HeaderP
     </div>
 );
 
-const StudentDashboardView = ({ user, timetable, chatMessages, onSendMessage, classProfile }: { user: User, timetable: TimetableEntry[], chatMessages: ChatMessage[], onSendMessage: (messageText: string, classId: string) => Promise<void>, classProfile: Class | undefined }) => {
+const StudentDashboardView = ({ user, timetable, chatMessages, onSendMessage, classProfile, constraints }: { user: User, timetable: TimetableEntry[], chatMessages: ChatMessage[], onSendMessage: (messageText: string, messageId: string) => Promise<void>, classProfile: Class | undefined, constraints: Constraints | null }) => {
     const [activeTab, setActiveTab] = useState('schedule');
     const [isChatLoading, setIsChatLoading] = useState(false);
     
-    const handleSendMessageWrapper = async (text: string) => {
+    const handleSendMessageWrapper = async (text: string, messageId: string) => {
         if (!classProfile) return;
         setIsChatLoading(true);
-        await onSendMessage(text, classProfile.id);
+        await onSendMessage(text, messageId);
         setIsChatLoading(false);
     };
 
@@ -63,7 +61,7 @@ const StudentDashboardView = ({ user, timetable, chatMessages, onSendMessage, cl
 
      const renderContent = () => {
         switch(activeTab) {
-            case 'schedule': return <TimetableGrid timetable={timetable} role="student" />;
+            case 'schedule': return <TimetableGrid timetable={timetable} role="student" constraints={constraints} />;
             case 'chat': return <ChatInterface 
                 user={user} 
                 messages={chatMessages} 
@@ -90,10 +88,11 @@ const StudentDashboardView = ({ user, timetable, chatMessages, onSendMessage, cl
 };
 
 export function Dashboard (props: DashboardProps) {
-    const { user, onLogout, theme, toggleTheme, timetable, chatMessages, onSendMessage } = props;
+    const { user, onLogout, theme, toggleTheme, timetable, chatMessages, onSendMessage, constraints } = props;
 
-    const studentProfile = props.students.find(s => s.id === user.profileId);
-    const classProfile = props.classes.find(c => c.id === studentProfile?.classId);
+    const studentProfile = useMemo(() => props.students.find(s => s.id === user.profileId), [props.students, user.profileId]);
+    const classProfile = useMemo(() => props.classes.find(c => c.id === studentProfile?.classId), [props.classes, studentProfile]);
+    
     const subtitle = `Welcome, ${studentProfile?.name || user.username} | ${classProfile?.name || ''} | Roll No: ${studentProfile?.roll || 'N/A'}`;
     
     return (
@@ -106,7 +105,7 @@ export function Dashboard (props: DashboardProps) {
                 theme={theme}
                 toggleTheme={toggleTheme}
             />
-            <StudentDashboardView user={user} timetable={timetable} chatMessages={chatMessages} onSendMessage={onSendMessage} classProfile={classProfile} />
+            <StudentDashboardView user={user} timetable={timetable} chatMessages={chatMessages} onSendMessage={onSendMessage} classProfile={classProfile} constraints={constraints} />
         </div>
     );
 };

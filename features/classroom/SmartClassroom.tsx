@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon
+    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon
 } from '../../components/Icons';
 import { SectionCard, Modal, FeedbackBanner } from '../../App';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types';
@@ -17,6 +17,26 @@ interface SmartClassroomProps {
     onDeleteUser: (userId: string) => Promise<void>;
     onSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
 }
+
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', isLoading = false }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; isLoading?: boolean; }) => {
+    if (!isOpen) return null;
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={title}>
+            <div className="flex items-start gap-4">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/50 sm:mx-0 sm:h-10 sm:w-10">
+                    <ShieldIcon className="h-6 w-6 text-red-600 dark:text-red-300" />
+                </div>
+                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+                </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-6 mt-4 border-t dark:border-slate-700">
+                <button onClick={onClose} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                <button onClick={onConfirm} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Deleting..." : confirmText}</button>
+            </div>
+        </Modal>
+    );
+};
 
 const StudentForm = ({ student, onSave, onCancel, classId, isLoading }: { student: Student | null; onSave: (data: Partial<Student>) => void; onCancel: () => void; classId: string; isLoading: boolean; }) => {
     const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '' } : { name: '', email: '', roll: '', classId });
@@ -85,6 +105,8 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+    const [studentToDelete, setStudentToDelete] = useState<{ id: string, name: string } | null>(null);
+    const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
     const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
 
     const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId && s.name.toLowerCase().includes(searchTerm.toLowerCase())), [students, selectedClassId, searchTerm]);
@@ -124,23 +146,23 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
         }
     };
 
-    const handleDeleteStudent = async (studentId: string, studentName: string) => {
-        if (!window.confirm(`Are you sure you want to delete ${studentName}?`)) return;
+    const confirmDeleteStudent = async () => {
+        if (!studentToDelete) return;
         setIsLoading(true); setFeedback(null);
         try {
-            await onDeleteEntity('student', studentId);
-            setFeedback({ type: 'success', message: `Student '${studentName}' deleted successfully!` });
+            await onDeleteEntity('student', studentToDelete.id);
+            setFeedback({ type: 'success', message: `Student '${studentToDelete.name}' deleted successfully!` });
         } catch (err) {
             const message = err instanceof Error ? err.message : "An unknown error occurred.";
             setFeedback({ type: 'error', message: `Failed to delete student: ${message}` });
         } finally {
             setIsLoading(false);
+            setStudentToDelete(null);
         }
     };
 
-    const handleBulkDelete = async () => {
+    const confirmBulkDelete = async () => {
         if (selectedStudents.length === 0) return;
-        if (!window.confirm(`Are you sure you want to delete ${selectedStudents.length} selected student(s)?`)) return;
         setIsLoading(true); setFeedback(null);
         try {
             await Promise.all(selectedStudents.map(id => onDeleteEntity('student', id)));
@@ -151,12 +173,30 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
             setFeedback({ type: 'error', message: `Failed to delete students: ${message}` });
         } finally {
             setIsLoading(false);
+            setIsBulkDeleteConfirmOpen(false);
         }
     };
     
     return (
         <>
             <StudentImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+            <ConfirmationModal 
+                isOpen={!!studentToDelete}
+                onClose={() => setStudentToDelete(null)}
+                onConfirm={confirmDeleteStudent}
+                title="Confirm Student Deletion"
+                message={`Are you sure you want to delete ${studentToDelete?.name}? This action cannot be undone.`}
+                isLoading={isLoading}
+            />
+            <ConfirmationModal 
+                isOpen={isBulkDeleteConfirmOpen}
+                onClose={() => setIsBulkDeleteConfirmOpen(false)}
+                onConfirm={confirmBulkDelete}
+                title={`Confirm Bulk Deletion`}
+                message={`Are you sure you want to delete the ${selectedStudents.length} selected student(s)? This action cannot be undone.`}
+                isLoading={isLoading}
+                confirmText={`Delete ${selectedStudents.length} Student(s)`}
+            />
             <SectionCard
                 title="Student Management"
                 actions={(
@@ -183,7 +223,7 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
                             <input type="checkbox" ref={selectAllCheckboxRef} onChange={handleToggleSelectAll} checked={allIdsInView.length > 0 && selectedIdsInView.length === allIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                             <label className="font-medium">{selectedStudents.length > 0 ? `${selectedStudents.length} selected` : 'Select All'}</label>
                         </div>
-                        {selectedStudents.length > 0 && <button onClick={handleBulkDelete} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                        {selectedStudents.length > 0 && <button onClick={() => setIsBulkDeleteConfirmOpen(true)} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
                     </div>
                 )}
                 <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
@@ -200,7 +240,7 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
                                     </div>
                                     <div className="flex gap-2">
                                         <button onClick={() => setEditingStudent(student)} className="text-indigo-500 dark:text-indigo-400 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
-                                        <button onClick={() => handleDeleteStudent(student.id, student.name)} className="text-red-500 dark:text-red-400 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                                        <button onClick={() => setStudentToDelete({ id: student.id, name: student.name })} className="text-red-500 dark:text-red-400 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
                                     </div>
                                 </div>
                             </div>
@@ -310,6 +350,7 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
 const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser, setFeedback }: Pick<SmartClassroomProps, 'users' | 'faculty' | 'students' | 'onSaveUser' | 'onDeleteUser'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
+    const [isBulkDeleteUsersConfirmOpen, setIsBulkDeleteUsersConfirmOpen] = useState(false);
     const [userToReset, setUserToReset] = useState<User | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -393,7 +434,6 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     
     const handleBulkDeleteUsers = async () => {
         if (selectedUsers.length === 0) return;
-        if (!window.confirm(`Are you sure you want to delete ${selectedUsers.length} selected user account(s)?`)) return;
         setIsDeleting(true);
         setFeedback(null);
         try {
@@ -405,6 +445,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
             setFeedback({ type: 'error', message: `Failed to delete user accounts: ${message}` });
         } finally {
             setIsDeleting(false);
+            setIsBulkDeleteUsersConfirmOpen(false);
         }
     };
 
@@ -427,7 +468,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                             <input type="checkbox" ref={selectAllUsersCheckboxRef} onChange={handleToggleSelectAllUsers} checked={allUserIdsInView.length > 0 && selectedUserIdsInView.length === allUserIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                             <label className="font-medium">{selectedUsers.length > 0 ? `${selectedUsers.length} selected` : 'Select All'}</label>
                         </div>
-                        {selectedUsers.length > 0 && <button onClick={handleBulkDeleteUsers} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                        {selectedUsers.length > 0 && <button onClick={() => setIsBulkDeleteUsersConfirmOpen(true)} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
                     </div>
                 )}
                 <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
@@ -452,17 +493,23 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
             <Modal isOpen={!!editingUser} onClose={() => !isSaving && setEditingUser(null)} title={editingUser?._id ? "Edit User" : "Add New User"}>
                 {editingUser && <UserForm user={editingUser} onSave={handleSave} onCancel={() => setEditingUser(null)} faculty={faculty} students={students} allUsers={users} isLoading={isSaving} />}
             </Modal>
-            <Modal isOpen={!!userToDelete} onClose={() => !isDeleting && setUserToDelete(null)} title="Confirm Deletion">
-                {userToDelete && (
-                    <div>
-                        <p>Are you sure you want to delete the user account for <strong>{userToDelete.username}</strong>? This action cannot be undone.</p>
-                        <div className="flex gap-2 justify-end pt-4">
-                            <button onClick={() => setUserToDelete(null)} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isDeleting}>Cancel</button>
-                            <button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md w-28 disabled:opacity-50" disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete"}</button>
-                        </div>
-                    </div>
-                )}
-            </Modal>
+            <ConfirmationModal 
+                isOpen={!!userToDelete}
+                onClose={() => setUserToDelete(null)}
+                onConfirm={handleDelete}
+                title="Confirm User Deletion"
+                message={`Are you sure you want to delete the user account for ${userToDelete?.username}? This action is permanent.`}
+                isLoading={isDeleting}
+            />
+             <ConfirmationModal 
+                isOpen={isBulkDeleteUsersConfirmOpen}
+                onClose={() => setIsBulkDeleteUsersConfirmOpen(false)}
+                onConfirm={handleBulkDeleteUsers}
+                title={`Confirm Bulk User Deletion`}
+                message={`Are you sure you want to delete the ${selectedUsers.length} selected user account(s)? This action is permanent.`}
+                isLoading={isDeleting}
+                confirmText={`Delete ${selectedUsers.length} Account(s)`}
+            />
             <Modal isOpen={!!userToReset} onClose={() => !isLoading && setUserToReset(null)} title="Generate New Credentials">
                 {userToReset && (
                     <div>
@@ -752,7 +799,6 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
         return [...studentResults, ...facultyResults];
     }, [globalSearchQuery, students, faculty, classMap]);
     
-    // FIX: Corrected the type of 'result' to include all properties from the searchResults objects.
     const handleSearchResultClick = (result: { id: string, name: string, type: string, details: string }) => {
         // This is a placeholder. A real implementation would navigate to the student/faculty's detail page.
         alert(`Navigating to ${result.type}: ${result.name}`);
@@ -780,7 +826,6 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
         }
     };
     
-    // FIX: Added the missing return statement for the SmartClassroom component.
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8">
             <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
