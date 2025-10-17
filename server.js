@@ -143,16 +143,15 @@ const MOCK_CONSTRAINTS = {
     maxConcurrentClassesPerDept: { 'CSE': 4 },
 };
 
-async function seedDatabase(force = false) {
+async function seedDatabase() {
     try {
         const demoUserCount = await User.countDocuments({ username: { $in: ['admin@university.edu', 'teacher@university.edu', 'student@university.edu'] } });
-        if (demoUserCount === 3 && !force) {
+        if (demoUserCount === 3) {
             console.log('All demo users found. Skipping database seed.');
             return;
         }
         
-        console.log(force ? 'Forcing database seed/reset...' : 'Seeding database...');
-        await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
+        console.log('Seeding database with initial data...');
 
         const usersWithHashedPasswords = await Promise.all(MOCK_USERS.map(async (user) => {
             const hashedPassword = await bcrypt.hash(user.password, saltRounds);
@@ -432,7 +431,16 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
 app.post('/api/chat', authMiddleware, async (req, res) => { try { const newMessage = new ChatMessage(req.body); await newMessage.save(); res.status(201).json(newMessage); } catch (e) { handleApiError(res, e, 'posting chat message'); } });
 
 // --- Reset and Generation ---
-app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => { try { await seedDatabase(true); res.status(200).json({ message: 'Database reset successfully.' }); } catch (e) { handleApiError(res, e, 'data reset'); } });
+app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        console.log('Forcing database reset...');
+        await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
+        await seedDatabase();
+        res.status(200).json({ message: 'Database reset successfully.' });
+    } catch (e) {
+        handleApiError(res, e, 'data reset');
+    }
+});
 
 // --- Prompt Generation Helpers ---
 const timeToMinutes = (timeStr) => {
