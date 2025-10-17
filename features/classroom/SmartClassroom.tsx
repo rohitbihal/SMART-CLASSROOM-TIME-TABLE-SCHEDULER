@@ -2,8 +2,8 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
     SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon
-} from '../../components/Icons.tsx';
-import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types.ts';
+} from '../../components/Icons';
+import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types';
 
 interface SmartClassroomProps {
     user: User;
@@ -61,11 +61,21 @@ const StudentForm = ({ student, onSave, onCancel, classId, isLoading }: { studen
     const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '' } : { name: '', email: '', roll: '', classId });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(formData); };
+    const formId = `student-form-${student?.id || 'new'}`;
     return (
         <form onSubmit={handleSubmit} className="space-y-4 bg-white/5 dark:bg-slate-900/50 p-4 rounded-lg my-2">
-            <input name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Alice Sharma" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
-            <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="e.g. name@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
-            <input name="roll" value={formData.roll} onChange={handleChange} placeholder="e.g. 23" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+            <div>
+                <label htmlFor={`${formId}-name`} className="sr-only">Student Name</label>
+                <input id={`${formId}-name`} name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Alice Sharma" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
+            </div>
+            <div>
+                 <label htmlFor={`${formId}-email`} className="sr-only">Student Email</label>
+                <input id={`${formId}-email`} name="email" type="email" value={formData.email} onChange={handleChange} placeholder="e.g. name@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+            </div>
+            <div>
+                 <label htmlFor={`${formId}-roll`} className="sr-only">Roll Number</label>
+                <input id={`${formId}-roll`} name="roll" value={formData.roll} onChange={handleChange} placeholder="e.g. 23" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+            </div>
             <div className="flex gap-2 justify-end">
                 <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
                 <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save Student"}</button>
@@ -92,6 +102,7 @@ const StudentImportModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                     <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
                     <input
                         id="file-upload"
+                        name="file-upload"
                         type="file"
                         accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800/50"
@@ -195,12 +206,13 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
                 )}
             >
                 <div className="flex flex-col md:flex-row gap-4 mb-4">
-                    <select name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                    <select id="class-selector" name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                     <div className="relative flex-grow">
+                        <label htmlFor="student-search" className="sr-only">Search students in this class</label>
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                        <input type="text" id="student-search" name="student-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
                     </div>
                 </div>
                 {(editingStudent && 'new' in editingStudent) && <StudentForm student={null} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />}
@@ -303,15 +315,15 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
         <form onSubmit={handleSubmit} className="space-y-4">
             <ErrorDisplay message={error} />
             <div>
-                <label className="block text-sm font-medium mb-1">Role</label>
-                <select name="role" value={formData.role} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                <label htmlFor="userRole" className="block text-sm font-medium mb-1">Role</label>
+                <select id="userRole" name="role" value={formData.role} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
                 </select>
             </div>
             <div>
-                <label className="block text-sm font-medium mb-1">Link to Profile</label>
-                <select name="profileId" value={formData.profileId} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading}>
+                <label htmlFor="userProfileId" className="block text-sm font-medium mb-1">Link to Profile</label>
+                <select id="userProfileId" name="profileId" value={formData.profileId} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading}>
                     <option value="" disabled>Select a profile...</option>
                     {availableProfiles.map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
@@ -319,12 +331,12 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
                 </select>
             </div>
             <div>
-                <label className="block text-sm font-medium mb-1">Username (Email)</label>
-                <input name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
+                <label htmlFor="userUsername" className="block text-sm font-medium mb-1">Username (Email)</label>
+                <input id="userUsername" name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
             </div>
             <div>
-                <label className="block text-sm font-medium mb-1">{isEditing ? "New Password (optional)" : "Password"}</label>
-                <input name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required={!isEditing} disabled={isLoading} />
+                <label htmlFor="userPassword" className="block text-sm font-medium mb-1">{isEditing ? "New Password (optional)" : "Password"}</label>
+                <input id="userPassword" name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required={!isEditing} disabled={isLoading} />
             </div>
             <div className="flex gap-2 justify-end pt-4">
                 <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
@@ -444,8 +456,9 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                 actions={<button onClick={() => setEditingUser({})} disabled={isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add User</button>}
             >
                 <div className="relative mb-4">
+                    <label htmlFor="user-search" className="sr-only">Search by name or email</label>
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search by name or email..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                    <input type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search by name or email..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
                 </div>
                 {filteredUsers.length > 0 && (
                     <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
@@ -602,14 +615,14 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 <div className="space-y-6">
                     <ErrorDisplay message={formError} />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium mb-1">Full Name</label><input name="name" value={profileData.name} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
-                        {'specialization' in userProfile && <div><label className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input name="specialization" value={profileData.specialization} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>}
+                        <div><label htmlFor="profileName" className="block text-sm font-medium mb-1">Full Name</label><input id="profileName" name="name" value={profileData.name} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                        {'specialization' in userProfile && <div><label htmlFor="profileSpecialization" className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input id="profileSpecialization" name="specialization" value={profileData.specialization} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>}
                     </div>
                     <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                         <h4 className="font-semibold mb-2">Change Password</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div><label className="block text-sm font-medium mb-1">New Password</label><input name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
-                             <div><label className="block text-sm font-medium mb-1">Confirm New Password</label><input name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                             <div><label htmlFor="newPassword" className="block text-sm font-medium mb-1">New Password</label><input id="newPassword" name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                             <div><label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm New Password</label><input id="confirmPassword" name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
@@ -684,14 +697,14 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
         <SectionCard title="Attendance Tracking">
             <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
                 <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Select Class</label>
-                    <select value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                    <label htmlFor="attendance-class" className="block text-sm font-medium mb-1">Select Class</label>
+                    <select id="attendance-class" name="attendance-class" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 </div>
                 <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Select Date</label>
-                    <input type="date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+                    <label htmlFor="attendance-date" className="block text-sm font-medium mb-1">Select Date</label>
+                    <input type="date" id="attendance-date" name="attendance-date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
                 </div>
             </div>
             <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4">
@@ -804,9 +817,12 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Manage students, users, and class settings.</p>
                 </div>
                 <div ref={searchContainerRef} className="relative flex-grow max-w-lg mx-auto">
+                    <label htmlFor="global-search" className="sr-only">Search all students and faculty</label>
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                     <input
                         type="text"
+                        name="global-search"
+                        id="global-search"
                         value={globalSearchQuery}
                         onChange={e => setGlobalSearchQuery(e.target.value)}
                         onFocus={() => setIsSearchResultsVisible(true)}

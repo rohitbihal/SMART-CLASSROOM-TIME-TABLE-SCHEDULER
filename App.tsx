@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import { LoginPage } from './features/auth/LoginPage.tsx';
-import { Dashboard } from './features/dashboard/Dashboard.tsx';
-import { TimetableGrid } from './features/dashboard/TimetableGrid.tsx';
-import { PlaceholderContent } from './features/dashboard/PlaceholderContent.tsx';
-import { ModuleSelectionPage } from './features/dashboard/ModuleSelectionPage.tsx';
-import { SmartClassroom } from './features/classroom/SmartClassroom.tsx';
-import { TimetableScheduler } from './features/scheduler/TimetableScheduler.tsx';
-import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, GradebookIcon, QuizzesIcon, AnalyticsIcon, MeetingIcon, TutorialsIcon, SendIcon, EditIcon } from './components/Icons.tsx';
-import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus, TimetableEntry, TeacherRequest, FacultyPreference } from './types.ts';
-import { DAYS, TIME_SLOTS } from './constants.ts';
+import { LoginPage } from './features/auth/LoginPage';
+import { Dashboard } from './features/dashboard/Dashboard';
+import { TimetableGrid } from './features/dashboard/TimetableGrid';
+import { PlaceholderContent } from './features/dashboard/PlaceholderContent';
+import { ModuleSelectionPage } from './features/dashboard/ModuleSelectionPage';
+import { SmartClassroom } from './features/classroom/SmartClassroom';
+import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
+import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, GradebookIcon, QuizzesIcon, AnalyticsIcon, MeetingIcon, TutorialsIcon, SendIcon, EditIcon } from './components/Icons';
+import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus, TimetableEntry, TeacherRequest, FacultyPreference } from './types';
+import { DAYS, TIME_SLOTS } from './constants';
 
 const API_BASE_URL = '/api';
 
@@ -23,9 +23,9 @@ const SectionCard = ({ title, children, actions, className }: { title: string; c
         {children}
     </div>
 );
-const FormField = ({ label, children = null }: { label: string, children?: React.ReactNode }) => (
+const FormField = ({ label, children = null, htmlFor }: { label: string, children?: React.ReactNode, htmlFor: string }) => (
     <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
+        <label htmlFor={htmlFor} className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
         {children}
     </div>
 );
@@ -150,22 +150,22 @@ const RequestsPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard title="Submit a New Request">
                  <form className="space-y-4" onSubmit={e => {e.preventDefault(); alert("Request submitted (demo).")}}>
-                    <FormField label="Request Type">
-                        <SelectInput>
+                    <FormField label="Request Type" htmlFor="requestType">
+                        <SelectInput id="requestType" name="requestType">
                             <option>Schedule Change</option>
                             <option>Leave Request</option>
                             <option>Resource Request</option>
                             <option>Other</option>
                         </SelectInput>
                     </FormField>
-                    <FormField label="Subject (if applicable)">
-                        <SelectInput><option>Select a subject...</option></SelectInput>
+                    <FormField label="Subject (if applicable)" htmlFor="requestSubject">
+                        <SelectInput id="requestSubject" name="requestSubject"><option>Select a subject...</option></SelectInput>
                     </FormField>
-                    <FormField label="Details of Requested Change">
-                        <TextareaInput placeholder="e.g., Please move CS101 from Monday 9am to Friday 2pm." />
+                    <FormField label="Details of Requested Change" htmlFor="requestDetails">
+                        <TextareaInput id="requestDetails" name="requestDetails" placeholder="e.g., Please move CS101 from Monday 9am to Friday 2pm." />
                     </FormField>
-                    <FormField label="Reason">
-                        <TextareaInput placeholder="e.g., Due to a clashing appointment." />
+                    <FormField label="Reason" htmlFor="requestReason">
+                        <TextareaInput id="requestReason" name="requestReason" placeholder="e.g., Due to a clashing appointment." />
                     </FormField>
                     <button type="submit" className="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg">Submit Request</button>
                 </form>
@@ -240,14 +240,14 @@ const TeacherAttendancePage = ({ classes, students, attendance, onSaveClassAtten
         <SectionCard title="Attendance Tracking">
             <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
                 <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Select Class</label>
-                    <SelectInput value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} disabled={isLoading}>
+                    <label htmlFor="teacher-attendance-class" className="block text-sm font-medium mb-1">Select Class</label>
+                    <SelectInput id="teacher-attendance-class" name="teacher-attendance-class" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} disabled={isLoading}>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </SelectInput>
                 </div>
                 <div className="flex-1">
-                    <label className="block text-sm font-medium mb-1">Select Date</label>
-                    <TextInput type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} disabled={isLoading} />
+                    <label htmlFor="teacher-attendance-date" className="block text-sm font-medium mb-1">Select Date</label>
+                    <TextInput type="date" id="teacher-attendance-date" name="teacher-attendance-date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} disabled={isLoading} />
                 </div>
                 <div className="flex-1">
                      <label className="block text-sm font-medium mb-1">View Reports</label>
@@ -327,7 +327,8 @@ const TeacherChatPage = ({ user, classes, students, facultyProfile }: { user: Us
                         </div>
                         <div className="p-4 border-t dark:border-slate-700">
                              <form className="flex items-center gap-3">
-                                <TextInput value={message} onChange={e => setMessage(e.target.value)} placeholder="Type your message..." />
+                                <label htmlFor="chat-message" className="sr-only">Type your message</label>
+                                <TextInput name="chat-message" id="chat-message" value={message} onChange={e => setMessage(e.target.value)} placeholder="Type your message..." />
                                 <button type="submit" className="bg-indigo-600 text-white p-3 rounded-lg"><SendIcon /></button>
                             </form>
                         </div>

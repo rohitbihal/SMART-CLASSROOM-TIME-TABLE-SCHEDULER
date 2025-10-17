@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, SearchIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon } from '../../components/Icons.tsx';
-import { DAYS, TIME_SLOTS } from '../../constants.ts';
-import { generateTimetable } from '../../services/geminiService.ts';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, InstitutionDetails } from '../../types.ts';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, SearchIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon } from '../../components/Icons';
+import { DAYS, TIME_SLOTS } from '../../constants';
+import { generateTimetable } from '../../services/geminiService';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, InstitutionDetails } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room';
 type Entity = Class | Faculty | Subject | Room;
@@ -79,30 +79,32 @@ const Modal = ({ isOpen, onClose, title, children = null, error = null, size = '
         </div>
     );
 };
-const FormField = ({ label, children = null }: { label: string, children?: React.ReactNode }) => (
+const FormField = ({ label, children = null, htmlFor }: { label: string, children?: React.ReactNode, htmlFor: string }) => (
     <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
+        <label htmlFor={htmlFor} className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
         {children}
     </div>
 );
 const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} className={"w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100 " + (props.className || '')} />;
 const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className="w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" />;
-const SearchInput = ({ value, onChange, placeholder }: { value: string, onChange: (v: string) => void, placeholder?: string }) => (
+const SearchInput = ({ value, onChange, placeholder, label, id }: { value: string; onChange: (v: string) => void; placeholder?: string; label: string; id: string; }) => (
     <div className="relative mb-4">
+        <label htmlFor={id} className="sr-only">{label}</label>
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "Search..."} className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md focus:ring-2 focus:ring-indigo-500" />
+        <input type="text" id={id} name={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "Search..."} className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md focus:ring-2 focus:ring-indigo-500" />
     </div>
 );
 const ClassForm = ({ initialData, onSave }: { initialData: Class | null; onSave: (data: any) => Promise<void>; }) => {
     const [data, setData] = useState(initialData || { id: '', name: '', branch: '', year: 1, section: '', studentCount: 0 });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const formId = initialData?.id || 'new-class';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
-            <FormField label="Name"><TextInput name="name" value={data.name} onChange={handleChange} required /></FormField>
-            <FormField label="Branch"><TextInput name="branch" value={data.branch} onChange={handleChange} required /></FormField>
-            <FormField label="Year"><TextInput type="number" name="year" value={data.year} onChange={handleChange} required min={1} /></FormField>
-            <FormField label="Section"><TextInput name="section" value={data.section} onChange={handleChange} required /></FormField>
-            <FormField label="Student Count"><TextInput type="number" name="studentCount" value={data.studentCount} onChange={handleChange} required min={1} /></FormField>
+            <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+            <FormField label="Branch" htmlFor={`${formId}-branch`}><TextInput id={`${formId}-branch`} name="branch" value={data.branch} onChange={handleChange} required /></FormField>
+            <FormField label="Year" htmlFor={`${formId}-year`}><TextInput type="number" id={`${formId}-year`} name="year" value={data.year} onChange={handleChange} required min={1} /></FormField>
+            <FormField label="Section" htmlFor={`${formId}-section`}><TextInput id={`${formId}-section`} name="section" value={data.section} onChange={handleChange} required /></FormField>
+            <FormField label="Student Count" htmlFor={`${formId}-studentCount`}><TextInput type="number" id={`${formId}-studentCount`} name="studentCount" value={data.studentCount} onChange={handleChange} required min={1} /></FormField>
             <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
@@ -111,12 +113,13 @@ const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onS
     const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', '), email: initialData.email || '' } : { id: '', name: '', department: '', specialization: '', email: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.value });
     const handleSave = (e: React.FormEvent) => { e.preventDefault(); onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean) }); };
+    const formId = initialData?.id || 'new-faculty';
     return (
         <form onSubmit={handleSave}>
-            <FormField label="Name"><TextInput name="name" value={data.name} onChange={handleChange} required /></FormField>
-            <FormField label="Email"><TextInput type="email" name="email" value={data.email} onChange={handleChange} required /></FormField>
-            <FormField label="Department"><TextInput name="department" value={data.department} onChange={handleChange} required /></FormField>
-            <FormField label="Specializations (comma-separated)"><TextInput name="specialization" value={data.specialization} onChange={handleChange} /></FormField>
+            <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+            <FormField label="Email" htmlFor={`${formId}-email`}><TextInput type="email" id={`${formId}-email`} name="email" value={data.email} onChange={handleChange} required /></FormField>
+            <FormField label="Department" htmlFor={`${formId}-department`}><TextInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required /></FormField>
+            <FormField label="Specializations (comma-separated)" htmlFor={`${formId}-specialization`}><TextInput id={`${formId}-specialization`} name="specialization" value={data.specialization} onChange={handleChange} /></FormField>
             <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
@@ -125,25 +128,26 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
     const [data, setData] = useState(initialData || { id: '', name: '', code: '', department: '', type: 'theory', hoursPerWeek: 3, assignedFacultyId: '' });
     const departments = useMemo(() => [...new Set(faculty.map(f => f.department))], [faculty]);
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const formId = initialData?.id || 'new-subject';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
-            <FormField label="Name"><TextInput name="name" value={data.name} onChange={handleChange} required /></FormField>
-            <FormField label="Code"><TextInput name="code" value={data.code} onChange={handleChange} required /></FormField>
-            <FormField label="Department">
-                <SelectInput name="department" value={data.department} onChange={handleChange} required>
+            <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+            <FormField label="Code" htmlFor={`${formId}-code`}><TextInput id={`${formId}-code`} name="code" value={data.code} onChange={handleChange} required /></FormField>
+            <FormField label="Department" htmlFor={`${formId}-department`}>
+                <SelectInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required>
                     <option value="" disabled>Select Department...</option>
                     {departments.map(dep => <option key={dep} value={dep}>{dep}</option>)}
                 </SelectInput>
             </FormField>
-            <FormField label="Type">
-                <SelectInput name="type" value={data.type} onChange={handleChange}>
+            <FormField label="Type" htmlFor={`${formId}-type`}>
+                <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
                     <option value="theory">Theory</option>
                     <option value="lab">Lab</option>
                 </SelectInput>
             </FormField>
-            <FormField label="Hours/Week"><TextInput type="number" name="hoursPerWeek" value={data.hoursPerWeek} onChange={handleChange} required min={1} /></FormField>
-            <FormField label="Assigned Faculty">
-                <SelectInput name="assignedFacultyId" value={data.assignedFacultyId} onChange={handleChange} required>
+            <FormField label="Hours/Week" htmlFor={`${formId}-hoursPerWeek`}><TextInput type="number" id={`${formId}-hoursPerWeek`} name="hoursPerWeek" value={data.hoursPerWeek} onChange={handleChange} required min={1} /></FormField>
+            <FormField label="Assigned Faculty" htmlFor={`${formId}-assignedFacultyId`}>
+                <SelectInput id={`${formId}-assignedFacultyId`} name="assignedFacultyId" value={data.assignedFacultyId} onChange={handleChange} required>
                     <option value="" disabled>Select...</option>
                     {faculty.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </SelectInput>
@@ -155,16 +159,17 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
 const RoomForm = ({ initialData, onSave }: { initialData: Room | null; onSave: (data: any) => Promise<void>; }) => {
     const [data, setData] = useState(initialData || { id: '', number: '', type: 'classroom', capacity: 0 });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const formId = initialData?.id || 'new-room';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
-            <FormField label="Number"><TextInput name="number" value={data.number} onChange={handleChange} required /></FormField>
-            <FormField label="Type">
-                <SelectInput name="type" value={data.type} onChange={handleChange}>
+            <FormField label="Number" htmlFor={`${formId}-number`}><TextInput id={`${formId}-number`} name="number" value={data.number} onChange={handleChange} required /></FormField>
+            <FormField label="Type" htmlFor={`${formId}-type`}>
+                <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
                     <option value="classroom">Classroom</option>
                     <option value="lab">Lab</option>
                 </SelectInput>
             </FormField>
-            <FormField label="Capacity"><TextInput type="number" name="capacity" value={data.capacity} onChange={handleChange} required min={1} /></FormField>
+            <FormField label="Capacity" htmlFor={`${formId}-capacity`}><TextInput type="number" id={`${formId}-capacity`} name="capacity" value={data.capacity} onChange={handleChange} required min={1} /></FormField>
             <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
@@ -210,6 +215,7 @@ const ImportModal = ({ isOpen, onClose, entityType }: { isOpen: boolean; onClose
                     <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
                     <input
                         id="file-upload"
+                        name="file-upload"
                         type="file"
                         accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800/50"
@@ -246,20 +252,20 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
             <ErrorDisplay message={pageError} />
             <SectionCard title="Institution Details">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    <FormField label="Institution Name">
-                        <TextInput name="name" placeholder="Enter college/university name" value={details.name || ''} onChange={handleInstituteFormChange} />
+                    <FormField label="Institution Name" htmlFor="inst-name">
+                        <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={details.name || ''} onChange={handleInstituteFormChange} />
                     </FormField>
-                    <FormField label="Academic Year">
-                        <TextInput name="academicYear" placeholder="e.g., 2024-2025" value={details.academicYear || ''} onChange={handleInstituteFormChange} />
+                    <FormField label="Academic Year" htmlFor="inst-acad-year">
+                        <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={details.academicYear || ''} onChange={handleInstituteFormChange} />
                     </FormField>
-                    <FormField label="Semester">
-                        <SelectInput name="semester" value={details.semester || 'Odd'} onChange={handleInstituteFormChange}>
+                    <FormField label="Semester" htmlFor="inst-semester">
+                        <SelectInput id="inst-semester" name="semester" value={details.semester || 'Odd'} onChange={handleInstituteFormChange}>
                             <option value="Odd">Odd Semester (Aug-Dec)</option>
                             <option value="Even">Even Semester (Jan-May)</option>
                         </SelectInput>
                     </FormField>
-                    <FormField label="Academic Session">
-                        <SelectInput name="session" value={details.session || 'Regular'} onChange={handleInstituteFormChange}>
+                    <FormField label="Academic Session" htmlFor="inst-session">
+                        <SelectInput id="inst-session" name="session" value={details.session || 'Regular'} onChange={handleInstituteFormChange}>
                             <option value="Regular">Regular</option>
                             <option value="Summer School">Summer School</option>
                             <option value="Winter School">Winter School</option>
@@ -270,7 +276,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
             </SectionCard>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SectionCard title="Classes & Sections" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('class')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'class')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Class</button></div>}>
-                    <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." />
+                    <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." label="Search Classes" id="search-class" />
                     <DataTable headers={["Name", "Branch", "Year", "Section", "Students", "Actions"]} data={filtered.class} renderRow={(c: Class) => (
                         <tr key={c.id} className="border-b dark:border-slate-700">
                             <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.class.includes(c.id)} onChange={() => onToggleSelect('class', c.id)} /></td>
@@ -284,7 +290,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
                     )} headerPrefix={<HeaderCheckbox type="class" items={filtered.class} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
                 <SectionCard title="Faculty" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('faculty')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'faculty')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Faculty</button></div>}>
-                    <SearchInput value={search.faculty} onChange={v => handleSearch('faculty', v)} placeholder="Search faculty..." />
+                    <SearchInput value={search.faculty} onChange={v => handleSearch('faculty', v)} placeholder="Search faculty..." label="Search Faculty" id="search-faculty" />
                     <DataTable headers={["Name", "Department", "Specialization", "Actions"]} data={filtered.faculty} renderRow={(f: Faculty) => (
                         <tr key={f.id} className="border-b dark:border-slate-700">
                             <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.faculty.includes(f.id)} onChange={() => onToggleSelect('faculty', f.id)} /></td>
@@ -296,7 +302,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
                     )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
                 <SectionCard title="Subjects" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('subject')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'subject')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Subject</button></div>}>
-                    <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." />
+                    <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." label="Search Subjects" id="search-subject" />
                     <DataTable headers={["Name", "Code", "Department", "Type", "Hrs/Week", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
                         <tr key={s.id} className="border-b dark:border-slate-700">
                             <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.subject.includes(s.id)} onChange={() => onToggleSelect('subject', s.id)} /></td>
@@ -311,7 +317,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
                     )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
                 <SectionCard title="Rooms" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('room')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'room')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Room</button></div>}>
-                    <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." />
+                    <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
                     <DataTable headers={["Number", "Type", "Capacity", "Actions"]} data={filtered.room} renderRow={(r: Room) => (
                         <tr key={r.id} className="border-b dark:border-slate-700">
                             <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.room.includes(r.id)} onChange={() => onToggleSelect('room', r.id)} /></td>
@@ -383,11 +389,11 @@ const TimePreferencesVisual = ({ prefs, onChange }: { prefs: TimePreferences, on
                         <span>7 AM</span><span>10 AM</span><span>1 PM</span><span>4 PM</span><span>7 PM</span><span>9 PM</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-                        <div><label className="block text-sm font-medium mb-1">Start Time</label><TextInput type="time" name="startTime" value={prefs.startTime} onChange={handleInputChange} className="p-2" /></div>
-                        <div><label className="block text-sm font-medium mb-1">End Time</label><TextInput type="time" name="endTime" value={prefs.endTime} onChange={handleInputChange} className="p-2" /></div>
-                        <div><label className="block text-sm font-medium mb-1">Slot Duration (minutes)</label><TextInput type="number" name="slotDurationMinutes" value={prefs.slotDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></div>
-                        <div><label className="block text-sm font-medium mb-1">Lunch Start</label><TextInput type="time" name="lunchStartTime" value={prefs.lunchStartTime} onChange={handleInputChange} className="p-2" /></div>
-                        <div><label className="block text-sm font-medium mb-1">Lunch Duration (minutes)</label><TextInput type="number" name="lunchDurationMinutes" value={prefs.lunchDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></div>
+                        <div><label htmlFor="startTime" className="block text-sm font-medium mb-1">Start Time</label><TextInput type="time" id="startTime" name="startTime" value={prefs.startTime} onChange={handleInputChange} className="p-2" /></div>
+                        <div><label htmlFor="endTime" className="block text-sm font-medium mb-1">End Time</label><TextInput type="time" id="endTime" name="endTime" value={prefs.endTime} onChange={handleInputChange} className="p-2" /></div>
+                        <div><label htmlFor="slotDurationMinutes" className="block text-sm font-medium mb-1">Slot Duration (minutes)</label><TextInput type="number" id="slotDurationMinutes" name="slotDurationMinutes" value={prefs.slotDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></div>
+                        <div><label htmlFor="lunchStartTime" className="block text-sm font-medium mb-1">Lunch Start</label><TextInput type="time" id="lunchStartTime" name="lunchStartTime" value={prefs.lunchStartTime} onChange={handleInputChange} className="p-2" /></div>
+                        <div><label htmlFor="lunchDurationMinutes" className="block text-sm font-medium mb-1">Lunch Duration (minutes)</label><TextInput type="number" id="lunchDurationMinutes" name="lunchDurationMinutes" value={prefs.lunchDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></div>
                     </div>
                 </div>
             </div>
@@ -479,8 +485,8 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Click on a time slot to toggle its availability. Red slots are unavailable.</p>
                 <WeeklyUnavailabilityGrid />
             </Modal>
-            <FormField label="Time Preferences for">
-                <SelectInput value={selectedFacultyId} onChange={e => setSelectedFacultyId(e.target.value)}>
+            <FormField label="Time Preferences for" htmlFor="faculty-pref-select">
+                <SelectInput id="faculty-pref-select" name="faculty-pref-select" value={selectedFacultyId} onChange={e => setSelectedFacultyId(e.target.value)}>
                     <option value="">Select a faculty member...</option>
                     {faculty.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </SelectInput>
@@ -510,8 +516,8 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                                 </div>
                             </div>
                             <div>
-                                 <h4 className="font-semibold mb-2">Max Consecutive Classes</h4>
-                                 <SelectInput value={currentPref.maxConsecutiveClasses || 3} onChange={e => handlePrefChange('maxConsecutiveClasses', parseInt(e.target.value))}>
+                                 <h4 className="font-semibold mb-2" id="max-consecutive-label">Max Consecutive Classes</h4>
+                                 <SelectInput aria-labelledby="max-consecutive-label" value={currentPref.maxConsecutiveClasses || 3} onChange={e => handlePrefChange('maxConsecutiveClasses', parseInt(e.target.value))}>
                                     {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
                                  </SelectInput>
                             </div>
@@ -562,14 +568,14 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
                     <div><h4 className="font-semibold">Room Capacity</h4><p className="text-sm text-gray-500">Room capacity is automatically checked against class size during generation.</p></div>
                     <div><h4 className="font-semibold mb-2">Resource Booking</h4><p className="text-sm text-gray-500">Feature coming soon.</p></div>
                     <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={(e) => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
+                        <input type="checkbox" id="prioritizeSameRoom" name="prioritizeSameRoom" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={(e) => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
                         Prioritize keeping a faculty's consecutive classes in the same room.
                     </label>
                 </div>
             </SectionCard>
             <SectionCard title="Category 2: Student & Section Constraints">
                  <div className="space-y-4">
-                    <div><label className="font-semibold mb-1 block">Max Consecutive Classes for Students/Section</label><TextInput type="number" value={constraints.studentSectionConstraints?.maxConsecutiveClasses || 4} onChange={e => handleNumberChange('student', 'maxConsecutiveClasses', e.target.value)} className="max-w-xs" /></div>
+                    <div><label className="font-semibold mb-1 block" htmlFor="studentMaxConsecutive">Max Consecutive Classes for Students/Section</label><TextInput type="number" id="studentMaxConsecutive" name="studentMaxConsecutive" value={constraints.studentSectionConstraints?.maxConsecutiveClasses || 4} onChange={e => handleNumberChange('student', 'maxConsecutiveClasses', e.target.value)} className="max-w-xs" /></div>
                     <div><h4 className="font-semibold mb-2">Core Subject Spacing</h4><p className="text-sm text-gray-500">Feature coming soon.</p></div>
                     <div><h4 className="font-semibold">Lunch Break for Sections</h4><p className="text-sm text-gray-500">A single lunch break for the institution is defined in the 'Time & Day' tab.</p></div>
                  </div>
@@ -577,12 +583,12 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
             <SectionCard title="Category 3: Advanced Faculty & Institutional Constraints">
                 <div className="space-y-4">
                     <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={constraints.advancedConstraints?.enableFacultyLoadBalancing || false} onChange={(e) => handleToggle('advanced', 'enableFacultyLoadBalancing', e.target.checked)} />
+                        <input type="checkbox" id="loadBalancing" name="loadBalancing" checked={constraints.advancedConstraints?.enableFacultyLoadBalancing || false} onChange={(e) => handleToggle('advanced', 'enableFacultyLoadBalancing', e.target.checked)} />
                         Enable weekly load balancing for faculty.
                     </label>
                     <div><h4 className="font-semibold mb-2">Twin/Block Periods</h4><p className="text-sm text-gray-500">Rule builder coming soon.</p></div>
                     <div><h4 className="font-semibold mb-2">Teacher Co-location Constraint</h4><p className="text-sm text-gray-500">Rule builder coming soon.</p></div>
-                    <div><label className="font-semibold mb-1 block">Travel Time (for Multi-Campus Institutions)</label><TextInput type="number" placeholder="Minutes" value={constraints.advancedConstraints?.travelTimeMinutes || 0} onChange={e => handleNumberChange('advanced', 'travelTimeMinutes', e.target.value)} className="max-w-xs" /></div>
+                    <div><label className="font-semibold mb-1 block" htmlFor="travelTime">Travel Time (for Multi-Campus Institutions)</label><TextInput type="number" id="travelTime" name="travelTime" placeholder="Minutes" value={constraints.advancedConstraints?.travelTimeMinutes || 0} onChange={e => handleNumberChange('advanced', 'travelTimeMinutes', e.target.value)} className="max-w-xs" /></div>
                 </div>
             </SectionCard>
         </div>
@@ -605,8 +611,8 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
             case 'global': return (
                 <SectionCard title="Global Constraints">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <FormField label="Max Consecutive Classes (for Faculty)">
-                            <TextInput type="number" name="maxConsecutiveClasses" value={constraints.maxConsecutiveClasses} onChange={handleGlobalChange} min={1} />
+                        <FormField label="Max Consecutive Classes (for Faculty)" htmlFor="maxConsecutiveClasses">
+                            <TextInput type="number" id="maxConsecutiveClasses" name="maxConsecutiveClasses" value={constraints.maxConsecutiveClasses} onChange={handleGlobalChange} min={1} />
                         </FormField>
                     </div>
                 </SectionCard>
@@ -614,24 +620,24 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
             case 'fixed_classes': return (
                 <SectionCard title="Fixed Classes">
                     <form className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                        <FormField label="Class/Section">
-                            <SelectInput defaultValue="">
+                        <FormField label="Class/Section" htmlFor="fixed-class">
+                            <SelectInput id="fixed-class" name="fixed-class" defaultValue="">
                                 <option value="" disabled>Select Class</option>
                                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </SelectInput>
                         </FormField>
-                        <FormField label="Day">
-                            <SelectInput defaultValue="monday">
+                        <FormField label="Day" htmlFor="fixed-day">
+                            <SelectInput id="fixed-day" name="fixed-day" defaultValue="monday">
                                 {DAYS.map(d => <option key={d} value={d} className="capitalize">{d}</option>)}
                             </SelectInput>
                         </FormField>
-                        <FormField label="Time Slot">
-                            <SelectInput defaultValue="09:30-10:20">
+                        <FormField label="Time Slot" htmlFor="fixed-time">
+                            <SelectInput id="fixed-time" name="fixed-time" defaultValue="09:30-10:20">
                                 {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
                             </SelectInput>
                         </FormField>
-                        <FormField label="Subject">
-                            <SelectInput defaultValue="">
+                        <FormField label="Subject" htmlFor="fixed-subject">
+                            <SelectInput id="fixed-subject" name="fixed-subject" defaultValue="">
                                 <option value="" disabled>Select Subject</option>
                                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </SelectInput>
@@ -707,8 +713,8 @@ const ViewTab = ({ timetable, classes }: { timetable: TimetableEntry[]; classes:
         <SectionCard title="Generated Timetable">
             <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
                 <div>
-                    <label className="mr-2">Select Class:</label>
-                    <SelectInput value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+                    <label htmlFor="view-class-select" className="mr-2">Select Class:</label>
+                    <SelectInput id="view-class-select" name="view-class-select" value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
                         <option value="All">All Classes</option>
                         {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </SelectInput>

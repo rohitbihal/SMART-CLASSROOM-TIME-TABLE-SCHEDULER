@@ -1,5 +1,5 @@
 
-import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types.ts';
+import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types';
 
 // NOTE: The base URL for the backend server.
 const API_BASE_URL = '/api';

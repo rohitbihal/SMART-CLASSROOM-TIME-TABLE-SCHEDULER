@@ -1,5 +1,5 @@
 
-import { TimetableEntry } from './types.ts';
+import { TimetableEntry } from './types';
 
 // === From constants.ts ===
 export const TIME_SLOTS = [

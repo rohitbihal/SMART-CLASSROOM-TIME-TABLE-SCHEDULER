@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, ChatMessage, Class } from '../../types.ts';
-import { SendIcon, ProfileIcon, AIIcon } from '../../components/Icons.tsx';
+import { User, ChatMessage, Class } from '../../types';
+import { SendIcon, ProfileIcon, AIIcon } from '../../components/Icons';
 
 interface ChatInterfaceProps {
     user: User;

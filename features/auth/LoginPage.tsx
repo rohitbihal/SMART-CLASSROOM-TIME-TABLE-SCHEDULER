@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons.tsx';
-import { User } from '../../types.ts';
+import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
+import { User } from '../../types';
 
 const API_BASE_URL = '/api';
 
@@ -151,11 +151,11 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="username" className="block text-sm font-medium text-gray-600 dark:text-gray-300">Username/Email</label>
-          <input type="text" id="username" placeholder="Enter your username or email" value={username} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isLoading} />
+          <input type="text" id="username" name="username" placeholder="Enter your username or email" value={username} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isLoading} />
         </div>
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-600 dark:text-gray-300">Password</label>
-          <input type="password" id="password" placeholder="Enter your password" value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isLoading} />
+          <input type="password" id="password" name="password" placeholder="Enter your password" value={password} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-100 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" required disabled={isLoading} />
         </div>
         <div className="text-right">
           <button type="button" onClick={() => { setView('forgotPassword'); clearMessages(); }} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium" disabled={isLoading}>Forgot Password?</button>
@@ -189,9 +189,18 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
             </form>
         :
             <form onSubmit={handleResetPassword} className="space-y-4">
-                <input type="text" name="otp" placeholder="Enter OTP from email" value={forgotPasswordState.otp} onChange={handleForgotPasswordChange} className="block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg" required disabled={isLoading} />
-                <input type="password" name="newPassword" placeholder="New Password" value={forgotPasswordState.newPassword} onChange={handleForgotPasswordChange} className="block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg" required disabled={isLoading} />
-                <input type="password" name="confirmPassword" placeholder="Confirm New Password" value={forgotPasswordState.confirmPassword} onChange={handleForgotPasswordChange} className="block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg" required disabled={isLoading} />
+                <div>
+                    <label htmlFor="otp" className="block text-sm font-medium text-gray-600 dark:text-gray-300">OTP Code</label>
+                    <input id="otp" type="text" name="otp" placeholder="Enter OTP from email" value={forgotPasswordState.otp} onChange={handleForgotPasswordChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg" required disabled={isLoading} />
+                </div>
+                 <div>
+                    <label htmlFor="newPassword" className="block text-sm font-medium text-gray-600 dark:text-gray-300">New Password</label>
+                    <input id="newPassword" type="password" name="newPassword" placeholder="New Password" value={forgotPasswordState.newPassword} onChange={handleForgotPasswordChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg" required disabled={isLoading} />
+                </div>
+                <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-600 dark:text-gray-300">Confirm New Password</label>
+                    <input id="confirmPassword" type="password" name="confirmPassword" placeholder="Confirm New Password" value={forgotPasswordState.confirmPassword} onChange={handleForgotPasswordChange} className="mt-1 block w-full px-4 py-3 bg-gray-50 dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg" required disabled={isLoading} />
+                </div>
                 <button type="submit" className="w-full flex justify-center py-3 px-4 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 font-semibold disabled:opacity-50" disabled={isLoading}>{isLoading ? 'Resetting...' : 'Reset Password'}</button>
             </form>
         }

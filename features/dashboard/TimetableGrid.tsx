@@ -1,7 +1,7 @@
 import React from 'react';
-import { DAYS, TIME_SLOTS } from '../../constants.ts';
-import { TimetableEntry } from '../../types.ts';
-import { SchedulerIcon } from '../../components/Icons.tsx';
+import { DAYS, TIME_SLOTS } from '../../constants';
+import { TimetableEntry } from '../../types';
+import { SchedulerIcon } from '../../components/Icons';
 
 export const TimetableGrid = ({ timetable, role = 'student' }: { timetable: TimetableEntry[], role?: 'student' | 'teacher' }) => {
     if (!timetable || timetable.length === 0) {

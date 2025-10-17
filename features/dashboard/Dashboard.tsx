@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
     LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon
-} from '../../components/Icons.tsx';
-import { ChatInterface } from '../chat/ChatInterface.tsx';
-import { TimetableGrid } from './TimetableGrid.tsx';
-import { PlaceholderContent } from './PlaceholderContent.tsx';
-import { TimetableEntry, User, Class, Subject, Student, Faculty, Attendance, AttendanceStatus, ChatMessage, Constraints } from '../../types.ts';
+} from '../../components/Icons';
+import { ChatInterface } from '../chat/ChatInterface';
+import { TimetableGrid } from './TimetableGrid';
+import { PlaceholderContent } from './PlaceholderContent';
+import { TimetableEntry, User, Class, Subject, Student, Faculty, Attendance, AttendanceStatus, ChatMessage, Constraints } from '../../types';
 
 interface DashboardProps {
     user: User; onLogout: () => void; theme: string; toggleTheme: () => void;
