@@ -7,14 +7,66 @@ import { PlaceholderContent } from './features/dashboard/PlaceholderContent';
 import { ModuleSelectionPage } from './features/dashboard/ModuleSelectionPage';
 import { SmartClassroom } from './features/classroom/SmartClassroom';
 import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
-import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, GradebookIcon, QuizzesIcon, AnalyticsIcon, MeetingIcon, TutorialsIcon, SendIcon, EditIcon } from './components/Icons';
+import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, GradebookIcon, QuizzesIcon, AnalyticsIcon, MeetingIcon, TutorialsIcon, SendIcon, EditIcon, SearchIcon } from './components/Icons';
 import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus, TimetableEntry, TeacherRequest, FacultyPreference } from './types';
 import { DAYS, TIME_SLOTS } from './constants';
 
 const API_BASE_URL = '/api';
 
 // --- START: REUSABLE HELPER COMPONENTS ---
-const SectionCard = ({ title, children, actions, className }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; className?: string }) => (
+
+export const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : <div className="bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2" role="alert">{message}</div>;
+
+export const FeedbackBanner = ({ feedback, onDismiss }: { feedback: { type: 'success' | 'error', message: string } | null; onDismiss: () => void; }) => {
+    if (!feedback) return null;
+    const isSuccess = feedback.type === 'success';
+    const baseClasses = "fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md p-4 rounded-md border shadow-lg transition-opacity duration-300";
+    const colorClasses = isSuccess
+        ? 'bg-green-500/10 dark:bg-green-900/50 border-green-500/50 text-green-700 dark:text-green-300'
+        : 'bg-red-500/10 dark:bg-red-900/50 border-red-500/50 text-red-700 dark:text-red-300';
+
+    return (
+        <div className={`${baseClasses} ${colorClasses}`} role="alert">
+            <div className="flex items-center justify-between">
+                <span className="font-medium">{feedback.message}</span>
+                <button onClick={onDismiss} className="text-lg font-bold opacity-70 hover:opacity-100">×</button>
+            </div>
+        </div>
+    );
+};
+
+export const Modal = ({ isOpen, onClose, title, children = null, error = null, size = 'md' }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; error?: string | null; size?: 'md' | '4xl' }) => {
+    if (!isOpen) return null;
+    const sizeClass = size === '4xl' ? 'max-w-4xl' : 'max-w-md';
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full ${sizeClass} max-h-[90vh] flex flex-col`}>
+                <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
+                    <h2 className="text-lg font-bold">{title}</h2>
+                    <button onClick={onClose} className="text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div className="p-6 overflow-y-auto">
+                    <ErrorDisplay message={error} />
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const SearchInput = ({ value, onChange, placeholder, label, id }: { value: string; onChange: (v: string) => void; placeholder?: string; label: string; id: string; }) => (
+    <div className="relative mb-4">
+        <label htmlFor={id} className="sr-only">{label}</label>
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+        <input type="text" id={id} name={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "Search..."} className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md focus:ring-2 focus:ring-indigo-500" />
+    </div>
+);
+
+export const SectionCard = ({ title, children, actions, className }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; className?: string }) => (
     <div className={`bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm ${className || ''}`}>
         <div className="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4">
             <h3 className="text-xl font-bold">{title}</h3>
@@ -23,15 +75,15 @@ const SectionCard = ({ title, children, actions, className }: { title: string; c
         {children}
     </div>
 );
-const FormField = ({ label, children = null, htmlFor }: { label: string, children?: React.ReactNode, htmlFor: string }) => (
+export const FormField = ({ label, children = null, htmlFor }: { label: string, children?: React.ReactNode, htmlFor: string }) => (
     <div className="mb-4">
         <label htmlFor={htmlFor} className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
         {children}
     </div>
 );
-const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} className={"w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100 " + (props.className || '')} />;
-const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className="w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" />;
-const TextareaInput = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} rows={3} className="w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" />;
+export const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} className={"w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100 " + (props.className || '')} />;
+export const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className="w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" />;
+export const TextareaInput = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} rows={3} className="w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" />;
 
 // --- END: REUSABLE HELPER COMPONENTS ---
 

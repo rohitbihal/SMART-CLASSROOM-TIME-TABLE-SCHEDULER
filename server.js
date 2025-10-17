@@ -145,34 +145,46 @@ const MOCK_CONSTRAINTS = {
 
 async function seedDatabase() {
     try {
-        const demoUserCount = await User.countDocuments({ username: { $in: ['admin@university.edu', 'teacher@university.edu', 'student@university.edu'] } });
-        if (demoUserCount === 3) {
-            console.log('All demo users found. Skipping database seed.');
-            return;
-        }
-        
         console.log('Seeding database with initial data...');
 
         const usersWithHashedPasswords = await Promise.all(MOCK_USERS.map(async (user) => {
             const hashedPassword = await bcrypt.hash(user.password, saltRounds);
             return { ...user, password: hashedPassword };
         }));
-
-        await Class.insertMany(MOCK_CLASSES);
-        await Faculty.insertMany(MOCK_FACULTY);
-        await Subject.insertMany(MOCK_SUBJECTS);
-        await Room.insertMany(MOCK_ROOMS);
-        await Student.insertMany(MOCK_STUDENTS);
-        await User.insertMany(usersWithHashedPasswords);
-        await Constraints.updateOne({ identifier: 'global_constraints' }, MOCK_CONSTRAINTS, { upsert: true });
         
-        console.log('Database seeded successfully.');
+        const modelDataMap = {
+            Class: MOCK_CLASSES, Faculty: MOCK_FACULTY, Subject: MOCK_SUBJECTS,
+            Room: MOCK_ROOMS, Student: MOCK_STUDENTS
+        };
+
+        for (const [modelName, data] of Object.entries(modelDataMap)) {
+            const Model = mongoose.model(modelName);
+            const operations = data.map(doc => ({
+                updateOne: { filter: { id: doc.id }, update: { $setOnInsert: doc }, upsert: true }
+            }));
+            if (operations.length > 0) await Model.bulkWrite(operations);
+        }
+
+        const userOps = usersWithHashedPasswords.map(user => ({
+            updateOne: { filter: { username: user.username, role: user.role }, update: { $setOnInsert: user }, upsert: true }
+        }));
+        if (userOps.length > 0) await User.bulkWrite(userOps);
+
+        await Constraints.updateOne({ identifier: 'global_constraints' }, { $setOnInsert: MOCK_CONSTRAINTS }, { upsert: true });
+
+        console.log('Database seed/update complete.');
     } catch (error) { console.error('Error seeding database:', error); }
 }
 
-mongoose.connect(process.env.MONGO_URI).then(() => {
+mongoose.connect(process.env.MONGO_URI).then(async () => {
     console.log('MongoDB connected successfully.');
-    seedDatabase();
+    const userCount = await User.countDocuments();
+    if (userCount === 0) {
+        console.log("Database appears to be empty. Running initial data seed.");
+        await seedDatabase();
+    } else {
+        console.log("Database already contains data. Skipping initial seed.");
+    }
 }).catch(err => {
     console.error('Initial MongoDB connection error:', err);
     process.exit(1);

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, SearchIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon } from '../../components/Icons';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon } from '../../components/Icons';
+import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../App';
+import { PlaceholderContent } from '../dashboard/PlaceholderContent';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
 import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, InstitutionDetails } from '../../types';
@@ -22,22 +24,6 @@ interface TimetableSchedulerProps {
     onSaveTimetable: (timetable: TimetableEntry[]) => Promise<void>;
 }
 
-const PlaceholderView = ({ title, message }: { title: string, message?: string }) => (
-    <div className="flex flex-col items-center justify-center h-96 bg-white dark:bg-slate-800 border border-dashed border-gray-200 dark:border-slate-700 rounded-2xl p-8">
-        <h3 className="text-2xl font-bold text-gray-500 dark:text-gray-400">{title}</h3>
-        {message && <p className="text-gray-500 dark:text-gray-400 mt-2 text-center">{message}</p>}
-    </div>
-);
-const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : <div className="bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2" role="alert">{message}</div>;
-const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (
-    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm mb-6">
-        <div className="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4">
-            <h3 className="text-xl font-bold">{title}</h3>
-            {actions && <div>{actions}</div>}
-        </div>
-        {children}
-    </div>
-);
 const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: string[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (
     <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
@@ -55,43 +41,6 @@ const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMe
                 )}
             </tbody>
         </table>
-    </div>
-);
-const Modal = ({ isOpen, onClose, title, children = null, error = null, size = 'md' }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; error?: string | null; size?: 'md' | '4xl' }) => {
-    if (!isOpen) return null;
-    const sizeClass = size === '4xl' ? 'max-w-4xl' : 'max-w-md';
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full ${sizeClass} max-h-[90vh] flex flex-col`}>
-                <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
-                    <h2 className="text-lg font-bold">{title}</h2>
-                    <button onClick={onClose} className="text-gray-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="p-6 overflow-y-auto">
-                    <ErrorDisplay message={error} />
-                    {children}
-                </div>
-            </div>
-        </div>
-    );
-};
-const FormField = ({ label, children = null, htmlFor }: { label: string, children?: React.ReactNode, htmlFor: string }) => (
-    <div className="mb-4">
-        <label htmlFor={htmlFor} className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
-        {children}
-    </div>
-);
-const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} className={"w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100 " + (props.className || '')} />;
-const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className="w-full p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 rounded-md text-gray-900 dark:text-gray-100" />;
-const SearchInput = ({ value, onChange, placeholder, label, id }: { value: string; onChange: (v: string) => void; placeholder?: string; label: string; id: string; }) => (
-    <div className="relative mb-4">
-        <label htmlFor={id} className="sr-only">{label}</label>
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-        <input type="text" id={id} name={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "Search..."} className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md focus:ring-2 focus:ring-indigo-500" />
     </div>
 );
 const ClassForm = ({ initialData, onSave }: { initialData: Class | null; onSave: (data: any) => Promise<void>; }) => {
@@ -654,7 +603,7 @@ const ConstraintsTab = ({ constraints, onConstraintsChange, classes, subjects, f
                 return <AdditionalConstraintsContent constraints={constraints} onConstraintsChange={onConstraintsChange} classes={classes} faculty={faculty} subjects={subjects} />;
             default: return (
                 <SectionCard title={subTabs.find(t => t.key === activeSubTab)?.label || 'Constraints'}>
-                    <PlaceholderView title="Coming Soon" message="This constraint type is under development." />
+                    <PlaceholderContent title="Coming Soon" message="This constraint type is under development." icon={<ConstraintsIcon />} />
                 </SectionCard>
             );
         }
@@ -861,10 +810,10 @@ export const TimetableScheduler = ({ classes, faculty, subjects, rooms, students
     switch (activeTab) {
       case 'setup': return <SetupTab classes={classes} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} onUpdateConstraints={setConstraints} openModal={openModal} handleDelete={handleDelete} handleResetData={onResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={handleInitiateBulkDelete} pageError={pageError} openImportModal={openImportModal} />;
       case 'constraints': return constraints ? <ConstraintsTab constraints={constraints} onConstraintsChange={setConstraints} classes={classes} subjects={subjects} faculty={faculty} /> : <LoadingIcon />;
-      case 'availability': return <PlaceholderView title="Faculty Availability" message="This section will allow managing faculty availability and preferences." />;
+      case 'availability': return <PlaceholderContent title="Faculty Availability" message="This section will allow managing faculty availability and preferences." icon={<AvailabilityIcon />} />;
       case 'generate': return <GenerateTab onGenerate={handleInitiateGenerate} isLoading={isLoading} error={error} loadingMessage={loadingMessage} />;
       case 'view': return <ViewTab timetable={timetable} classes={classes} />;
-      case 'analytics': return <PlaceholderView title="Analytics Dashboard" message="This section will provide insights and reports on the generated timetables." />;
+      case 'analytics': return <PlaceholderContent title="Analytics Dashboard" message="This section will provide insights and reports on the generated timetables." icon={<AnalyticsIcon />} />;
       default: return null;
     }
   };

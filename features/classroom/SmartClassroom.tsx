@@ -3,6 +3,7 @@ import * as ReactRouterDOM from 'react-router-dom';
 import {
     SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon
 } from '../../components/Icons';
+import { SectionCard, Modal, FeedbackBanner } from '../../App';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types';
 
 interface SmartClassroomProps {
@@ -15,47 +16,6 @@ interface SmartClassroomProps {
     onDeleteUser: (userId: string) => Promise<void>;
     onSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
 }
-
-const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : <div className="bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2" role="alert">{message}</div>;
-const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (
-    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm">
-        <div className="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4">
-            <h3 className="text-xl font-bold">{title}</h3>
-            {actions && <div>{actions}</div>}
-        </div>
-        {children}
-    </div>
-);
-const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; }) => !isOpen ? null : (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
-                <h2 className="text-lg font-bold">{title}</h2>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-            <div className="p-6 overflow-y-auto">{children}</div>
-        </div>
-    </div>
-);
-const FeedbackBanner = ({ feedback, onDismiss }: { feedback: { type: 'success' | 'error', message: string } | null; onDismiss: () => void; }) => {
-    if (!feedback) return null;
-    const isSuccess = feedback.type === 'success';
-    const baseClasses = "fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md p-4 rounded-md border shadow-lg transition-opacity duration-300";
-    const colorClasses = isSuccess
-        ? 'bg-green-500/10 dark:bg-green-900/50 border-green-500/50 text-green-700 dark:text-green-300'
-        : 'bg-red-500/10 dark:bg-red-900/50 border-red-500/50 text-red-700 dark:text-red-300';
-
-    return (
-        <div className={`${baseClasses} ${colorClasses}`} role="alert">
-            <div className="flex items-center justify-between">
-                <span className="font-medium">{feedback.message}</span>
-                <button onClick={onDismiss} className="text-lg font-bold opacity-70 hover:opacity-100">×</button>
-            </div>
-        </div>
-    );
-};
 
 const StudentForm = ({ student, onSave, onCancel, classId, isLoading }: { student: Student | null; onSave: (data: Partial<Student>) => void; onCancel: () => void; classId: string; isLoading: boolean; }) => {
     const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '' } : { name: '', email: '', roll: '', classId });
@@ -313,7 +273,7 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <ErrorDisplay message={error} />
+            {error && <div className="bg-red-100 text-red-700 p-2 rounded">{error}</div>}
             <div>
                 <label htmlFor="userRole" className="block text-sm font-medium mb-1">Role</label>
                 <select id="userRole" name="role" value={formData.role} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
@@ -613,7 +573,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
         >
             {isEditing ? (
                 <div className="space-y-6">
-                    <ErrorDisplay message={formError} />
+                    {formError && <div className="bg-red-100 text-red-700 p-2 rounded">{formError}</div>}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div><label htmlFor="profileName" className="block text-sm font-medium mb-1">Full Name</label><input id="profileName" name="name" value={profileData.name} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
                         {'specialization' in userProfile && <div><label htmlFor="profileSpecialization" className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input id="profileSpecialization" name="specialization" value={profileData.specialization} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>}
