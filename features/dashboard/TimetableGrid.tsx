@@ -13,39 +13,4 @@ export const TimetableGrid = ({ timetable, role = 'student' }: { timetable: Time
             </div>
         );
     }
-    const getEntry = (day: string, time: string) => timetable.find(e => e.day.toLowerCase() === day.toLowerCase() && e.time === time);
-    const cellBgColor = role === 'teacher' ? 'bg-green-500' : 'bg-indigo-500';
-    return (
-        <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-4 sm:p-6 rounded-2xl shadow-md overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-                <thead>
-                    <tr>
-                        <th className="p-3 font-semibold text-left text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700">Time</th>
-                        {DAYS.map(day => <th key={day} className="p-3 font-semibold text-center capitalize text-gray-600 dark:text-gray-300 border-b-2 dark:border-slate-700">{day}</th>)}
-                    </tr>
-                </thead>
-                <tbody>
-                    {TIME_SLOTS.map(time => (
-                        <tr key={time} className="dark:text-gray-200">
-                            <td className="p-3 font-medium border-b dark:border-slate-700 whitespace-nowrap">{time}</td>
-                            {DAYS.map(day => {
-                                const entry = getEntry(day, time);
-                                return (
-                                    <td key={day} className="p-2 border-b dark:border-slate-700 text-center">
-                                        {entry ? (
-                                            <div className={`p-2.5 rounded-lg text-white text-xs ${cellBgColor}`}>
-                                                <div className="font-bold">{entry.subject}</div>
-                                                <div className="opacity-80">{role === 'teacher' ? entry.className : entry.faculty}</div>
-                                                <div className="opacity-80">Room: {entry.room}</div>
-                                            </div>
-                                        ) : (time === '12:50-01:35' ? <div className="text-gray-400 text-xs">Lunch</div> : null)}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    );
-};
+    const getEntry = (day: string, time: string) => timetable.
