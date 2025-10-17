@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { Dashboard } from './features/dashboard/Dashboard';
 import { TimetableGrid } from './features/dashboard/TimetableGrid';
@@ -429,7 +430,7 @@ const handleApiError = async (response: Response) => {
 // --- START: NEW LAYOUT COMPONENTS ---
 
 const NavItem = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string; }) => (
-    <ReactRouterDOM.NavLink
+    <NavLink
         to={to}
         end={to === '/'} // `end` should be true only for the root path
         className={({ isActive }: { isActive: boolean }) =>
@@ -442,7 +443,7 @@ const NavItem = ({ to, icon, label }: { to: string; icon: React.ReactNode; label
     >
         {icon}
         <span className="flex-1">{label}</span>
-    </ReactRouterDOM.NavLink>
+    </NavLink>
 );
 
 const Sidebar = ({ user, onLogout, theme, toggleTheme }: { user: User; onLogout: () => void; theme: string; toggleTheme: () => void; }) => {
@@ -512,7 +513,7 @@ const TeacherDashboard = (props: {
     constraints: Constraints | null;
     handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
 }) => {
-    const location = ReactRouterDOM.useLocation();
+    const location = useLocation();
     const { user, faculty, timetable, students, classes, subjects, attendance, handleSaveClassAttendance, constraints, handleUpdateConstraints } = props;
 
     const facultyProfile = faculty.find(f => f.id === user.profileId);
@@ -531,7 +532,7 @@ const TeacherDashboard = (props: {
             case '/requests': return <RequestsPage />;
             case '/notifications': return <NotificationsPage />;
             case '/chat': return <TeacherChatPage user={user} classes={classes} students={students} facultyProfile={facultyProfile} />;
-            default: return <ReactRouterDOM.Navigate to="/" />;
+            default: return <Navigate to="/" />;
         }
     };
 
@@ -748,12 +749,12 @@ export const App = () => {
 
     if (!user) {
         return (
-            <ReactRouterDOM.HashRouter>
-                <ReactRouterDOM.Routes>
-                    <ReactRouterDOM.Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-                    <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/login" />} />
-                </ReactRouterDOM.Routes>
-            </ReactRouterDOM.HashRouter>
+            <HashRouter>
+                <Routes>
+                    <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+                    <Route path="*" element={<Navigate to="/login" />} />
+                </Routes>
+            </HashRouter>
         );
     }
     
@@ -766,22 +767,22 @@ export const App = () => {
             chatMessages, onSendMessage: handleSendMessage
         };
         return (
-            <ReactRouterDOM.HashRouter>
-                <ReactRouterDOM.Routes>
-                    <ReactRouterDOM.Route path="/login" element={<ReactRouterDOM.Navigate to="/" />} />
-                    <ReactRouterDOM.Route path="*" element={<Dashboard {...studentDashboardProps} />} />
-                </ReactRouterDOM.Routes>
-            </ReactRouterDOM.HashRouter>
+            <HashRouter>
+                <Routes>
+                    <Route path="/login" element={<Navigate to="/" />} />
+                    <Route path="*" element={<Dashboard {...studentDashboardProps} />} />
+                </Routes>
+            </HashRouter>
         );
     }
 
     return (
-        <ReactRouterDOM.HashRouter>
+        <HashRouter>
             <AppLayout user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme}>
-                <ReactRouterDOM.Routes>
+                <Routes>
                     {user.role === 'admin' && (
                         <>
-                            <ReactRouterDOM.Route
+                            <Route
                                 path="/scheduler"
                                 element={
                                     <TimetableScheduler
@@ -792,7 +793,7 @@ export const App = () => {
                                     />
                                 }
                             />
-                            <ReactRouterDOM.Route
+                            <Route
                                 path="/smart-classroom"
                                 element={
                                     <SmartClassroom
@@ -803,12 +804,12 @@ export const App = () => {
                                     />
                                 }
                             />
-                            <ReactRouterDOM.Route path="/" element={<ModuleSelectionPage user={user} />} />
+                            <Route path="/" element={<ModuleSelectionPage user={user} />} />
                         </>
                     )}
                     {user.role === 'teacher' && (
                         <>
-                            <ReactRouterDOM.Route
+                            <Route
                                 path="*"
                                 element={<TeacherDashboard 
                                     user={user} 
@@ -825,9 +826,9 @@ export const App = () => {
                             />
                         </>
                     )}
-                    <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/" />} />
-                </ReactRouterDOM.Routes>
+                    <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
             </AppLayout>
-        </ReactRouterDOM.HashRouter>
+        </HashRouter>
     );
 };
