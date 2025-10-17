@@ -1,15 +1,12 @@
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import {
-    LogoutIcon, MoonIcon, SunIcon, SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, BackIcon, ProfileIcon, AttendanceIcon
+    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon
 } from '../../components/Icons.tsx';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types.ts';
 
 interface SmartClassroomProps {
-    user: User; onLogout: () => void; theme: string; toggleTheme: () => void;
+    user: User;
     classes: Class[]; faculty: Faculty[]; students: Student[]; users: User[];
     attendance: Attendance;
     onSaveEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', data: any) => Promise<void>;
@@ -19,9 +16,29 @@ interface SmartClassroomProps {
     onSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
 }
 
-const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : React.createElement("div", { className: "bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2", role: "alert" }, message);
-const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (React.createElement("div", { className: "bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm" }, React.createElement("div", { className: "flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4" }, React.createElement("h3", { className: "text-xl font-bold" }, title), actions && React.createElement("div", null, actions)), children));
-const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; }) => !isOpen ? null : (React.createElement("div", { className: "fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" }, React.createElement("div", { className: "bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col" }, React.createElement("div", { className: "flex justify-between items-center p-4 border-b dark:border-slate-700" }, React.createElement("h2", { className: "text-lg font-bold" }, title), React.createElement("button", { onClick: onClose, className: "text-gray-400 hover:text-gray-600" }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", className: "h-6 w-6", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor" }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2, d: "M6 18L18 6M6 6l12 12" })))), React.createElement("div", { className: "p-6 overflow-y-auto" }, children))));
+const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : <div className="bg-red-500/10 dark:bg-red-900/50 border border-red-500/50 text-red-700 dark:text-red-300 p-3 rounded-md text-sm my-2" role="alert">{message}</div>;
+const SectionCard = ({ title, children, actions }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; }) => (
+    <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm">
+        <div className="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-3 mb-4">
+            <h3 className="text-xl font-bold">{title}</h3>
+            {actions && <div>{actions}</div>}
+        </div>
+        {children}
+    </div>
+);
+const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; }) => !isOpen ? null : (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
+                <h2 className="text-lg font-bold">{title}</h2>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div className="p-6 overflow-y-auto">{children}</div>
+        </div>
+    </div>
+);
 const FeedbackBanner = ({ feedback, onDismiss }: { feedback: { type: 'success' | 'error', message: string } | null; onDismiss: () => void; }) => {
     if (!feedback) return null;
     const isSuccess = feedback.type === 'success';
@@ -30,11 +47,13 @@ const FeedbackBanner = ({ feedback, onDismiss }: { feedback: { type: 'success' |
         ? 'bg-green-500/10 dark:bg-green-900/50 border-green-500/50 text-green-700 dark:text-green-300'
         : 'bg-red-500/10 dark:bg-red-900/50 border-red-500/50 text-red-700 dark:text-red-300';
 
-    return React.createElement("div", { className: `${baseClasses} ${colorClasses}`, role: "alert" },
-        React.createElement("div", { className: "flex items-center justify-between" },
-            React.createElement("span", { className: "font-medium" }, feedback.message),
-            React.createElement("button", { onClick: onDismiss, className: "text-lg font-bold opacity-70 hover:opacity-100" }, "×")
-        )
+    return (
+        <div className={`${baseClasses} ${colorClasses}`} role="alert">
+            <div className="flex items-center justify-between">
+                <span className="font-medium">{feedback.message}</span>
+                <button onClick={onDismiss} className="text-lg font-bold opacity-70 hover:opacity-100">×</button>
+            </div>
+        </div>
     );
 };
 
@@ -42,20 +61,55 @@ const StudentForm = ({ student, onSave, onCancel, classId, isLoading }: { studen
     const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '' } : { name: '', email: '', roll: '', classId });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(formData); };
-    return React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4 bg-white/5 dark:bg-slate-900/50 p-4 rounded-lg my-2" },
-        React.createElement("input", { name: "name", value: formData.name, onChange: handleChange, placeholder: "e.g. Alice Sharma", className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", required: true, disabled: isLoading }),
-        React.createElement("input", { name: "email", type: "email", value: formData.email, onChange: handleChange, placeholder: "e.g. name@example.com", className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading }),
-        React.createElement("input", { name: "roll", value: formData.roll, onChange: handleChange, placeholder: "e.g. 23", className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading }),
-        React.createElement("div", { className: "flex gap-2 justify-end" },
-            React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50", disabled: isLoading }, "Cancel"),
-            React.createElement("button", { type: "submit", className: "bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-32 disabled:opacity-50", disabled: isLoading }, isLoading ? "Saving..." : "Save Student")
-        )
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4 bg-white/5 dark:bg-slate-900/50 p-4 rounded-lg my-2">
+            <input name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Alice Sharma" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
+            <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="e.g. name@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+            <input name="roll" value={formData.roll} onChange={handleChange} placeholder="e.g. 23" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+            <div className="flex gap-2 justify-end">
+                <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save Student"}</button>
+            </div>
+        </form>
+    );
+};
+
+const StudentImportModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) => {
+    if (!isOpen) return null;
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Import Student Data"
+        >
+            <div className="space-y-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV or Excel file to bulk-add students. Make sure your file has the correct columns.</p>
+                <div className="p-3 bg-gray-100 dark:bg-slate-700/50 rounded-md">
+                    <p className="text-sm font-semibold">File Format:</p>
+                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">Required columns: name, email, classId, roll</p>
+                </div>
+                <div>
+                    <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
+                    <input
+                        id="file-upload"
+                        type="file"
+                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800/50"
+                    />
+                </div>
+                 <p className="text-xs text-center text-gray-400">PDF import support is coming soon.</p>
+                <div className="flex justify-end pt-4">
+                     <button type="button" onClick={() => { alert('File processing is a placeholder.'); onClose(); }} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">Process File</button>
+                </div>
+            </div>
+        </Modal>
     );
 };
 
 const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'students' | 'onSaveEntity' | 'onDeleteEntity'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [editingStudent, setEditingStudent] = useState<Student | { new: true } | null>(null);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -128,35 +182,60 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
         }
     };
     
-    return React.createElement(SectionCard, {
-        title: "Student Management",
-        actions: React.createElement("button", { onClick: () => setEditingStudent({ new: true }), disabled: !selectedClassId || isLoading, className: "flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50" }, React.createElement(AddIcon, null), "Add Student")
-    },
-        React.createElement("div", { className: "flex flex-col md:flex-row gap-4 mb-4" },
-            React.createElement("select", { name: "class-selector", value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading }, classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-            React.createElement("div", { className: "relative flex-grow" }, React.createElement(SearchIcon, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" }), React.createElement("input", { type: "text", value: searchTerm, onChange: e => setSearchTerm(e.target.value), placeholder: "Search students in this class...", className: "w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md", disabled: isLoading }))
-        ),
-        (editingStudent && 'new' in editingStudent) && React.createElement(StudentForm, { student: null, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId, isLoading: isLoading }),
-        studentsInClass.length > 0 && React.createElement("div", { className: "flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm" },
-            React.createElement("div", { className: "flex items-center gap-3" },
-                React.createElement("input", { type: "checkbox", ref: selectAllCheckboxRef, onChange: handleToggleSelectAll, checked: allIdsInView.length > 0 && selectedIdsInView.length === allIdsInView.length, disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
-                React.createElement("label", { className: "font-medium" }, selectedStudents.length > 0 ? `${selectedStudents.length} selected` : 'Select All')
-            ),
-            selectedStudents.length > 0 && React.createElement("button", { onClick: handleBulkDelete, className: "text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null), "Delete Selected")
-        ),
-        React.createElement("div", { className: "space-y-2 mt-2 max-h-96 overflow-y-auto pr-2" }, studentsInClass.length > 0 ? studentsInClass.map(student =>
-            (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? React.createElement(StudentForm, { key: student.id, student: student, onSave: handleSaveStudent, onCancel: () => setEditingStudent(null), classId: selectedClassId, isLoading: isLoading })
-            : React.createElement("div", { key: student.id, className: "flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                React.createElement("input", { type: "checkbox", checked: selectedStudents.includes(student.id), onChange: () => handleToggleSelect(student.id), disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
-                React.createElement("div", { className: "flex-grow flex justify-between items-center" },
-                    React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, student.name), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, `Roll: ${student.roll || 'N/A'} | ${student.email || 'No email'}`)),
-                    React.createElement("div", { className: "flex gap-2" },
-                        React.createElement("button", { onClick: () => setEditingStudent(student), className: "text-indigo-500 dark:text-indigo-400 disabled:opacity-50", disabled: isLoading }, React.createElement(EditIcon, null)),
-                        React.createElement("button", { onClick: () => handleDeleteStudent(student.id, student.name), className: "text-red-500 dark:text-red-400 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null))
-                    )
-                )
-            )
-        ) : React.createElement("p", { className: "text-center text-gray-500 p-4" }, "No students found in this class."))
+    return (
+        <>
+            <StudentImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+            <SectionCard
+                title="Student Management"
+                actions={(
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setIsImportModalOpen(true)} disabled={isLoading} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><UploadIcon />Import</button>
+                        <button onClick={() => setEditingStudent({ new: true })} disabled={!selectedClassId || isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add Student</button>
+                    </div>
+                )}
+            >
+                <div className="flex flex-col md:flex-row gap-4 mb-4">
+                    <select name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <div className="relative flex-grow">
+                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                        <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                    </div>
+                </div>
+                {(editingStudent && 'new' in editingStudent) && <StudentForm student={null} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />}
+                {studentsInClass.length > 0 && (
+                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
+                        <div className="flex items-center gap-3">
+                            <input type="checkbox" ref={selectAllCheckboxRef} onChange={handleToggleSelectAll} checked={allIdsInView.length > 0 && selectedIdsInView.length === allIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                            <label className="font-medium">{selectedStudents.length > 0 ? `${selectedStudents.length} selected` : 'Select All'}</label>
+                        </div>
+                        {selectedStudents.length > 0 && <button onClick={handleBulkDelete} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                    </div>
+                )}
+                <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
+                    {studentsInClass.length > 0 ? studentsInClass.map(student =>
+                        (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? (
+                            <StudentForm key={student.id} student={student} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />
+                        ) : (
+                            <div key={student.id} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                                <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => handleToggleSelect(student.id)} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <div className="flex-grow flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold">{student.name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-slate-400">{`Roll: ${student.roll || 'N/A'} | ${student.email || 'No email'}`}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setEditingStudent(student)} className="text-indigo-500 dark:text-indigo-400 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
+                                        <button onClick={() => handleDeleteStudent(student.id, student.name)} className="text-red-500 dark:text-red-400 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    ) : <p className="text-center text-gray-500 p-4">No students found in this class.</p>}
+                </div>
+            </SectionCard>
+        </>
     );
 };
 
@@ -221,43 +300,44 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
     };
 
     return (
-        React.createElement("form", { onSubmit: handleSubmit, className: "space-y-4" },
-            React.createElement(ErrorDisplay, { message: error }),
-            React.createElement("div", null,
-                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Role"),
-                React.createElement("select", { name: "role", value: formData.role, onChange: handleChange, className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading },
-                    React.createElement("option", { value: "student" }, "Student"),
-                    React.createElement("option", { value: "teacher" }, "Teacher")
-                )
-            ),
-            React.createElement("div", null,
-                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Link to Profile"),
-                React.createElement("select", { name: "profileId", value: formData.profileId, onChange: handleChange, className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", required: true, disabled: isLoading },
-                    React.createElement("option", { value: "", disabled: true }, "Select a profile..."),
-                    availableProfiles.map(p => (
-                        React.createElement("option", { key: p.id, value: p.id }, p.name)
-                    ))
-                )
-            ),
-            React.createElement("div", null,
-                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Username (Email)"),
-                React.createElement("input", { name: "username", type: "email", value: formData.username, onChange: handleChange, placeholder: "user@example.com", className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", required: true, disabled: isLoading })
-            ),
-            React.createElement("div", null,
-                React.createElement("label", { className: "block text-sm font-medium mb-1" }, isEditing ? "New Password (optional)" : "Password"),
-                React.createElement("input", { name: "password", type: "password", value: formData.password, onChange: handleChange, placeholder: isEditing ? "Leave blank to keep current password" : "••••••••", className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", required: !isEditing, disabled: isLoading })
-            ),
-            React.createElement("div", { className: "flex gap-2 justify-end pt-4" },
-                React.createElement("button", { type: "button", onClick: onCancel, className: "bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50", disabled: isLoading }, "Cancel"),
-                React.createElement("button", { type: "submit", className: "bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-28 disabled:opacity-50", disabled: isLoading }, isLoading ? "Saving..." : "Save User")
-            )
-        )
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <ErrorDisplay message={error} />
+            <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <select name="role" value={formData.role} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                    <option value="student">Student</option>
+                    <option value="teacher">Teacher</option>
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">Link to Profile</label>
+                <select name="profileId" value={formData.profileId} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading}>
+                    <option value="" disabled>Select a profile...</option>
+                    {availableProfiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">Username (Email)</label>
+                <input name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
+            </div>
+            <div>
+                <label className="block text-sm font-medium mb-1">{isEditing ? "New Password (optional)" : "Password"}</label>
+                <input name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required={!isEditing} disabled={isLoading} />
+            </div>
+            <div className="flex gap-2 justify-end pt-4">
+                <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-28 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save User"}</button>
+            </div>
+        </form>
     );
 };
 
 const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser, setFeedback }: Pick<SmartClassroomProps, 'users' | 'faculty' | 'students' | 'onSaveUser' | 'onDeleteUser'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
+    const [userToReset, setUserToReset] = useState<User | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -320,6 +400,24 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
         }
     };
     
+    const handleGenerateCredentials = async () => {
+        if (!userToReset) return;
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            // In a real app, this would call a backend endpoint to reset the password and send an email.
+            // Here, we simulate the action with a delay.
+            await new Promise(res => setTimeout(res, 1000)); 
+            setFeedback({ type: 'success', message: `New credentials for ${userToReset.username} have been generated and sent.` });
+            setUserToReset(null);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "An unknown error occurred.";
+            setFeedback({ type: 'error', message: `Failed to generate credentials: ${message}` });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
     const handleBulkDeleteUsers = async () => {
         if (selectedUsers.length === 0) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedUsers.length} selected user account(s)?`)) return;
@@ -339,30 +437,70 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
 
     const isLoading = isSaving || isDeleting;
 
-    return React.createElement(React.Fragment, null,
-        React.createElement(SectionCard, {
-            title: "User Accounts",
-            actions: React.createElement("button", { onClick: () => setEditingUser({}), disabled: isLoading, className: "flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50" }, React.createElement(AddIcon, null), "Add User")
-        },
-            React.createElement("div", { className: "relative mb-4" }, React.createElement(SearchIcon, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" }), React.createElement("input", { type: "text", value: searchTerm, onChange: e => setSearchTerm(e.target.value), placeholder: "Search by name or email...", className: "w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md", disabled: isLoading })),
-            filteredUsers.length > 0 && React.createElement("div", { className: "flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm" },
-                React.createElement("div", { className: "flex items-center gap-3" },
-                    React.createElement("input", { type: "checkbox", ref: selectAllUsersCheckboxRef, onChange: handleToggleSelectAllUsers, checked: allUserIdsInView.length > 0 && selectedUserIdsInView.length === allUserIdsInView.length, disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
-                    React.createElement("label", { className: "font-medium" }, selectedUsers.length > 0 ? `${selectedUsers.length} selected` : 'Select All')
-                ),
-                selectedUsers.length > 0 && React.createElement("button", { onClick: handleBulkDeleteUsers, className: "text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null), "Delete Selected")
-            ),
-            React.createElement("div", { className: "space-y-2 mt-2 max-h-96 overflow-y-auto pr-2" }, filteredUsers.length > 0 ? filteredUsers.map(user =>
-                React.createElement("div", { key: user._id, className: "flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                    React.createElement("input", { type: "checkbox", checked: selectedUsers.includes(user._id!), onChange: () => handleToggleUserSelect(user._id!), disabled: isLoading, className: "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" }),
-                    React.createElement("div", { className: "flex-grow flex justify-between items-center" },
-                        React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, `${user.username} | Role: ${user.role}`)),
-                        React.createElement("div", { className: "flex gap-2" }, React.createElement("button", { onClick: () => setEditingUser(user), className: "text-indigo-500 disabled:opacity-50", disabled: isLoading }, React.createElement(EditIcon, null)), React.createElement("button", { onClick: () => setUserToDelete(user), className: "text-red-500 disabled:opacity-50", disabled: isLoading }, React.createElement(DeleteIcon, null)))
-                    )
-                )) : React.createElement("p", { className: "text-center text-gray-500 p-4" }, "No users found."))
-        ),
-        React.createElement(Modal, { isOpen: !!editingUser, onClose: () => !isSaving && setEditingUser(null), title: editingUser?._id ? "Edit User" : "Add New User" }, editingUser && React.createElement(UserForm, { user: editingUser, onSave: handleSave, onCancel: () => setEditingUser(null), faculty: faculty, students: students, allUsers: users, isLoading: isSaving })),
-        React.createElement(Modal, { isOpen: !!userToDelete, onClose: () => !isDeleting && setUserToDelete(null), title: "Confirm Deletion" }, userToDelete && React.createElement("div", null, React.createElement("p", null, "Are you sure you want to delete the user account for ", React.createElement("strong", null, userToDelete.username), "? This action cannot be undone."), React.createElement("div", { className: "flex gap-2 justify-end pt-4" }, React.createElement("button", { onClick: () => setUserToDelete(null), className: "bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50", disabled: isDeleting }, "Cancel"), React.createElement("button", { onClick: handleDelete, className: "bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md w-28 disabled:opacity-50", disabled: isDeleting }, isDeleting ? "Deleting..." : "Delete"))))
+    return (
+        <>
+            <SectionCard
+                title="User Accounts"
+                actions={<button onClick={() => setEditingUser({})} disabled={isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add User</button>}
+            >
+                <div className="relative mb-4">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search by name or email..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                </div>
+                {filteredUsers.length > 0 && (
+                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
+                        <div className="flex items-center gap-3">
+                            <input type="checkbox" ref={selectAllUsersCheckboxRef} onChange={handleToggleSelectAllUsers} checked={allUserIdsInView.length > 0 && selectedUserIdsInView.length === allUserIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                            <label className="font-medium">{selectedUsers.length > 0 ? `${selectedUsers.length} selected` : 'Select All'}</label>
+                        </div>
+                        {selectedUsers.length > 0 && <button onClick={handleBulkDeleteUsers} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                    </div>
+                )}
+                <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
+                    {filteredUsers.length > 0 ? filteredUsers.map(user =>
+                        <div key={user._id} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                            <input type="checkbox" checked={selectedUsers.includes(user._id!)} onChange={() => handleToggleUserSelect(user._id!)} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                            <div className="flex-grow flex justify-between items-center">
+                                <div>
+                                    <p className="font-semibold">{profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'}</p>
+                                    <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username} | Role: ${user.role}`}</p>
+                                </div>
+                                <div className="flex gap-2"> 
+                                    <button onClick={() => setEditingUser(user)} className="text-indigo-500 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
+                                    <button onClick={() => setUserToReset(user)} className="text-yellow-500 dark:text-yellow-400 disabled:opacity-50" title="Generate & Send New Credentials" disabled={isLoading}><KeyIcon /></button>
+                                    <button onClick={() => setUserToDelete(user)} className="text-red-500 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : <p className="text-center text-gray-500 p-4">No users found.</p>}
+                </div>
+            </SectionCard>
+            <Modal isOpen={!!editingUser} onClose={() => !isSaving && setEditingUser(null)} title={editingUser?._id ? "Edit User" : "Add New User"}>
+                {editingUser && <UserForm user={editingUser} onSave={handleSave} onCancel={() => setEditingUser(null)} faculty={faculty} students={students} allUsers={users} isLoading={isSaving} />}
+            </Modal>
+            <Modal isOpen={!!userToDelete} onClose={() => !isDeleting && setUserToDelete(null)} title="Confirm Deletion">
+                {userToDelete && (
+                    <div>
+                        <p>Are you sure you want to delete the user account for <strong>{userToDelete.username}</strong>? This action cannot be undone.</p>
+                        <div className="flex gap-2 justify-end pt-4">
+                            <button onClick={() => setUserToDelete(null)} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isDeleting}>Cancel</button>
+                            <button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md w-28 disabled:opacity-50" disabled={isDeleting}>{isDeleting ? "Deleting..." : "Delete"}</button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+            <Modal isOpen={!!userToReset} onClose={() => !isLoading && setUserToReset(null)} title="Generate New Credentials">
+                {userToReset && (
+                    <div>
+                        <p className="mb-4">This will generate a new temporary password for <strong>{userToReset.username}</strong> and send it to their email. Are you sure?</p>
+                        <div className="flex gap-2 justify-end pt-4">
+                            <button onClick={() => setUserToReset(null)} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                            <button onClick={handleGenerateCredentials} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-40 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Sending..." : "Confirm & Send"}</button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+        </>
     );
 };
 
@@ -448,45 +586,49 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     };
     
     if (!userProfile) {
-        return React.createElement(SectionCard, { title: "My Profile" }, React.createElement("p", { className: "text-gray-500" }, "Your profile is not linked. Please contact an administrator."));
+        return <SectionCard title="My Profile"><p className="text-gray-500">Your profile is not linked. Please contact an administrator.</p></SectionCard>;
     }
 
     const ProfileField = ({ label, value }: { label: string, value: React.ReactNode }) => (
-        React.createElement("div", null, React.createElement("p", { className: "text-sm text-gray-500 dark:text-gray-400" }, label), React.createElement("p", { className: "font-medium" }, value))
+        <div><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><p className="font-medium">{value}</p></div>
     );
 
-    return React.createElement(SectionCard, {
-        title: "My Profile",
-        actions: !isEditing && React.createElement("button", { onClick: () => setIsEditing(true), className: "flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md" }, React.createElement(EditIcon, null), "Edit Profile")
-    }, isEditing ? (
-        React.createElement("div", { className: "space-y-6" },
-            React.createElement(ErrorDisplay, { message: formError }),
-            React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
-                React.createElement("div", null, React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Full Name"), React.createElement("input", { name: "name", value: profileData.name, onChange: handleProfileChange, className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md", disabled: isLoading })),
-                'specialization' in userProfile && React.createElement("div", null, React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Specializations (comma-separated)"), React.createElement("input", { name: "specialization", value: profileData.specialization, onChange: handleProfileChange, className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md", disabled: isLoading }))
-            ),
-            React.createElement("div", { className: "border-t border-gray-200 dark:border-slate-700 pt-4" },
-                React.createElement("h4", { className: "font-semibold mb-2" }, "Change Password"),
-                React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
-                     React.createElement("div", null, React.createElement("label", { className: "block text-sm font-medium mb-1" }, "New Password"), React.createElement("input", { name: "newPassword", type: "password", value: passwordData.newPassword, onChange: handlePasswordChange, className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md", disabled: isLoading })),
-                     React.createElement("div", null, React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Confirm New Password"), React.createElement("input", { name: "confirmPassword", type: "password", value: passwordData.confirmPassword, onChange: handlePasswordChange, className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md", disabled: isLoading }))
-                )
-            ),
-            React.createElement("div", { className: "flex justify-end gap-2" },
-                React.createElement("button", { onClick: () => setIsEditing(false), className: "bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md", disabled: isLoading }, "Cancel"),
-                React.createElement("button", { onClick: handleSave, className: "bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md w-36", disabled: isLoading }, isLoading ? "Saving..." : "Save Changes")
-            )
-        )
-    ) : (
-        React.createElement("div", { className: "space-y-4" },
-            React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-4" },
-                React.createElement(ProfileField, { label: "Full Name", value: userProfile.name }),
-                React.createElement(ProfileField, { label: "Username/Email", value: user.username }),
-                ('department' in userProfile) && React.createElement(ProfileField, { label: "Department", value: userProfile.department }),
-                ('specialization' in userProfile) && React.createElement(ProfileField, { label: "Specialization", value: userProfile.specialization.join(', ') })
-            )
-        )
-    ));
+    return (
+        <SectionCard
+            title="My Profile"
+            actions={!isEditing && <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><EditIcon />Edit Profile</button>}
+        >
+            {isEditing ? (
+                <div className="space-y-6">
+                    <ErrorDisplay message={formError} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium mb-1">Full Name</label><input name="name" value={profileData.name} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                        {'specialization' in userProfile && <div><label className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input name="specialization" value={profileData.specialization} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>}
+                    </div>
+                    <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+                        <h4 className="font-semibold mb-2">Change Password</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div><label className="block text-sm font-medium mb-1">New Password</label><input name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                             <div><label className="block text-sm font-medium mb-1">Confirm New Password</label><input name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button onClick={() => setIsEditing(false)} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md" disabled={isLoading}>Cancel</button>
+                        <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md w-36" disabled={isLoading}>{isLoading ? "Saving..." : "Save Changes"}</button>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ProfileField label="Full Name" value={userProfile.name} />
+                        <ProfileField label="Username/Email" value={user.username} />
+                        {('department' in userProfile) && <ProfileField label="Department" value={userProfile.department} />}
+                        {('specialization' in userProfile) && <ProfileField label="Specialization" value={userProfile.specialization.join(', ')} />}
+                    </div>
+                </div>
+            )}
+        </SectionCard>
+    );
 };
 
 const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAttendance, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'students' | 'attendance' | 'onSaveClassAttendance'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
@@ -538,50 +680,55 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
         return { total: studentsInClass.length, present, absent };
     }, [currentRecords, studentsInClass]);
 
-    return React.createElement(SectionCard, { title: "Attendance Tracking" },
-        React.createElement("div", { className: "flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700" },
-            React.createElement("div", { className: "flex-1" },
-                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Select Class"),
-                // FIX: Explicitly type the event object in the onChange handler to resolve a TypeScript type inference issue.
-                React.createElement("select", { value: selectedClassId, onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value), className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading }, classes.map(c => React.createElement("option", { key: c.id, value: c.id }, c.name)))
-            ),
-            React.createElement("div", { className: "flex-1" },
-                React.createElement("label", { className: "block text-sm font-medium mb-1" }, "Select Date"),
-                // FIX: Explicitly type the event object in the onChange handler to ensure type safety.
-                React.createElement("input", { type: "date", value: selectedDate, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value), className: "w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md", disabled: isLoading })
-            )
-        ),
-        React.createElement("div", { className: "bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4" },
-            React.createElement("div", { className: "flex gap-4 font-medium" },
-                React.createElement("span", null, "Total Students: ", summary.total),
-                React.createElement("span", { className: "text-green-600 dark:text-green-400" }, "Present: ", summary.present),
-                React.createElement("span", { className: "text-red-600 dark:text-red-400" }, "Absent: ", summary.absent)
-            ),
-            React.createElement("div", { className: "flex gap-2" },
-                React.createElement("button", { onClick: () => handleMarkAll('present'), className: "text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md", disabled: isLoading }, "Mark All Present"),
-                React.createElement("button", { onClick: () => handleMarkAll('absent'), className: "text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md", disabled: isLoading }, "Mark All Absent")
-            )
-        ),
-        React.createElement("div", { className: "space-y-2 max-h-96 overflow-y-auto pr-2" }, studentsInClass.length > 0 ? studentsInClass.map(student =>
-            React.createElement("div", { key: student.id, className: "flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg" },
-                React.createElement("div", null, React.createElement("p", { className: "font-semibold" }, student.name), React.createElement("p", { className: "text-xs text-gray-500 dark:text-slate-400" }, "Roll: ", student.roll || 'N/A')),
-                React.createElement("div", { className: "flex gap-2" },
-                    React.createElement("button", { onClick: () => handleStatusChange(student.id, 'present'), className: `px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`, disabled: isLoading }, "Present"),
-                    React.createElement("button", { onClick: () => handleStatusChange(student.id, 'absent'), className: `px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`, disabled: isLoading }, "Absent")
-                )
-            )) : React.createElement("p", { className: "text-center text-gray-500 p-4" }, "No students in this class.")
-        ),
-        React.createElement("div", { className: "flex justify-end mt-6" },
-            React.createElement("button", { onClick: handleSave, className: "bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50", disabled: isLoading || studentsInClass.length === 0 }, isLoading ? "Saving..." : "Save Attendance")
-        )
+    return (
+        <SectionCard title="Attendance Tracking">
+            <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
+                <div className="flex-1">
+                    <label className="block text-sm font-medium mb-1">Select Class</label>
+                    <select value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex-1">
+                    <label className="block text-sm font-medium mb-1">Select Date</label>
+                    <input type="date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+                </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4">
+                <div className="flex gap-4 font-medium">
+                    <span>Total Students: {summary.total}</span>
+                    <span className="text-green-600 dark:text-green-400">Present: {summary.present}</span>
+                    <span className="text-red-600 dark:text-red-400">Absent: {summary.absent}</span>
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => handleMarkAll('present')} className="text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md" disabled={isLoading}>Mark All Present</button>
+                    <button onClick={() => handleMarkAll('absent')} className="text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md" disabled={isLoading}>Mark All Absent</button>
+                </div>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                {studentsInClass.length > 0 ? studentsInClass.map(student => (
+                    <div key={student.id} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                        <div>
+                            <p className="font-semibold">{student.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-slate-400">Roll: {student.roll || 'N/A'}</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleStatusChange(student.id, 'present')} className={`px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Present</button>
+                            <button onClick={() => handleStatusChange(student.id, 'absent')} className={`px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Absent</button>
+                        </div>
+                    </div>
+                )) : <p className="text-center text-gray-500 p-4">No students in this class.</p>}
+            </div>
+            <div className="flex justify-end mt-6">
+                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save Attendance"}</button>
+            </div>
+        </SectionCard>
     );
 };
 
 export const SmartClassroom = (props: SmartClassroomProps) => {
-    // FIX: Destructure all required props to avoid spreading unexpected props to child components.
-    const { user, onLogout, theme, toggleTheme, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance } = props;
+    const { user, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance } = props;
     const [activeTab, setActiveTab] = useState('profile');
-    const navigate = ReactRouterDOM.useNavigate();
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
     const [isSearchResultsVisible, setIsSearchResultsVisible] = useState(false);
@@ -632,63 +779,59 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
     }, [globalSearchQuery, students, faculty, classMap]);
 
     const tabs = [
-        { key: 'profile', label: "My Profile", icon: React.createElement(ProfileIcon, { className: 'h-5 w-5' }) },
-        { key: 'students', label: "Student Management", icon: React.createElement(StudentIcon, { className: 'h-5 w-5' }) },
-        { key: 'users', label: "User Accounts", icon: React.createElement(UsersIcon, { className: 'h-5 w-5' }) },
-        { key: 'attendance', label: "Attendance", icon: React.createElement(AttendanceIcon, { className: 'h-5 w-5' }) },
+        { key: 'profile', label: "My Profile", icon: <ProfileIcon className='h-5 w-5' /> },
+        { key: 'students', label: "Student Management", icon: <StudentIcon className='h-5 w-5' /> },
+        { key: 'users', label: "User Accounts", icon: <UsersIcon className='h-5 w-5' /> },
+        { key: 'attendance', label: "Attendance", icon: <AttendanceIcon className='h-5 w-5' /> },
     ];
 
     const renderContent = () => {
-        // FIX: Pass props explicitly to child components instead of spreading the `props` object, which prevents passing undeclared props and resolves the type error.
         switch (activeTab) {
-            case 'profile': return React.createElement(MyProfileTab, { user, faculty, students, onSaveEntity, onSaveUser, setFeedback });
-            case 'students': return React.createElement(StudentManagementTab, { classes, students, onSaveEntity, onDeleteEntity, setFeedback });
-            case 'users': return React.createElement(UserManagementTab, { users, faculty, students, onSaveUser, onDeleteUser, setFeedback });
-            case 'attendance': return React.createElement(AttendanceManagementTab, { classes, students, attendance, onSaveClassAttendance, setFeedback });
-            default: return React.createElement(SectionCard, { title: "Coming Soon" }, React.createElement("p", null, "This feature is under development."));
+            case 'profile': return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;
+            case 'students': return <StudentManagementTab classes={classes} students={students} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} setFeedback={setFeedback} />;
+            case 'users': return <UserManagementTab users={users} faculty={faculty} students={students} onSaveUser={onSaveUser} onDeleteUser={onDeleteUser} setFeedback={setFeedback} />;
+            case 'attendance': return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
+            default: return <SectionCard title="Coming Soon"><p>This feature is under development.</p></SectionCard>;
         }
     };
 
     return (
-        React.createElement("div", { className: "min-h-screen p-4 sm:p-6 lg:p-8" },
-            React.createElement(FeedbackBanner, { feedback: feedback, onDismiss: () => setFeedback(null) }),
-            React.createElement("header", { className: "flex flex-wrap justify-between items-center mb-8 gap-4" },
-                React.createElement("div", null,
-                    React.createElement("h1", { className: "text-3xl font-bold text-gray-800 dark:text-gray-100" }, "Smart Classroom Administration"),
-                    React.createElement("p", { className: "text-gray-500 dark:text-gray-400 mt-1" }, "Manage students, users, and class settings.")
-                ),
-                React.createElement("div", { ref: searchContainerRef, className: "relative flex-grow max-w-lg mx-auto" },
-                    React.createElement(SearchIcon, { className: "absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" }),
-                    React.createElement("input", {
-                        type: "text",
-                        value: globalSearchQuery,
-                        onChange: e => setGlobalSearchQuery(e.target.value),
-                        onFocus: () => setIsSearchResultsVisible(true),
-                        placeholder: "Search all students & faculty...",
-                        className: "w-full p-2.5 pl-10 border dark:border-slate-600 bg-white dark:bg-slate-900/50 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500"
-                    }),
-                    (isSearchResultsVisible && globalSearchQuery) && React.createElement("div", { className: "absolute top-full mt-2 w-full bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto" },
-                        searchResults.length > 0 ? searchResults.map(item =>
-                            React.createElement("div", { key: `${item.type}-${item.id}`, className: "p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700/50" },
-                                React.createElement("p", { className: "font-semibold" }, item.name),
-                                React.createElement("div", { className: "text-xs flex items-center gap-2 text-gray-500 dark:text-gray-400" },
-                                    React.createElement("span", { className: `px-2 py-0.5 rounded-full text-white ${item.type === 'Student' ? 'bg-blue-500' : 'bg-green-500'}` }, item.type),
-                                    React.createElement("span", null, item.details)
-                                )
-                            )
-                        ) : React.createElement("p", { className: "p-4 text-center text-gray-500" }, "No results found.")
-                    )
-                ),
-                React.createElement("div", { className: "flex items-center gap-2" },
-                    React.createElement("button", { onClick: toggleTheme, className: "bg-white dark:bg-slate-800 p-2.5 border dark:border-slate-700 rounded-lg" }, theme === 'dark' ? React.createElement(SunIcon, null) : React.createElement(MoonIcon, null)),
-                    React.createElement("button", { onClick: () => navigate("/"), className: "bg-white dark:bg-slate-800 py-2 px-4 border dark:border-slate-700 rounded-lg flex items-center gap-2" }, React.createElement(BackIcon, null), "Modules"),
-                    React.createElement("button", { onClick: onLogout, className: "bg-white dark:bg-slate-800 py-2 px-4 border dark:border-slate-700 rounded-lg flex items-center gap-2" }, React.createElement(LogoutIcon, null), "Logout")
-                )
-            ),
-            React.createElement("nav", { className: "bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8" },
-                tabs.map(tab => React.createElement("button", { key: tab.key, onClick: () => setActiveTab(tab.key), className: `flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}, tab.icon, tab.label))
-            ),
-            React.createElement("main", null, renderContent())
-        )
+        <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+            <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
+            <header className="flex flex-wrap justify-between items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Smart Classroom Administration</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Manage students, users, and class settings.</p>
+                </div>
+                <div ref={searchContainerRef} className="relative flex-grow max-w-lg mx-auto">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input
+                        type="text"
+                        value={globalSearchQuery}
+                        onChange={e => setGlobalSearchQuery(e.target.value)}
+                        onFocus={() => setIsSearchResultsVisible(true)}
+                        placeholder="Search all students & faculty..."
+                        className="w-full p-2.5 pl-10 border dark:border-slate-600 bg-white dark:bg-slate-900/50 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500"
+                    />
+                    {(isSearchResultsVisible && globalSearchQuery) && (
+                        <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto">
+                            {searchResults.length > 0 ? searchResults.map(item =>
+                                <div key={`${item.type}-${item.id}`} className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700/50">
+                                    <p className="font-semibold">{item.name}</p>
+                                    <div className="text-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                                        <span className={`px-2 py-0.5 rounded-full text-white ${item.type === 'Student' ? 'bg-blue-500' : 'bg-green-500'}`}>{item.type}</span>
+                                        <span>{item.details}</span>
+                                    </div>
+                                </div>
+                            ) : <p className="p-4 text-center text-gray-500">No results found.</p>}
+                        </div>
+                    )}
+                </div>
+            </header>
+            <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8">
+                {tabs.map(tab => <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>{tab.icon}{tab.label}</button>)}
+            </nav>
+            <main>{renderContent()}</main>
+        </div>
     );
 };

@@ -1,3 +1,4 @@
+
 // === From types.ts ===
 export interface Class {
   id: string;
@@ -9,7 +10,7 @@ export interface Class {
 }
 
 export interface Faculty {
-  id: string;
+  id:string;
   name: string;
   department: string;
   specialization: string[];
@@ -122,6 +123,14 @@ export interface AdvancedConstraint {
   travelTimeMinutes?: number;
 }
 
+// FIX: Added a dedicated type for institution details to ensure it's saved correctly.
+export interface InstitutionDetails {
+    name: string;
+    academicYear: string;
+    semester: 'Odd' | 'Even';
+    session: 'Regular' | 'Summer School' | 'Winter School';
+}
+
 export interface Constraints {
     maxConsecutiveClasses: number;
     timePreferences: TimePreferences;
@@ -132,8 +141,21 @@ export interface Constraints {
     roomResourceConstraints?: RoomResourceConstraint;
     studentSectionConstraints?: StudentSectionConstraint;
     advancedConstraints?: AdvancedConstraint;
+    institutionDetails?: InstitutionDetails;
 }
 
+// Teacher Request Type for new feature
+export interface TeacherRequest {
+  id: string;
+  facultyId: string;
+  requestType: 'Schedule Change' | 'Leave Request' | 'Resource Request' | 'Other';
+  subject?: string;
+  currentSchedule?: string;
+  requestedChange: string;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  submittedDate: string;
+}
 
 // Attendance Types
 export type AttendanceStatus = 'present' | 'absent';
