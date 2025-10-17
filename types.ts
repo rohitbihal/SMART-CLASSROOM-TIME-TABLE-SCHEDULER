@@ -1,4 +1,5 @@
 
+
 // === From types.ts ===
 export interface Class {
   id: string;

@@ -1,4 +1,5 @@
 
+
 import { TimetableEntry } from './types';
 
 // === From constants.ts ===

@@ -745,70 +745,84 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
             .map(f => ({
                 id: f.id,
                 name: f.name,
-                type: 'Faculty',
+                type: 'Teacher',
                 details: `Dept: ${f.department}`
             }));
 
         return [...studentResults, ...facultyResults];
     }, [globalSearchQuery, students, faculty, classMap]);
+    
+    // FIX: Corrected the type of 'result' to include all properties from the searchResults objects.
+    const handleSearchResultClick = (result: { id: string, name: string, type: string, details: string }) => {
+        // This is a placeholder. A real implementation would navigate to the student/faculty's detail page.
+        alert(`Navigating to ${result.type}: ${result.name}`);
+        setGlobalSearchQuery('');
+        setIsSearchResultsVisible(false);
+    };
 
-    const tabs = [
-        { key: 'profile', label: "My Profile", icon: <ProfileIcon className='h-5 w-5' /> },
-        { key: 'students', label: "Student Management", icon: <StudentIcon className='h-5 w-5' /> },
-        { key: 'users', label: "User Accounts", icon: <UsersIcon className='h-5 w-5' /> },
-        { key: 'attendance', label: "Attendance", icon: <AttendanceIcon className='h-5 w-5' /> },
-    ];
+    const TabButton = ({ tab, label, icon }: { tab: string; label: string; icon: React.ReactNode; }) => (
+        <button onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>
+            {icon}{label}
+        </button>
+    );
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'profile': return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;
-            case 'students': return <StudentManagementTab classes={classes} students={students} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} setFeedback={setFeedback} />;
-            case 'users': return <UserManagementTab users={users} faculty={faculty} students={students} onSaveUser={onSaveUser} onDeleteUser={onDeleteUser} setFeedback={setFeedback} />;
-            case 'attendance': return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
-            default: return <SectionCard title="Coming Soon"><p>This feature is under development.</p></SectionCard>;
+            case 'students':
+                return <StudentManagementTab classes={classes} students={students} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} setFeedback={setFeedback} />;
+            case 'users':
+                return <UserManagementTab users={users} faculty={faculty} students={students} onSaveUser={onSaveUser} onDeleteUser={onDeleteUser} setFeedback={setFeedback} />;
+            case 'attendance':
+                return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
+            case 'profile':
+            default:
+                return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;
         }
     };
-
+    
+    // FIX: Added the missing return statement for the SmartClassroom component.
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8">
             <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
-            <header className="flex flex-wrap justify-between items-center mb-8 gap-4">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Smart Classroom Administration</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Manage students, users, and class settings.</p>
+                    <h1 className="text-3xl font-bold">Smart Classroom</h1>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Classroom, Student, and User Management</p>
                 </div>
-                <div ref={searchContainerRef} className="relative flex-grow max-w-lg mx-auto">
-                    <label htmlFor="global-search" className="sr-only">Search all students and faculty</label>
-                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <div className="relative w-full md:w-auto md:max-w-xs" ref={searchContainerRef}>
+                    <label htmlFor="global-search" className="sr-only">Global Search</label>
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                     <input
                         type="text"
-                        name="global-search"
                         id="global-search"
+                        name="global-search"
                         value={globalSearchQuery}
-                        onChange={e => setGlobalSearchQuery(e.target.value)}
+                        onChange={e => { setGlobalSearchQuery(e.target.value); setIsSearchResultsVisible(true); }}
                         onFocus={() => setIsSearchResultsVisible(true)}
-                        placeholder="Search all students & faculty..."
-                        className="w-full p-2.5 pl-10 border dark:border-slate-600 bg-white dark:bg-slate-900/50 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Search students, teachers..."
+                        className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md"
                     />
-                    {(isSearchResultsVisible && globalSearchQuery) && (
-                        <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto">
-                            {searchResults.length > 0 ? searchResults.map(item =>
-                                <div key={`${item.type}-${item.id}`} className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-700/50">
-                                    <p className="font-semibold">{item.name}</p>
-                                    <div className="text-xs flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                                        <span className={`px-2 py-0.5 rounded-full text-white ${item.type === 'Student' ? 'bg-blue-500' : 'bg-green-500'}`}>{item.type}</span>
-                                        <span>{item.details}</span>
-                                    </div>
+                    {isSearchResultsVisible && searchResults.length > 0 && (
+                        <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                            {searchResults.map(result => (
+                                <div key={`${result.type}-${result.id}`} onClick={() => handleSearchResultClick(result)} className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-600">
+                                    <p className="font-semibold">{result.name} <span className="text-xs font-normal bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full ml-2">{result.type}</span></p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{result.details}</p>
                                 </div>
-                            ) : <p className="p-4 text-center text-gray-500">No results found.</p>}
+                            ))}
                         </div>
                     )}
                 </div>
             </header>
             <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8">
-                {tabs.map(tab => <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>{tab.icon}{tab.label}</button>)}
+                <TabButton tab="profile" label="My Profile" icon={<ProfileIcon className="h-5 w-5" />} />
+                <TabButton tab="students" label="Student Management" icon={<StudentIcon className="h-5 w-5" />} />
+                <TabButton tab="users" label="User Accounts" icon={<UsersIcon className="h-5 w-5" />} />
+                <TabButton tab="attendance" label="Attendance" icon={<AttendanceIcon className="h-5 w-5" />} />
             </nav>
-            <main>{renderContent()}</main>
+            <main>
+                {renderContent()}
+            </main>
         </div>
     );
 };

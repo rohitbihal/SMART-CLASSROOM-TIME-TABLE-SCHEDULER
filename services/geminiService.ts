@@ -1,4 +1,5 @@
 
+
 import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types';
 
 // NOTE: The base URL for the backend server.
