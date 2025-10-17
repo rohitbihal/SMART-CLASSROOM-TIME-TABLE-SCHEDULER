@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { TimetableEntry } from '../../types';

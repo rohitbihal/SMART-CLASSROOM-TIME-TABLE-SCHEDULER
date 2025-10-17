@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User, ChatMessage, Class } from '../../types';
 import { SendIcon, ProfileIcon, AIIcon } from '../../components/Icons';
