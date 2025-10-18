@@ -31,16 +31,32 @@ if (!process.env.MONGO_URI) {
     console.error("FATAL ERROR: MONGO_URI is not defined in the environment variables.");
     process.exit(1);
 }
+
+// Stricter checks for production environments like Render
+const isProduction = process.env.NODE_ENV === 'production';
+
 if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = 'DEFAULT_INSECURE_JWT_SECRET_FOR_DEVELOPMENT_ONLY';
-    console.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    console.warn("!!! WARNING: JWT_SECRET is not defined. Using a default, insecure secret.");
-    console.warn("!!! For production, set a strong JWT_SECRET in your .env file.");
-    console.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    if (isProduction) {
+        console.error("FATAL ERROR: JWT_SECRET is not defined. This is required for production.");
+        process.exit(1);
+    } else {
+        process.env.JWT_SECRET = 'DEFAULT_INSECURE_JWT_SECRET_FOR_DEVELOPMENT_ONLY';
+        console.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.warn("!!! WARNING: JWT_SECRET is not defined. Using a default, insecure secret.");
+        console.warn("!!! For production, set a strong JWT_SECRET in your .env file.");
+        console.warn("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    }
 }
+
 if (!process.env.API_KEY) {
-    console.warn("WARNING: API_KEY is not defined. The AI timetable generation feature will not work.");
+     if (isProduction) {
+        console.error("FATAL ERROR: API_KEY for Gemini is not defined. This is required for production.");
+        process.exit(1);
+    } else {
+        console.warn("WARNING: API_KEY is not defined. The AI timetable generation feature will not work.");
+    }
 }
+
 
 const app = express();
 app.use(cors());
