@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { User, ChatMessage, Class } from '../../types';
 import { SendIcon, ProfileIcon, AIIcon } from '../../components/Icons';
@@ -12,15 +11,15 @@ interface ChatInterfaceProps {
 }
 
 const TypingIndicator = () => (
-    <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center">
-             <AIIcon className="h-5 w-5 text-gray-500" />
+    <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0 flex items-center justify-center">
+             <AIIcon className="h-6 w-6 text-slate-500" />
         </div>
-        <div className="bg-gray-200 dark:bg-slate-700 rounded-lg p-3">
+        <div className="bg-slate-200 dark:bg-slate-700 rounded-xl p-3">
             <div className="flex items-center justify-center gap-1.5">
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="h-2 w-2 bg-slate-400 rounded-full animate-bounce"></div>
             </div>
         </div>
     </div>
@@ -28,26 +27,26 @@ const TypingIndicator = () => (
 
 const Message = ({ msg, isUser }: { msg: ChatMessage, isUser: boolean }) => {
     const alignment = isUser ? 'justify-end' : 'justify-start';
-    const bubbleColor = isUser ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-100';
+    const bubbleColor = isUser ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100';
     const avatar = isUser
         ? <ProfileIcon className="h-5 w-5" />
         : <AIIcon className="h-5 w-5" />;
-    const avatarBg = isUser ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600' : 'bg-gray-200 dark:bg-slate-700 text-gray-500';
+    const avatarBg = isUser ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500';
 
     const formattedText = msg.text.split('\n').map((line, index) => 
         <span key={index}>{line}<br /></span>
     );
 
     return (
-        <div className={`flex items-start gap-3 w-full ${alignment}`}>
-            {!isUser && <div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatar}</div>}
-            <div className="flex flex-col" style={{ maxWidth: '80%' }}>
-                <div className={`rounded-lg p-3 ${bubbleColor}`}>
-                    <p className="text-sm">{formattedText}</p>
+        <div className={`flex items-end gap-3 w-full ${alignment}`}>
+            {!isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatar}</div>}
+            <div className="flex flex-col gap-1" style={{ maxWidth: '80%' }}>
+                <p className={`text-xs text-slate-500 ${isUser ? 'text-right' : 'text-left'}`}>{msg.author}</p>
+                <div className={`rounded-2xl p-3.5 ${bubbleColor}`}>
+                    <p className="text-sm leading-relaxed">{formattedText}</p>
                 </div>
-                <p className={`text-xs text-gray-400 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>{msg.author}</p>
             </div>
-            {isUser && <div className={`h-8 w-8 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatar}</div>}
+            {isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatar}</div>}
         </div>
     );
 };
@@ -85,26 +84,26 @@ export const ChatInterface = ({ user, messages, onSendMessage, isLoading, classP
     const displayMessages = messages.length > 0 ? messages : [initialMessage];
 
     return (
-        <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-md flex flex-col h-[70vh]">
-            <div ref={chatContainerRef} className="flex-1 p-6 space-y-6 overflow-y-auto">
+        <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl shadow-sm flex flex-col h-[70vh]">
+            <div ref={chatContainerRef} className="flex-1 p-6 space-y-8 overflow-y-auto">
                 {displayMessages.map((msg) => 
                     <Message key={msg.id} msg={msg} isUser={msg.author === user.username} />
                 )}
                 {isLoading && <TypingIndicator />}
             </div>
-            <div className="p-4 border-t border-gray-200 dark:border-slate-700">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl">
                 <form onSubmit={handleSubmit} className="flex items-center gap-3">
                     <input
                         type="text"
                         value={newMessage}
                         onChange={e => setNewMessage(e.target.value)}
                         placeholder="Ask about your schedule..."
-                        className="flex-1 w-full px-4 py-3 bg-gray-100 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="flex-1 w-full px-4 py-3 bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                         disabled={isLoading}
                     />
                     <button
                         type="submit"
-                        className="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                        className="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-all active:scale-95"
                         disabled={isLoading || !newMessage.trim()}
                     >
                         <SendIcon className="h-6 w-6" />

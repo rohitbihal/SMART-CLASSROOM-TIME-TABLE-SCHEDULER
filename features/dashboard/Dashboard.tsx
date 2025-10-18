@@ -20,17 +20,17 @@ interface DashboardProps {
 interface HeaderProps { user: User; title: string; subtitle: string; onLogout: () => void; theme: string; toggleTheme: () => void; }
 
 const Header = ({ user, title, subtitle, onLogout, theme, toggleTheme }: HeaderProps) => (
-    <div className="flex justify-between items-center mb-8">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">{title}</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+            <h1 className="text-4xl font-extrabold text-slate-800 dark:text-slate-100">{title}</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">{subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
-             <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center ring-2 ring-gray-300 dark:ring-slate-600">
-                <ProfileIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" />
+        <div className="flex items-center gap-3">
+             <div className="h-11 w-11 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center ring-4 ring-white dark:ring-slate-800">
+                <ProfileIcon className="h-6 w-6 text-slate-500 dark:text-slate-300" />
             </div>
-            <button onClick={toggleTheme} className="bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold p-3 rounded-lg flex items-center gap-2 transition">{theme === 'dark' ? <SunIcon /> : <MoonIcon />}</button>
-            <button onClick={onLogout} className="bg-white dark:bg-slate-800 border dark:border-slate-700 text-gray-600 dark:text-gray-300 font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition"><LogoutIcon /> Logout</button>
+            <button onClick={toggleTheme} className="bg-white dark:bg-slate-800 border dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold p-3 rounded-lg flex items-center gap-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700">{theme === 'dark' ? <SunIcon /> : <MoonIcon />}</button>
+            <button onClick={onLogout} className="bg-white dark:bg-slate-800 border dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold py-2.5 px-4 rounded-lg flex items-center gap-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"><LogoutIcon /> Logout</button>
         </div>
     </div>
 );
@@ -79,8 +79,22 @@ const StudentDashboardView = ({ user, timetable, chatMessages, onSendMessage, cl
     
     return (
         <div>
-            <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-2 rounded-xl shadow-sm flex flex-wrap gap-2 mb-8">
-                {tabs.map(tab => <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>{tab.icon} {tab.label}</button>)}
+            <div className="border-b border-slate-200 dark:border-slate-700 mb-8">
+                <nav className="-mb-px flex space-x-6 overflow-x-auto">
+                    {tabs.map(tab => (
+                        <button 
+                          key={tab.key} 
+                          onClick={() => setActiveTab(tab.key)} 
+                          className={`whitespace-nowrap flex items-center gap-2 pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                            activeTab === tab.key
+                              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
+                        >
+                          {tab.icon} {tab.label}
+                        </button>
+                    ))}
+                </nav>
             </div>
             {renderContent()}
         </div>
@@ -96,7 +110,7 @@ export function Dashboard (props: DashboardProps) {
     const subtitle = `Welcome, ${studentProfile?.name || user.username} | ${classProfile?.name || ''} | Roll No: ${studentProfile?.roll || 'N/A'}`;
     
     return (
-        <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen p-6 sm:p-8 lg:p-10">
             <Header
                 user={user}
                 title="Student Dashboard"
