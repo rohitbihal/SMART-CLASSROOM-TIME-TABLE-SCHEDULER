@@ -38,7 +38,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
     );
 };
 
-const StudentForm = ({ student, onSave, onCancel, classId, isLoading }: { student: Student | null; onSave: (data: Partial<Student>) => void; onCancel: () => void; classId: string; isLoading: boolean; }) => {
+// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
+const StudentForm: React.FC<{ student: Student | null; onSave: (data: Partial<Student>) => void; onCancel: () => void; classId: string; isLoading: boolean; }> = ({ student, onSave, onCancel, classId, isLoading }) => {
     const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '' } : { name: '', email: '', roll: '', classId });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(formData); };

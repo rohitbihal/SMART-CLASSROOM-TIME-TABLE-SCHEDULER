@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink, useLocation, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -419,7 +420,8 @@ const handleApiError = async (response: Response) => {
 
 // --- START: NEW LAYOUT COMPONENTS ---
 
-const NavItem = ({ to, icon, label }: { to: string; icon: React.ReactNode; label: string; }) => (
+// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
+const NavItem: React.FC<{ to: string; icon: React.ReactNode; label: string; }> = ({ to, icon, label }) => (
     <NavLink
         to={to}
         end={to === '/'}
@@ -478,7 +480,8 @@ const Sidebar = ({ user, onLogout, theme, toggleTheme }: { user: User; onLogout:
     );
 };
 
-const AppLayout = ({ user, onLogout, theme, toggleTheme, children }: { user: User; onLogout: () => void; theme: string; toggleTheme: () => void; children: React.ReactNode; }) => {
+// FIX: Made 'children' prop optional and provided a default value to fix TypeScript error.
+const AppLayout = ({ user, onLogout, theme, toggleTheme, children = null }: { user: User; onLogout: () => void; theme: string; toggleTheme: () => void; children?: React.ReactNode; }) => {
     return (
         <div className="flex h-screen">
             <Sidebar user={user} onLogout={onLogout} theme={theme} toggleTheme={toggleTheme} />

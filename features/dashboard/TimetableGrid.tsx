@@ -9,7 +9,8 @@ const getEntryForSlot = (timetable: TimetableEntry[], day: string, time: string)
 };
 
 // A dedicated component for rendering a single cell in the timetable.
-const TimetableCell = ({ entry, time, role, day, lunchSlot }: { entry: TimetableEntry | undefined; time: string; role: 'student' | 'teacher', day: string; lunchSlot: string; }) => {
+// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
+const TimetableCell: React.FC<{ entry: TimetableEntry | undefined; time: string; role: 'student' | 'teacher', day: string; lunchSlot: string; }> = ({ entry, time, role, day, lunchSlot }) => {
     if (time === lunchSlot) {
         return (
             <td key={`${day}-lunch`} className="p-2 border border-border-primary text-center bg-bg-primary font-semibold text-text-secondary">

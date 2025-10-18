@@ -25,7 +25,8 @@ const TypingIndicator = () => (
     </div>
 );
 
-const Message = ({ msg, isUser }: { msg: ChatMessage, isUser: boolean }) => {
+// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
+const Message: React.FC<{ msg: ChatMessage, isUser: boolean }> = ({ msg, isUser }) => {
     const alignment = isUser ? 'justify-end' : 'justify-start';
     const bubbleColor = isUser ? 'bg-accent-primary text-accent-text' : 'bg-bg-tertiary text-text-primary';
     const avatar = isUser
