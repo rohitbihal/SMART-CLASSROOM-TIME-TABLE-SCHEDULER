@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink, useLocation, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -260,12 +261,17 @@ const TeacherAttendancePage = ({ classes, students, attendance, onSaveClassAtten
     }, [selectedClassId, selectedDate, attendance, studentsInClass]);
 
     const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+        if (currentRecords[studentId]?.includes('_locked')) return;
         setCurrentRecords(prev => ({ ...prev, [studentId]: status }));
     };
 
     const handleMarkAll = (status: AttendanceStatus) => {
         const newRecords = studentsInClass.reduce((acc, student) => {
-            acc[student.id] = status;
+            if (!currentRecords[student.id]?.includes('_locked')) {
+                acc[student.id] = status;
+            } else {
+                acc[student.id] = currentRecords[student.id];
+            }
             return acc;
         }, {} as { [studentId: string]: AttendanceStatus });
         setCurrentRecords(newRecords);
@@ -284,8 +290,8 @@ const TeacherAttendancePage = ({ classes, students, attendance, onSaveClassAtten
     };
     
     const summary = useMemo(() => {
-        const present = Object.values(currentRecords).filter(s => s === 'present').length;
-        const absent = Object.values(currentRecords).filter(s => s === 'absent').length;
+        const present = Object.values(currentRecords).filter(s => s.startsWith('present')).length;
+        const absent = Object.values(currentRecords).filter(s => s.startsWith('absent')).length;
         return { total: studentsInClass.length, present, absent };
     }, [currentRecords, studentsInClass]);
 
@@ -319,18 +325,35 @@ const TeacherAttendancePage = ({ classes, students, attendance, onSaveClassAtten
                 </div>
             </div>
             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {studentsInClass.length > 0 ? studentsInClass.map(student => (
-                    <div key={student.id} className="flex items-center justify-between p-3 bg-bg-primary rounded-xl">
-                        <div>
-                            <p className="font-semibold">{student.name}</p>
-                            <p className="text-xs text-text-secondary">Roll: {student.roll || 'N/A'}</p>
+                {studentsInClass.length > 0 ? studentsInClass.map(student => {
+                    const status = currentRecords[student.id];
+                    const isLocked = status?.includes('_locked');
+                    const isSuggested = status === 'present_suggested';
+                    
+                    let presentBtnClass = 'btn-secondary';
+                    if (status?.startsWith('present')) presentBtnClass = 'bg-green-600 text-white';
+                    if (isSuggested) presentBtnClass = 'bg-yellow-400 text-black animate-pulse';
+
+                    let absentBtnClass = 'btn-secondary';
+                    if (status?.startsWith('absent')) absentBtnClass = 'bg-red-600 text-white';
+
+                    return (
+                        <div key={student.id} className={`flex items-center justify-between p-3 rounded-xl ${isLocked ? 'bg-gray-200 dark:bg-slate-700/50' : 'bg-bg-primary'}`}>
+                            <div>
+                                <p className="font-semibold">{student.name}</p>
+                                <p className="text-xs text-text-secondary">Roll: {student.roll || 'N/A'}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {isLocked && <span className="text-xs font-bold text-text-secondary">LOCKED</span>}
+                                {isSuggested && <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400">ADMIN SUGGESTION</span>}
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleStatusChange(student.id, 'present')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${presentBtnClass}`} disabled={isLoading || isLocked}>{isSuggested ? 'Confirm' : 'P'}</button>
+                                    <button onClick={() => handleStatusChange(student.id, 'absent')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${absentBtnClass}`} disabled={isLoading || isLocked}>A</button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => handleStatusChange(student.id, 'present')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${currentRecords[student.id] === 'present' ? 'bg-green-600 text-white' : 'btn-secondary'}`} disabled={isLoading}>P</button>
-                            <button onClick={() => handleStatusChange(student.id, 'absent')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${currentRecords[student.id] === 'absent' ? 'bg-red-600 text-white' : 'btn-secondary'}`} disabled={isLoading}>A</button>
-                        </div>
-                    </div>
-                )) : <p className="text-center text-text-secondary p-4">No students in this class.</p>}
+                    );
+                }) : <p className="text-center text-text-secondary p-4">No students in this class.</p>}
             </div>
              <div className="flex justify-end mt-6">
                 <button onClick={handleSave} className="btn-primary" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save Attendance"}</button>

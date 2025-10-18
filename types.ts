@@ -8,6 +8,7 @@ export interface Class {
   year: number;
   section: string;
   studentCount: number;
+  block?: string;
 }
 
 export interface Faculty {
@@ -33,6 +34,7 @@ export interface Room {
   number: string;
   type: 'classroom' | 'lab';
   capacity: number;
+  block?: string;
 }
 
 export interface Student {
@@ -159,7 +161,7 @@ export interface TeacherRequest {
 }
 
 // Attendance Types
-export type AttendanceStatus = 'present' | 'absent';
+export type AttendanceStatus = 'present' | 'absent' | 'present_locked' | 'absent_locked' | 'present_suggested';
 export type AttendanceRecord = { [studentId: string]: AttendanceStatus };
 export type Attendance = { [classId: string]: { [date: string]: AttendanceRecord } };
 

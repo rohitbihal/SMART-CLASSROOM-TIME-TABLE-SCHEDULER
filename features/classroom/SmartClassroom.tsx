@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon
+    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon
 } from '../../components/Icons';
 import { SectionCard, Modal, FeedbackBanner } from '../../App';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types';
@@ -349,6 +349,7 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
 };
 
 const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser, setFeedback }: Pick<SmartClassroomProps, 'users' | 'faculty' | 'students' | 'onSaveUser' | 'onDeleteUser'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+    const [userType, setUserType] = useState<'teacher' | 'student'>('teacher');
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [isBulkDeleteUsersConfirmOpen, setIsBulkDeleteUsersConfirmOpen] = useState(false);
@@ -360,10 +361,12 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     const selectAllUsersCheckboxRef = useRef<HTMLInputElement>(null);
 
     const profileMap = useMemo(() => { const map = new Map<string, { name: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name })); students.forEach(s => map.set(s.id, { name: s.name })); return map; }, [faculty, students]);
-    const filteredUsers = useMemo(() => users.filter(u => u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase())), [users, searchTerm, profileMap]);
+    const filteredUsers = useMemo(() => users.filter(u => u.role === userType && (u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))), [users, searchTerm, profileMap, userType]);
     
     const allUserIdsInView = useMemo(() => filteredUsers.map(u => u._id!).filter(Boolean), [filteredUsers]);
     const selectedUserIdsInView = useMemo(() => selectedUsers.filter(id => allUserIdsInView.includes(id)), [selectedUsers, allUserIdsInView]);
+    
+    useEffect(() => { setSelectedUsers([]) }, [userType]);
 
     useEffect(() => {
         if (selectAllUsersCheckboxRef.current) {
@@ -420,8 +423,6 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
         setIsSaving(true);
         setFeedback(null);
         try {
-            // In a real app, this would call a backend endpoint to reset the password and send an email.
-            // Here, we simulate the action with a delay.
             await new Promise(res => setTimeout(res, 1000)); 
             setFeedback({ type: 'success', message: `New credentials for ${userToReset.username} have been generated and sent.` });
             setUserToReset(null);
@@ -451,17 +452,30 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     };
 
     const isLoading = isSaving || isDeleting;
+    
+    const UserTypeButton = ({ type, label, icon }: { type: 'teacher' | 'student', label: string, icon: React.ReactNode }) => (
+      <button onClick={() => setUserType(type)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${userType === type ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>
+        {icon}
+        {label}
+      </button>
+    );
 
     return (
         <>
             <SectionCard
                 title="User Accounts"
-                actions={<button onClick={() => setEditingUser({})} disabled={isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add User</button>}
+                actions={<button onClick={() => setEditingUser({ role: userType })} disabled={isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add {userType === 'teacher' ? 'Teacher' : 'Student'}</button>}
             >
-                <div className="relative mb-4">
-                    <label htmlFor="user-search" className="sr-only">Search by name or email</label>
-                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search by name or email..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                <div className="flex flex-col md:flex-row gap-4 mb-4">
+                  <div className="bg-gray-100 dark:bg-slate-800 p-1 rounded-lg flex gap-1">
+                      <UserTypeButton type="teacher" label="Teachers" icon={<TeacherIcon className="h-5 w-5" />} />
+                      <UserTypeButton type="student" label="Students" icon={<StudentIcon className="h-5 w-5" />} />
+                  </div>
+                  <div className="relative flex-grow">
+                      <label htmlFor="user-search" className="sr-only">Search by name or email</label>
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                      <input type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={`Search ${userType}s by name or email...`} className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                  </div>
                 </div>
                 {filteredUsers.length > 0 && (
                     <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
@@ -479,7 +493,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                             <div className="flex-grow flex justify-between items-center">
                                 <div>
                                     <p className="font-semibold">{profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'}</p>
-                                    <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username} | Role: ${user.role}`}</p>
+                                    <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username}`}</p>
                                 </div>
                                 <div className="flex gap-2"> 
                                     <button onClick={() => setEditingUser(user)} className="text-indigo-500 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
@@ -488,7 +502,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                                 </div>
                             </div>
                         </div>
-                    ) : <p className="text-center text-gray-500 p-4">No users found.</p>}
+                    ) : <p className="text-center text-gray-500 p-4">No {userType} accounts found.</p>}
                 </div>
             </SectionCard>
             <Modal isOpen={!!editingUser} onClose={() => !isSaving && setEditingUser(null)} title={editingUser?._id ? "Edit User" : "Add New User"}>
@@ -674,14 +688,6 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
         setCurrentRecords(prev => ({ ...prev, [studentId]: status }));
     };
 
-    const handleMarkAll = (status: AttendanceStatus) => {
-        const newRecords = studentsInClass.reduce((acc, student) => {
-            acc[student.id] = status;
-            return acc;
-        }, {} as AttendanceRecord);
-        setCurrentRecords(newRecords);
-    };
-
     const handleSave = async () => {
         setIsLoading(true);
         setFeedback(null);
@@ -697,8 +703,8 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
     };
     
     const summary = useMemo(() => {
-        const present = Object.values(currentRecords).filter(s => s === 'present').length;
-        const absent = Object.values(currentRecords).filter(s => s === 'absent').length;
+        const present = Object.values(currentRecords).filter(s => s.startsWith('present')).length;
+        const absent = Object.values(currentRecords).filter(s => s.startsWith('absent')).length;
         return { total: studentsInClass.length, present, absent };
     }, [currentRecords, studentsInClass]);
 
@@ -722,10 +728,6 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
                     <span className="text-green-600 dark:text-green-400">Present: {summary.present}</span>
                     <span className="text-red-600 dark:text-red-400">Absent: {summary.absent}</span>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={() => handleMarkAll('present')} className="text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md" disabled={isLoading}>Mark All Present</button>
-                    <button onClick={() => handleMarkAll('absent')} className="text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md" disabled={isLoading}>Mark All Absent</button>
-                </div>
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
                 {studentsInClass.length > 0 ? studentsInClass.map(student => (
@@ -735,14 +737,15 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
                             <p className="text-xs text-gray-500 dark:text-slate-400">Roll: {student.roll || 'N/A'}</p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => handleStatusChange(student.id, 'present')} className={`px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Present</button>
-                            <button onClick={() => handleStatusChange(student.id, 'absent')} className={`px-4 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Absent</button>
+                            <button title="Mark Present and Lock" onClick={() => handleStatusChange(student.id, 'present_locked')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present_locked' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Lock P</button>
+                            <button title="Mark Absent and Lock" onClick={() => handleStatusChange(student.id, 'absent_locked')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent_locked' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Lock A</button>
+                            <button title="Suggest Present to Teacher" onClick={() => handleStatusChange(student.id, 'present_suggested')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present_suggested' ? 'bg-yellow-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Suggest P</button>
                         </div>
                     </div>
                 )) : <p className="text-center text-gray-500 p-4">No students in this class.</p>}
             </div>
             <div className="flex justify-end mt-6">
-                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save Attendance"}</button>
+                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save & Lock Attendance"}</button>
             </div>
         </SectionCard>
     );

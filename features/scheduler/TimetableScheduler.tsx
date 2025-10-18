@@ -44,7 +44,7 @@ const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMe
     </div>
 );
 const ClassForm = ({ initialData, onSave }: { initialData: Class | null; onSave: (data: any) => Promise<void>; }) => {
-    const [data, setData] = useState(initialData || { id: '', name: '', branch: '', year: 1, section: '', studentCount: 0 });
+    const [data, setData] = useState(initialData || { id: '', name: '', branch: '', year: 1, section: '', studentCount: 0, block: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-class';
     return (
@@ -54,6 +54,7 @@ const ClassForm = ({ initialData, onSave }: { initialData: Class | null; onSave:
             <FormField label="Year" htmlFor={`${formId}-year`}><TextInput type="number" id={`${formId}-year`} name="year" value={data.year} onChange={handleChange} required min={1} /></FormField>
             <FormField label="Section" htmlFor={`${formId}-section`}><TextInput id={`${formId}-section`} name="section" value={data.section} onChange={handleChange} required /></FormField>
             <FormField label="Student Count" htmlFor={`${formId}-studentCount`}><TextInput type="number" id={`${formId}-studentCount`} name="studentCount" value={data.studentCount} onChange={handleChange} required min={1} /></FormField>
+            <FormField label="Block/Campus (Optional)" htmlFor={`${formId}-block`}><TextInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange} /></FormField>
             <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
@@ -106,7 +107,7 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
     );
 };
 const RoomForm = ({ initialData, onSave }: { initialData: Room | null; onSave: (data: any) => Promise<void>; }) => {
-    const [data, setData] = useState(initialData || { id: '', number: '', type: 'classroom', capacity: 0 });
+    const [data, setData] = useState(initialData || { id: '', number: '', type: 'classroom', capacity: 0, block: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-room';
     return (
@@ -119,6 +120,7 @@ const RoomForm = ({ initialData, onSave }: { initialData: Room | null; onSave: (
                 </SelectInput>
             </FormField>
             <FormField label="Capacity" htmlFor={`${formId}-capacity`}><TextInput type="number" id={`${formId}-capacity`} name="capacity" value={data.capacity} onChange={handleChange} required min={1} /></FormField>
+            <FormField label="Block/Campus (Optional)" htmlFor={`${formId}-block`}><TextInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange} /></FormField>
             <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
@@ -137,28 +139,36 @@ const HeaderCheckbox = <T extends { id: string }>({ type, items, selectedItems, 
     );
 };
 
-const ImportModal = ({ isOpen, onClose, entityType }: { isOpen: boolean; onClose: () => void; entityType: string; }) => {
+const DataManagementModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void; }) => {
     if (!isOpen) return null;
-    const capitalEntityType = entityType.charAt(0).toUpperCase() + entityType.slice(1);
+    const [entityType, setEntityType] = useState<EntityType>('class');
     
-    const formats: { [key: string]: string } = {
-        class: "Required columns: name, branch, year, section, studentCount",
-        faculty: "Required columns: name, department, specialization (comma-separated), email",
-        subject: "Required columns: name, code, department, type (theory/lab), hoursPerWeek, assignedFacultyId",
-        room: "Required columns: number, type (classroom/lab), capacity"
+    const formats: { [key in EntityType]: string } = {
+        class: "Required: name, branch, year, section, studentCount. Optional: block",
+        faculty: "Required: name, department, email. Optional: specialization (comma-separated)",
+        subject: "Required: name, code, department, hoursPerWeek, assignedFacultyId. Optional: type (theory/lab)",
+        room: "Required: number, capacity. Optional: type (classroom/lab), block"
     };
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Import ${capitalEntityType} Data`}
+            title={`Import Data`}
         >
             <div className="space-y-4">
+                <FormField label="Select Data Type to Import" htmlFor="import-entity-type">
+                     <SelectInput id="import-entity-type" value={entityType} onChange={(e) => setEntityType(e.target.value as EntityType)}>
+                        <option value="class">Classes</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="subject">Subjects</option>
+                        <option value="room">Rooms</option>
+                     </SelectInput>
+                </FormField>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV or Excel file to bulk-add data. Make sure your file follows the specified format.</p>
                 <div className="p-3 bg-gray-100 dark:bg-slate-700/50 rounded-md">
                     <p className="text-sm font-semibold">File Format:</p>
-                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">{formats[entityType] || "No format specified."}</p>
+                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">{formats[entityType]}</p>
                 </div>
                 <div>
                     <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
@@ -171,6 +181,7 @@ const ImportModal = ({ isOpen, onClose, entityType }: { isOpen: boolean; onClose
                     />
                 </div>
                  <p className="text-xs text-center text-gray-400">PDF import support is coming soon.</p>
+                 <p className="text-xs text-center text-gray-400 font-semibold">Note: A universal import from a single file is planned for a future update.</p>
                 <div className="flex justify-end pt-4">
                      <button type="button" onClick={() => { alert('File processing is a placeholder and not yet implemented.'); onClose(); }} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">Process File</button>
                 </div>
@@ -179,8 +190,9 @@ const ImportModal = ({ isOpen, onClose, entityType }: { isOpen: boolean; onClose
     );
 };
 
-const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateConstraints, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal }: { classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; onUpdateConstraints: (c: Constraints) => void; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type: EntityType) => void; }) => {
+const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateConstraints, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal }: { classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; onUpdateConstraints: (c: Constraints) => void; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: () => void; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
+    const [blockFilter, setBlockFilter] = useState<string>('all');
 
     const handleInstituteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         if (!constraints) return;
@@ -191,15 +203,32 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
 
     const handleSearch = (type: EntityType, value: string) => setSearch(prev => ({ ...prev, [type]: value }));
     const filter = <T extends object>(data: T[], query: string) => data.filter(item => Object.values(item).some(val => String(val).toLowerCase().includes(query.toLowerCase())));
-    const filtered = { class: filter(classes, search.class), faculty: filter(faculty, search.faculty), subject: filter(subjects, search.subject), room: filter(rooms, search.room) };
+    const filtered = { 
+      class: filter(classes, search.class).filter(c => blockFilter === 'all' || !c.block || c.block === blockFilter), 
+      faculty: filter(faculty, search.faculty), 
+      subject: filter(subjects, search.subject), 
+      room: filter(rooms, search.room).filter(r => blockFilter === 'all' || !r.block || r.block === blockFilter)
+    };
     const facultyMap = useMemo(() => Object.fromEntries(faculty.map(f => [f.id, f.name])), [faculty]);
     
     const details: Partial<InstitutionDetails> = constraints?.institutionDetails || {};
 
+    const allBlocks = useMemo(() => {
+        const blocks = new Set<string>();
+        [...classes, ...rooms].forEach(item => {
+            if (item.block) blocks.add(item.block);
+        });
+        return ['all', ...Array.from(blocks)];
+    }, [classes, rooms]);
+
     return (
         <>
             <ErrorDisplay message={pageError} />
-            <SectionCard title="Institution Details">
+            <SectionCard title="Institution Details" actions={
+                <div className="flex items-center gap-2">
+                    <button onClick={openImportModal} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import Data</button>
+                </div>
+            }>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     <FormField label="Institution Name" htmlFor="inst-name">
                         <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={details.name || ''} onChange={handleInstituteFormChange} />
@@ -223,59 +252,74 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
                 </div>
                  <p className="text-xs text-right text-gray-400 mt-2">Changes are saved automatically.</p>
             </SectionCard>
+            <div className="my-4">
+                <FormField label="Filter by Block/Campus" htmlFor="block-filter">
+                    <SelectInput id="block-filter" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}>
+                        {allBlocks.map(b => <option key={b} value={b}>{b === 'all' ? 'All Blocks' : b}</option>)}
+                    </SelectInput>
+                </FormField>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SectionCard title="Classes & Sections" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('class')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'class')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Class</button></div>}>
+                <SectionCard title="Classes & Sections" actions={<button onClick={() => openModal('add', 'class')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Class</button>}>
                     <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." label="Search Classes" id="search-class" />
-                    <DataTable headers={["Name", "Branch", "Year", "Section", "Students", "Actions"]} data={filtered.class} renderRow={(c: Class) => (
-                        <tr key={c.id} className="border-b dark:border-slate-700">
-                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.class.includes(c.id)} onChange={() => onToggleSelect('class', c.id)} /></td>
-                            <td className="px-6 py-3 font-medium">{c.name}</td>
-                            <td className="px-6 py-3">{c.branch}</td>
-                            <td className="px-6 py-3">{c.year}</td>
-                            <td className="px-6 py-3">{c.section}</td>
-                            <td className="px-6 py-3">{c.studentCount}</td>
-                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'class', c)}><EditIcon /></button><button onClick={() => handleDelete('class', c.id)}><DeleteIcon /></button></td>
-                        </tr>
-                    )} headerPrefix={<HeaderCheckbox type="class" items={filtered.class} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    <div className="max-h-80 overflow-y-auto">
+                        <DataTable headers={["Name", "Branch", "Block", "Students", "Actions"]} data={filtered.class} renderRow={(c: Class) => (
+                            <tr key={c.id} className="border-b dark:border-slate-700">
+                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.class.includes(c.id)} onChange={() => onToggleSelect('class', c.id)} /></td>
+                                <td className="px-6 py-3 font-medium">{c.name}</td>
+                                <td className="px-6 py-3">{c.branch}</td>
+                                <td className="px-6 py-3">{c.block || 'N/A'}</td>
+                                <td className="px-6 py-3">{c.studentCount}</td>
+                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'class', c)}><EditIcon /></button><button onClick={() => handleDelete('class', c.id)}><DeleteIcon /></button></td>
+                            </tr>
+                        )} headerPrefix={<HeaderCheckbox type="class" items={filtered.class} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    </div>
                 </SectionCard>
-                <SectionCard title="Faculty" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('faculty')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'faculty')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Faculty</button></div>}>
+                <SectionCard title="Faculty" actions={<button onClick={() => openModal('add', 'faculty')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Faculty</button>}>
                     <SearchInput value={search.faculty} onChange={v => handleSearch('faculty', v)} placeholder="Search faculty..." label="Search Faculty" id="search-faculty" />
-                    <DataTable headers={["Name", "Department", "Specialization", "Actions"]} data={filtered.faculty} renderRow={(f: Faculty) => (
-                        <tr key={f.id} className="border-b dark:border-slate-700">
-                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.faculty.includes(f.id)} onChange={() => onToggleSelect('faculty', f.id)} /></td>
-                            <td className="px-6 py-3 font-medium">{f.name}</td>
-                            <td className="px-6 py-3">{f.department}</td>
-                            <td className="px-6 py-3">{f.specialization.join(', ')}</td>
-                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'faculty', f)}><EditIcon /></button><button onClick={() => handleDelete('faculty', f.id)}><DeleteIcon /></button></td>
-                        </tr>
-                    )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    <div className="max-h-80 overflow-y-auto">
+                        <DataTable headers={["Name", "Department", "Specialization", "Actions"]} data={filtered.faculty} renderRow={(f: Faculty) => (
+                            <tr key={f.id} className="border-b dark:border-slate-700">
+                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.faculty.includes(f.id)} onChange={() => onToggleSelect('faculty', f.id)} /></td>
+                                <td className="px-6 py-3 font-medium">{f.name}</td>
+                                <td className="px-6 py-3">{f.department}</td>
+                                <td className="px-6 py-3">{f.specialization.join(', ')}</td>
+                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'faculty', f)}><EditIcon /></button><button onClick={() => handleDelete('faculty', f.id)}><DeleteIcon /></button></td>
+                            </tr>
+                        )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    </div>
                 </SectionCard>
-                <SectionCard title="Subjects" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('subject')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'subject')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Subject</button></div>}>
+                <SectionCard title="Subjects" actions={<button onClick={() => openModal('add', 'subject')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Subject</button>}>
                     <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." label="Search Subjects" id="search-subject" />
-                    <DataTable headers={["Name", "Code", "Department", "Type", "Hrs/Week", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
-                        <tr key={s.id} className="border-b dark:border-slate-700">
-                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.subject.includes(s.id)} onChange={() => onToggleSelect('subject', s.id)} /></td>
-                            <td className="px-6 py-3 font-medium">{s.name}</td>
-                            <td className="px-6 py-3">{s.code}</td>
-                            <td className="px-6 py-3">{s.department}</td>
-                            <td className="px-6 py-3">{s.type}</td>
-                            <td className="px-6 py-3">{s.hoursPerWeek}</td>
-                            <td className="px-6 py-3">{facultyMap[s.assignedFacultyId] || 'N/A'}</td>
-                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'subject', s)}><EditIcon /></button><button onClick={() => handleDelete('subject', s.id)}><DeleteIcon /></button></td>
-                        </tr>
-                    )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    <div className="max-h-80 overflow-y-auto">
+                        <DataTable headers={["Name", "Code", "Department", "Type", "Hrs/Wk", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
+                            <tr key={s.id} className="border-b dark:border-slate-700">
+                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.subject.includes(s.id)} onChange={() => onToggleSelect('subject', s.id)} /></td>
+                                <td className="px-6 py-3 font-medium">{s.name}</td>
+                                <td className="px-6 py-3">{s.code}</td>
+                                <td className="px-6 py-3">{s.department}</td>
+                                <td className="px-6 py-3">{s.type}</td>
+                                <td className="px-6 py-3">{s.hoursPerWeek}</td>
+                                <td className="px-6 py-3">{facultyMap[s.assignedFacultyId] || 'N/A'}</td>
+                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'subject', s)}><EditIcon /></button><button onClick={() => handleDelete('subject', s.id)}><DeleteIcon /></button></td>
+                            </tr>
+                        )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    </div>
                 </SectionCard>
-                <SectionCard title="Rooms" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('room')} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import</button><button onClick={() => openModal('add', 'room')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Room</button></div>}>
+                <SectionCard title="Rooms" actions={<button onClick={() => openModal('add', 'room')} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><AddIcon />Add Room</button>}>
                     <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
-                    <DataTable headers={["Number", "Type", "Capacity", "Actions"]} data={filtered.room} renderRow={(r: Room) => (
-                        <tr key={r.id} className="border-b dark:border-slate-700">
-                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.room.includes(r.id)} onChange={() => onToggleSelect('room', r.id)} /></td>
-                            <td className="px-6 py-3 font-medium">{r.number}</td>
-                            <td className="px-6 py-3">{r.type}</td>
-                            <td className="px-6 py-3">{r.capacity}</td>
-                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'room', r)}><EditIcon /></button><button onClick={() => handleDelete('room', r.id)}><DeleteIcon /></button></td>
-                        </tr>
-                    )} headerPrefix={<HeaderCheckbox type="room" items={filtered.room} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    <div className="max-h-80 overflow-y-auto">
+                        <DataTable headers={["Number", "Type", "Capacity", "Block", "Actions"]} data={filtered.room} renderRow={(r: Room) => (
+                            <tr key={r.id} className="border-b dark:border-slate-700">
+                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.room.includes(r.id)} onChange={() => onToggleSelect('room', r.id)} /></td>
+                                <td className="px-6 py-3 font-medium">{r.number}</td>
+                                <td className="px-6 py-3">{r.type}</td>
+                                <td className="px-6 py-3">{r.capacity}</td>
+                                <td className="px-6 py-3">{r.block || 'N/A'}</td>
+                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'room', r)}><EditIcon /></button><button onClick={() => handleDelete('room', r.id)}><DeleteIcon /></button></td>
+                            </tr>
+                        )} headerPrefix={<HeaderCheckbox type="room" items={filtered.room} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                    </div>
                 </SectionCard>
             </div>
         </>
@@ -500,13 +544,15 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
     const handleToggle = (category: 'room' | 'student' | 'advanced', field: string, value: boolean) => {
         const keyMap = { room: 'roomResourceConstraints', student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
         const categoryKey = keyMap[category];
-        onConstraintsChange({ ...constraints, [categoryKey]: { ...(constraints[categoryKey] as any), [field]: value } });
+        const newCategoryState = { ...(constraints[categoryKey] || {}), [field]: value };
+        onConstraintsChange({ ...constraints, [categoryKey]: newCategoryState });
     };
 
     const handleNumberChange = (category: 'student' | 'advanced', field: string, value: string) => {
         const keyMap = { student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
         const categoryKey = keyMap[category];
-        onConstraintsChange({ ...constraints, [categoryKey]: { ...(constraints[categoryKey] as any), [field]: parseInt(value) || 0 } });
+        const newCategoryState = { ...(constraints[categoryKey] || {}), [field]: parseInt(value) || 0 };
+        onConstraintsChange({ ...constraints, [categoryKey]: newCategoryState });
     };
 
     return (
@@ -670,7 +716,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const [generationError, setGenerationError] = useState<string | null>(null);
     const [generatedTimetable, setGeneratedTimetable] = useState<TimetableEntry[] | null>(null);
     const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [] });
-    const [importModalType, setImportModalType] = useState<EntityType | null>(null);
+    const [isDataManagementModalOpen, setIsDataManagementModalOpen] = useState(false);
 
     const handleSave = async (type: EntityType, data: Entity) => {
         setPageError(null);
@@ -730,7 +776,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     
     const renderContent = () => {
         switch (activeTab) {
-            case 'setup': return <SetupTab {...props} onUpdateConstraints={setConstraints} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={setImportModalType} />;
+            case 'setup': return <SetupTab {...props} onUpdateConstraints={setConstraints} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={() => setIsDataManagementModalOpen(true)} />;
             case 'constraints': return <ConstraintsTab {...props} />;
             case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
             case 'view': return <ViewTab {...props} />;
@@ -765,7 +811,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
                     <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} />
                 </Modal>
             )}
-             <ImportModal isOpen={!!importModalType} onClose={() => setImportModalType(null)} entityType={importModalType || ''} />
+             <DataManagementModal isOpen={isDataManagementModalOpen} onClose={() => setIsDataManagementModalOpen(false)} />
         </div>
     );
 };
