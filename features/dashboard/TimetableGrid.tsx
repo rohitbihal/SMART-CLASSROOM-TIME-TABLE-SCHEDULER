@@ -10,20 +10,18 @@ const getEntryForSlot = (timetable: TimetableEntry[], day: string, time: string)
 
 // A dedicated component for rendering a single cell in the timetable.
 const TimetableCell = ({ entry, time, role, day, lunchSlot }: { entry: TimetableEntry | undefined; time: string; role: 'student' | 'teacher', day: string; lunchSlot: string; }) => {
-    // Special styling and content for the lunch break slot.
     if (time === lunchSlot) {
         return (
-            <td key={`${day}-lunch`} className="p-2 border-b border-x dark:border-slate-700 text-center bg-slate-100 dark:bg-slate-800 font-semibold text-slate-500">
+            <td key={`${day}-lunch`} className="p-2 border border-border-primary text-center bg-bg-primary font-semibold text-text-secondary">
                 Lunch
             </td>
         );
     }
 
-    // Default cell styling for regular class slots.
     return (
-        <td key={day} className="p-1.5 border-b border-x dark:border-slate-700 align-top h-24">
+        <td key={day} className="p-1.5 border border-border-primary align-top h-24">
             {entry && (
-                <div className="p-2.5 rounded-lg text-white bg-indigo-600 h-full flex flex-col justify-center">
+                <div className="p-2.5 rounded-lg text-white bg-blue-600 dark:bg-blue-500 h-full flex flex-col justify-center">
                     <div className="font-bold text-sm">{entry.subject}</div>
                     <div className="text-xs opacity-80 mt-1">{role === 'student' ? entry.faculty : entry.className}</div>
                     <div className="text-xs opacity-80">Room: {entry.room}</div>
@@ -37,10 +35,10 @@ const TimetableCell = ({ entry, time, role, day, lunchSlot }: { entry: Timetable
 export const TimetableGrid = ({ timetable, role = 'student', constraints }: { timetable: TimetableEntry[], role?: 'student' | 'teacher', constraints: Constraints | null }) => {
     if (!timetable || timetable.length === 0) {
         return (
-            <div className="bg-white dark:bg-slate-800/50 border-2 border-dashed border-slate-300 dark:border-slate-700 p-8 rounded-2xl text-center min-h-[500px] flex flex-col justify-center items-center">
-                <SchedulerIcon className="h-12 w-12 text-slate-400 dark:text-slate-500 mx-auto mb-4" />
+            <div className="bg-bg-secondary border-2 border-dashed border-border-primary p-8 rounded-xl text-center min-h-[500px] flex flex-col justify-center items-center">
+                <SchedulerIcon className="h-12 w-12 text-text-secondary mx-auto mb-4" />
                 <h3 className="text-xl font-bold">Timetable Not Available</h3>
-                <p className="text-slate-500 mt-2">Your schedule will appear here once it has been published by the admin.</p>
+                <p className="text-text-secondary mt-2">Your schedule will appear here once it has been published by the admin.</p>
             </div>
         );
     }
@@ -55,24 +53,23 @@ export const TimetableGrid = ({ timetable, role = 'student', constraints }: { ti
             const endMinutes = (endTotalMinutes % 60).toString().padStart(2, '0');
             return `${lunchStartTime}-${endHours}:${endMinutes}`;
         }
-        // Fallback to the constant if constraints are not available
         return '12:50-01:35';
     }, [constraints]);
     
     return (
-        <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm">
+        <div className="card-base p-0">
             <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
                     <thead>
                         <tr>
-                            <th className="p-3 font-bold uppercase text-slate-500 dark:text-slate-400 border-b-2 dark:border-slate-600 w-32">Time</th>
-                            {DAYS.map(day => <th key={day} className="p-3 font-bold uppercase text-slate-500 dark:text-slate-400 border-b-2 dark:border-slate-600 text-center capitalize">{day}</th>)}
+                            <th className="p-3 font-semibold text-text-secondary border-b-2 border-border-primary w-32">Time</th>
+                            {DAYS.map(day => <th key={day} className="p-3 font-semibold text-text-secondary border-b-2 border-border-primary text-center capitalize">{day}</th>)}
                         </tr>
                     </thead>
-                    <tbody className="text-slate-700 dark:text-slate-200">
+                    <tbody>
                         {TIME_SLOTS.map(time => (
                             <tr key={time}>
-                                <td className="p-3 border-b border-x dark:border-slate-700 font-semibold whitespace-nowrap text-center">{time}</td>
+                                <td className="p-3 border border-border-primary font-semibold whitespace-nowrap text-center">{time}</td>
                                 {DAYS.map(day => (
                                     <TimetableCell
                                         key={`${day}-${time}`}

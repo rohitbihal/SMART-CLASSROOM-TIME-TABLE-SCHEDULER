@@ -3,38 +3,99 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Color Palette - Light Mode */
+    --bg-primary: theme('colors.slate.100');
+    --bg-secondary: theme('colors.white');
+    --bg-tertiary: theme('colors.slate.200');
+    --text-primary: theme('colors.slate.800');
+    --text-secondary: theme('colors.slate.500');
+    --border-primary: theme('colors.slate.200');
+    --accent-primary: theme('colors.blue.600');
+    --accent-primary-hover: theme('colors.blue.700');
+    --accent-text: theme('colors.white');
+  }
+
+  .dark {
+    /* Color Palette - Dark Mode */
+    --bg-primary: theme('colors.slate.900');
+    --bg-secondary: theme('colors.slate.800');
+    --bg-tertiary: theme('colors.slate.700');
+    --text-primary: theme('colors.slate.100');
+    --text-secondary: theme('colors.slate.400');
+    --border-primary: theme('colors.slate.700');
+    --accent-primary: theme('colors.blue.500');
+    --accent-primary-hover: theme('colors.blue.600');
+    --accent-text: theme('colors.white');
+  }
+
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
+  }
+  
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Custom, subtle scrollbar for a more modern look */
+  /* Custom, modern scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background-color: theme('colors.slate.300');
+    background-color: var(--bg-tertiary);
     border-radius: 10px;
-    border: 2px solid theme('colors.slate.50');
-  }
-  .dark ::-webkit-scrollbar-thumb {
-    background-color: theme('colors.slate.700');
-    border: 2px solid theme('colors.slate.900');
   }
   ::-webkit-scrollbar-thumb:hover {
-    background-color: theme('colors.slate.400');
+    background-color: var(--text-secondary);
   }
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background-color: theme('colors.slate.600');
+  
+  /* Consistent focus style for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-offset-2 ring-blue-500;
+  }
+}
+
+/* Reusable Component Styles */
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent-primary text-accent-text hover:bg-accent-primary-hover;
+  }
+  .btn-secondary {
+    @apply btn bg-bg-tertiary text-text-primary hover:bg-border-primary;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
   }
 
-  /* Define a consistent focus-visible style for accessibility */
-  *:focus-visible {
-    @apply outline-none ring-2 ring-offset-2 ring-indigo-500 ring-offset-white dark:ring-offset-slate-900;
+  .input-base {
+    @apply w-full p-2.5 bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow;
+  }
+  
+  .card-base {
+    @apply bg-bg-secondary border border-border-primary p-6 rounded-xl shadow-sm;
+  }
+
+  .modal-content {
+    @apply bg-bg-secondary rounded-xl shadow-xl w-full max-h-[90vh] flex flex-col border border-border-primary;
+  }
+
+  .tab-item {
+    @apply whitespace-nowrap flex items-center gap-2 pb-3 px-1 border-b-2 font-medium text-sm transition-colors;
+  }
+  .tab-item-active {
+    @apply border-accent-primary text-accent-primary;
+  }
+  .tab-item-inactive {
+    @apply border-transparent text-text-secondary hover:text-text-primary hover:border-border-primary;
   }
 }
