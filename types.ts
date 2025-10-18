@@ -1,5 +1,3 @@
-
-
 // === From types.ts ===
 export interface Class {
   id: string;
@@ -173,4 +171,41 @@ export interface User {
   profileId?: string;
   // Optional password field for user creation payloads.
   password?: string;
+}
+
+// --- NEW: API & Error Types for enhanced type safety ---
+
+export interface ApiResponse<T> {
+  data: T;
+  status: number;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> {
+  docs: T[];
+  totalDocs: number;
+  limit: number;
+  totalPages: number;
+  page: number;
+  pagingCounter: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
+  prevPage: number | null;
+  nextPage: number | null;
+}
+
+export interface ErrorResponse {
+  message: string;
+  code?: string;
+  details?: any;
+}
+
+// Type guard to check if an error is a structured API error
+export function isApiError(error: unknown): error is ErrorResponse {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof (error as any).message === 'string'
+  );
 }

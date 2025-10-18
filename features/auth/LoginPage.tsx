@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
 import { AdminIcon, TeacherIcon, StudentIcon, LoginIcon } from '../../components/Icons';
-import { User } from '../../types';
-
-const API_BASE_URL = '/api';
-
-interface LoginPageProps {
-  onLogin: (user: User, token: string) => void;
-}
+import { isApiError } from '../../types';
+import { useAppContext } from '../../context/AppContext';
+import * as api from '../../services/api';
 
 interface UserTypeButtonProps {
     type: string;
@@ -14,7 +10,8 @@ interface UserTypeButtonProps {
     icon: React.ReactNode;
 }
 
-export const LoginPage = ({ onLogin }: LoginPageProps) => {
+export const LoginPage = () => {
+  const { login: contextLogin } = useAppContext();
   const [view, setView] = useState<'login' | 'forgotPassword'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -45,35 +42,15 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
     clearMessages();
     setIsLoading(true);
     try {
-        const response = await fetch(`${API_BASE_URL}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password, role }),
-        });
-        
-        if (!response.ok) {
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Login failed');
-            } else {
-                throw new Error('Login failed: An unexpected server error occurred.');
-            }
-        }
-        
-        const { token, user } = await response.json();
-        onLogin(user, token);
-
+        const { token, user } = await api.login({ username, password, role });
+        contextLogin(user, token);
     } catch (err: unknown) {
-        if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        if (isApiError(err)) {
+            setError(`Login failed: ${err.message}`);
+        } else if (err instanceof TypeError && err.message === 'Failed to fetch') {
             setError('Could not connect to the server. Please check your network and ensure the backend is running.');
         } else {
-            const serverMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
-            if (serverMessage.toLowerCase().includes('credential')) {
-                 setError('Login failed. Please double-check your email, password, and selected role.');
-            } else {
-                 setError(`Login failed: ${serverMessage}`);
-            }
+            setError(`Login failed: An unknown error occurred.`);
         }
     } finally {
         setIsLoading(false);

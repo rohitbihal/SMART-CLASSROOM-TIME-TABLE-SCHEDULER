@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, ChatMessage, Class } from '../../types';
+import { ChatMessage, Class } from '../../types';
 import { SendIcon, ProfileIcon, AIIcon } from '../../components/Icons';
+import { useAppContext } from '../../context/AppContext';
+
 
 interface ChatInterfaceProps {
-    user: User;
     messages: ChatMessage[];
     onSendMessage: (text: string, messageId: string) => Promise<void>;
     isLoading: boolean;
@@ -25,8 +26,7 @@ const TypingIndicator = () => (
     </div>
 );
 
-// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
-const Message: React.FC<{ msg: ChatMessage, isUser: boolean }> = ({ msg, isUser }) => {
+const Message: React.FC<{ msg: ChatMessage, isUser: boolean }> = React.memo(({ msg, isUser }) => {
     const alignment = isUser ? 'justify-end' : 'justify-start';
     const bubbleColor = isUser ? 'bg-accent-primary text-accent-text' : 'bg-bg-tertiary text-text-primary';
     const avatar = isUser
@@ -50,9 +50,10 @@ const Message: React.FC<{ msg: ChatMessage, isUser: boolean }> = ({ msg, isUser 
             {isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatar}</div>}
         </div>
     );
-};
+});
 
-export const ChatInterface = ({ user, messages, onSendMessage, isLoading, classProfile }: ChatInterfaceProps) => {
+export const ChatInterface = ({ messages, onSendMessage, isLoading, classProfile }: ChatInterfaceProps) => {
+    const { user } = useAppContext();
     const [newMessage, setNewMessage] = useState('');
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +72,8 @@ export const ChatInterface = ({ user, messages, onSendMessage, isLoading, classP
             setNewMessage('');
         }
     };
+    
+    if (!user) return null;
 
     const initialMessage: ChatMessage = {
         id: `init-msg-${Date.now()}`,

@@ -1,415 +1,125 @@
-
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { HashRouter, Routes, Route, Navigate, NavLink, useLocation, Outlet } from 'react-router-dom';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
-import { Dashboard } from './features/dashboard/Dashboard';
-import { TimetableGrid } from './features/dashboard/TimetableGrid';
-import { PlaceholderContent } from './features/dashboard/PlaceholderContent';
-import { ModuleSelectionPage } from './features/dashboard/ModuleSelectionPage';
-import { SmartClassroom } from './features/classroom/SmartClassroom';
-import { TimetableScheduler } from './features/scheduler/TimetableScheduler';
-import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, GradebookIcon, QuizzesIcon, AnalyticsIcon, MeetingIcon, TutorialsIcon, SendIcon, EditIcon, SearchIcon } from './components/Icons';
-import { ChatMessage, Class, Constraints, Faculty, Room, Subject, Student, Attendance, User, AttendanceStatus, TimetableEntry, TeacherRequest, FacultyPreference } from './types';
-import { DAYS, TIME_SLOTS } from './constants';
+import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon } from './components/Icons';
+import { User } from './types';
+import { AppProvider, useAppContext } from './context/AppContext';
 
-const API_BASE_URL = '/api';
+// --- START: LAZY LOADED COMPONENTS FOR PERFORMANCE ---
+const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then(module => ({ default: module.Dashboard })));
+const TimetableScheduler = lazy(() => import('./features/scheduler/TimetableScheduler').then(module => ({ default: module.TimetableScheduler })));
+const SmartClassroom = lazy(() => import('./features/classroom/SmartClassroom').then(module => ({ default: module.SmartClassroom })));
+const ModuleSelectionPage = lazy(() => import('./features/dashboard/ModuleSelectionPage').then(module => ({ default: module.ModuleSelectionPage })));
+const TeacherDashboardLayout = lazy(() => import('./features/teacher/TeacherDashboardLayout').then(module => ({ default: module.TeacherDashboardLayout })));
+const TeacherAttendancePage = lazy(() => import('./features/teacher/TeacherAttendancePage').then(module => ({ default: module.TeacherAttendancePage })));
+const IMSPage = lazy(() => import('./features/teacher/IMSPage').then(module => ({ default: module.IMSPage })));
+const SmartToolsPage = lazy(() => import('./features/teacher/SmartToolsPage').then(module => ({ default: module.SmartToolsPage })));
+const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage').then(module => ({ default: module.AvailabilityPage })));
+const RequestsPage = lazy(() => import('./features/teacher/RequestsPage').then(module => ({ default: module.RequestsPage })));
+const NotificationsPage = lazy(() => import('./features/teacher/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
+const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage').then(module => ({ default: module.TeacherChatPage })));
+const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid').then(module => ({ default: module.TimetableGrid })));
 
-// --- START: REUSABLE HELPER COMPONENTS ---
-
-export const ErrorDisplay = ({ message }: { message: string | null }) => !message ? null : <div className="bg-red-500/10 border border-red-500/30 text-red-600 p-3 rounded-lg text-sm my-2 font-medium" role="alert">{message}</div>;
-
-export const FeedbackBanner = ({ feedback, onDismiss }: { feedback: { type: 'success' | 'error', message: string } | null; onDismiss: () => void; }) => {
-    if (!feedback) return null;
-    const isSuccess = feedback.type === 'success';
-    const colorClasses = isSuccess
-        ? 'bg-green-500/10 border-green-500/30 text-green-600'
-        : 'bg-red-500/10 border-red-500/30 text-red-600';
-
-    return (
-        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 w-full max-w-md p-4 rounded-lg border shadow-lg transition-all duration-300 ${colorClasses}`} role="alert">
-            <div className="flex items-center justify-between">
-                <span className="font-semibold">{feedback.message}</span>
-                <button onClick={onDismiss} className="text-xl font-bold opacity-70 hover:opacity-100">&times;</button>
-            </div>
-        </div>
-    );
-};
-
-export const Modal = ({ isOpen, onClose, title, children = null, error = null, size = 'md' }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; error?: string | null; size?: 'md' | '4xl' }) => {
-    if (!isOpen) return null;
-    const sizeClass = size === '4xl' ? 'max-w-4xl' : 'max-w-md';
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className={`modal-content ${sizeClass}`}>
-                <div className="flex justify-between items-center p-5 border-b border-border-primary">
-                    <h2 className="text-xl font-bold">{title}</h2>
-                    <button onClick={onClose} className="text-text-secondary hover:text-text-primary transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="p-6 overflow-y-auto">
-                    <ErrorDisplay message={error} />
-                    {children}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export const SearchInput = ({ value, onChange, placeholder, label, id }: { value: string; onChange: (v: string) => void; placeholder?: string; label: string; id: string; }) => (
-    <div className="relative mb-4">
-        <label htmlFor={id} className="sr-only">{label}</label>
-        <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
-        <input type="text" id={id} name={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder || "Search..."} className="input-base pl-11" />
-    </div>
-);
-
-export const SectionCard = ({ title, children, actions, className }: { title: string; children?: React.ReactNode; actions?: React.ReactNode; className?: string }) => (
-    <div className={`card-base ${className || ''}`}>
-        <div className="flex justify-between items-center border-b border-border-primary pb-4 mb-4">
-            <h3 className="text-xl font-bold">{title}</h3>
+// FIX: Added and exported shared UI components that were missing, causing import errors.
+// --- START: SHARED UI COMPONENTS ---
+export const SectionCard = ({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode; }) => (
+    <div className="bg-bg-secondary border border-border-primary rounded-xl shadow-sm">
+        <div className="flex items-center justify-between p-4 border-b border-border-primary">
+            <h2 className="text-lg font-bold">{title}</h2>
             {actions && <div>{actions}</div>}
         </div>
-        {children}
-    </div>
-);
-export const FormField = ({ label, children = null, htmlFor }: { label: string, children?: React.ReactNode, htmlFor: string }) => (
-    <div className="mb-4">
-        <label htmlFor={htmlFor} className="block text-sm font-medium mb-1.5 text-text-secondary">{label}</label>
-        {children}
+        <div className="p-4">{children}</div>
     </div>
 );
 
-export const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} className={`input-base ${props.className || ''}`} />;
-export const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => <select {...props} className="input-base" />;
-export const TextareaInput = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} rows={3} className="input-base" />;
-
-// --- END: REUSABLE HELPER COMPONENTS ---
-
-
-// --- START: NEW TEACHER FEATURE PAGES ---
-const IMSPage = () => {
-    const [activeTab, setActiveTab] = useState('grades');
+export const Modal = ({ isOpen, onClose, title, children, size = '2xl', error }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl'; error?: string | null }) => {
+    if (!isOpen) return null;
+    const sizeClasses: {[key: string]: string} = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl', '2xl': 'sm:max-w-2xl', '3xl': 'sm:max-w-3xl', '4xl': 'sm:max-w-4xl', '5xl': 'sm:max-w-5xl', '6xl': 'sm:max-w-6xl', '7xl': 'sm:max-w-7xl' };
     return (
-        <SectionCard title="Information Management System (IMS)">
-            <div className="flex gap-2 border-b border-border-primary mb-4">
-                <button onClick={() => setActiveTab('grades')} className={`tab-item ${activeTab === 'grades' ? 'tab-item-active' : 'tab-item-inactive'}`}>Upload Grades</button>
-                <button onClick={() => setActiveTab('assignments')} className={`tab-item ${activeTab === 'assignments' ? 'tab-item-active' : 'tab-item-inactive'}`}>Manage Assignments</button>
-                <button onClick={() => setActiveTab('analytics')} className={`tab-item ${activeTab === 'analytics' ? 'tab-item-active' : 'tab-item-inactive'}`}>Performance Analytics</button>
-            </div>
-            {activeTab === 'grades' && <PlaceholderContent title="Upload Grades" message="This feature for uploading student grades is under development." icon={<GradebookIcon />} />}
-            {activeTab === 'assignments' && <PlaceholderContent title="Manage Assignments" message="This feature for creating and managing assignments is under development." icon={<QuizzesIcon />} />}
-            {activeTab === 'analytics' && <PlaceholderContent title="Performance Analytics" message="This feature for viewing student performance analytics is under development." icon={<AnalyticsIcon />} />}
-        </SectionCard>
-    );
-};
-
-const SmartToolsPage = () => {
-    const tools = [
-        { title: "Digital Whiteboard", icon: <EditIcon /> },
-        { title: "Join Live Class", icon: <MeetingIcon /> },
-        { title: "Smart Notes", icon: <IMSIcon /> },
-        { title: "Recordings", icon: <TutorialsIcon /> },
-        { title: "Upload Lesson Plan", icon: <SchedulerIcon /> },
-        { title: "Create Quiz", icon: <QuizzesIcon /> },
-    ];
-    return (
-        <SectionCard title="Smart Tools">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {tools.map(tool => (
-                    <div key={tool.title} className="bg-bg-primary p-6 rounded-xl text-center border border-border-primary transition-transform hover:-translate-y-1">
-                        <div className="mx-auto h-12 w-12 flex items-center justify-center bg-blue-100 dark:bg-slate-700 rounded-full mb-3 text-accent-primary">{tool.icon}</div>
-                        <h4 className="font-semibold text-lg">{tool.title}</h4>
-                        <button className="btn-primary text-sm mt-4">Launch Tool</button>
-                    </div>
-                ))}
-            </div>
-        </SectionCard>
-    );
-};
-
-const AvailabilityPage = ({ facultyProfile, constraints, onUpdateConstraints }: { facultyProfile: Faculty; constraints: Constraints | null; onUpdateConstraints: (c: Constraints) => void; }) => {
-    if (!constraints || !facultyProfile) return <LoadingIcon />;
-
-    const facultyId = facultyProfile.id;
-    const currentPref = constraints.facultyPreferences?.find(p => p.facultyId === facultyId) || { facultyId };
-
-    const handlePrefChange = (newPrefData: Partial<FacultyPreference>) => {
-        const newPrefs = [...(constraints.facultyPreferences || [])];
-        let prefIndex = newPrefs.findIndex(p => p.facultyId === facultyId);
-        
-        const updatedPref = { ...currentPref, ...newPrefData };
-
-        if (prefIndex === -1) {
-            newPrefs.push(updatedPref as FacultyPreference);
-        } else {
-            newPrefs[prefIndex] = updatedPref as FacultyPreference;
-        }
-        onUpdateConstraints({ ...constraints, facultyPreferences: newPrefs });
-    };
-
-    const handleUnavailabilityToggle = (day: string, timeSlot: string) => {
-        const currentUnavailability = currentPref.unavailability || [];
-        const slotExists = currentUnavailability.some(slot => slot.day === day && slot.timeSlot === timeSlot);
-        const newUnavailability = slotExists
-            ? currentUnavailability.filter(slot => !(slot.day === day && slot.timeSlot === timeSlot))
-            : [...currentUnavailability, { day, timeSlot }];
-        handlePrefChange({ unavailability: newUnavailability });
-    };
-
-    const unavailabilitySet = new Set((currentPref.unavailability || []).map(s => `${s.day}:${s.timeSlot}`));
-
-    return (
-        <SectionCard title="Set Your Availability">
-            <p className="text-sm text-text-secondary mb-6">Click on a time slot to mark it as unavailable (red). The admin will see this when creating timetables. Changes are saved automatically.</p>
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-xs table-fixed">
-                    <thead>
-                        <tr>
-                            <th className="p-2 border border-border-primary bg-bg-primary w-24 font-semibold">Time</th>
-                            {DAYS.map(day => <th key={day} className="p-2 border border-border-primary bg-bg-primary font-semibold capitalize">{day.substring(0, 3)}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {TIME_SLOTS.map(time => (
-                            <tr key={time}>
-                                <td className="p-2 border border-border-primary font-medium whitespace-nowrap text-center">{time}</td>
-                                {DAYS.map(day => {
-                                    const isUnavailable = unavailabilitySet.has(`${day}:${time}`);
-                                    return (
-                                        <td
-                                            key={`${day}-${time}`}
-                                            onClick={() => handleUnavailabilityToggle(day, time)}
-                                            className={`p-2 border border-border-primary text-center cursor-pointer transition-colors ${isUnavailable ? 'bg-red-500/80 hover:bg-red-600' : 'bg-green-500/20 hover:bg-green-500/40'}`}
-                                            title={isUnavailable ? "Mark as available" : "Mark as unavailable"}
-                                        ></td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </SectionCard>
-    );
-};
-
-const RequestsPage = () => {
-    const [requestHistory, setRequestHistory] = useState<TeacherRequest[]>([]);
-    
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <SectionCard title="Submit a New Request">
-                 <form className="space-y-4" onSubmit={e => {e.preventDefault(); alert("Request submitted (demo).")}}>
-                    <FormField label="Request Type" htmlFor="requestType">
-                        <SelectInput id="requestType" name="requestType">
-                            <option>Schedule Change</option>
-                            <option>Leave Request</option>
-                            <option>Resource Request</option>
-                            <option>Other</option>
-                        </SelectInput>
-                    </FormField>
-                    <FormField label="Subject (if applicable)" htmlFor="requestSubject">
-                        <SelectInput id="requestSubject" name="requestSubject"><option>Select a subject...</option></SelectInput>
-                    </FormField>
-                    <FormField label="Details of Requested Change" htmlFor="requestDetails">
-                        <TextareaInput id="requestDetails" name="requestDetails" placeholder="e.g., Please move CS101 from Monday 9am to Friday 2pm." />
-                    </FormField>
-                    <FormField label="Reason" htmlFor="requestReason">
-                        <TextareaInput id="requestReason" name="requestReason" placeholder="e.g., Due to a clashing appointment." />
-                    </FormField>
-                    <button type="submit" className="btn-primary w-full py-3">Submit Request</button>
-                </form>
-            </SectionCard>
-            <SectionCard title="Request History">
-                {requestHistory.length === 0 ? (
-                    <p className="text-text-secondary text-center py-8">You have not submitted any requests.</p>
-                ) : (
-                    <div>{/* History table would go here */}</div>
-                )}
-            </SectionCard>
-        </div>
-    );
-};
-
-const NotificationsPage = () => {
-    return (
-        <SectionCard title="Notifications">
-             <p className="text-text-secondary text-center py-8">No new notifications.</p>
-        </SectionCard>
-    );
-};
-
-const TeacherAttendancePage = ({ classes, students, attendance, onSaveClassAttendance }: { classes: Class[], students: Student[], attendance: Attendance, onSaveClassAttendance: (classId: string, date: string, records: { [studentId: string]: AttendanceStatus; }) => Promise<void> }) => {
-    const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [currentRecords, setCurrentRecords] = useState<{ [studentId: string]: AttendanceStatus }>({});
-    const [isLoading, setIsLoading] = useState(false);
-
-    const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId), [students, selectedClassId]);
-
-    useEffect(() => {
-        const existingRecords = attendance[selectedClassId]?.[selectedDate] || {};
-        const initialRecords = studentsInClass.reduce((acc, student) => {
-            acc[student.id] = existingRecords[student.id] || 'absent';
-            return acc;
-        }, {} as { [studentId: string]: AttendanceStatus });
-        setCurrentRecords(initialRecords);
-    }, [selectedClassId, selectedDate, attendance, studentsInClass]);
-
-    const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
-        if (currentRecords[studentId]?.includes('_locked')) return;
-        setCurrentRecords(prev => ({ ...prev, [studentId]: status }));
-    };
-
-    const handleMarkAll = (status: AttendanceStatus) => {
-        const newRecords = studentsInClass.reduce((acc, student) => {
-            if (!currentRecords[student.id]?.includes('_locked')) {
-                acc[student.id] = status;
-            } else {
-                acc[student.id] = currentRecords[student.id];
-            }
-            return acc;
-        }, {} as { [studentId: string]: AttendanceStatus });
-        setCurrentRecords(newRecords);
-    };
-
-    const handleSave = async () => {
-        setIsLoading(true);
-        try {
-            await onSaveClassAttendance(selectedClassId, selectedDate, currentRecords);
-            alert(`Attendance for ${selectedDate} saved successfully!`);
-        } catch (err) {
-            alert(`Failed to save attendance: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    const summary = useMemo(() => {
-        const present = Object.values(currentRecords).filter(s => s.startsWith('present')).length;
-        const absent = Object.values(currentRecords).filter(s => s.startsWith('absent')).length;
-        return { total: studentsInClass.length, present, absent };
-    }, [currentRecords, studentsInClass]);
-
-    return (
-        <SectionCard title="Attendance Tracking">
-            <div className="flex flex-col md:flex-row gap-4 mb-6 pb-6 border-b border-border-primary">
-                <div className="flex-1">
-                    <label htmlFor="teacher-attendance-class" className="block text-sm font-medium mb-1.5">Select Class</label>
-                    <SelectInput id="teacher-attendance-class" name="teacher-attendance-class" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} disabled={isLoading}>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </SelectInput>
-                </div>
-                <div className="flex-1">
-                    <label htmlFor="teacher-attendance-date" className="block text-sm font-medium mb-1.5">Select Date</label>
-                    <TextInput type="date" id="teacher-attendance-date" name="teacher-attendance-date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} disabled={isLoading} />
-                </div>
-                <div className="flex-1">
-                     <label className="block text-sm font-medium mb-1.5">View Reports</label>
-                     <button className="btn-secondary w-full">Generate Report</button>
-                </div>
-            </div>
-             <div className="bg-bg-primary p-4 rounded-xl mb-4 flex flex-wrap justify-between items-center gap-4">
-                <div className="flex gap-4 font-medium">
-                    <span>Total: {summary.total}</span>
-                    <span className="text-green-600">Present: {summary.present}</span>
-                    <span className="text-red-600">Absent: {summary.absent}</span>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={() => handleMarkAll('present')} className="text-sm bg-green-100 text-green-700 font-semibold px-3 py-1.5 rounded-lg" disabled={isLoading}>Mark All Present</button>
-                    <button onClick={() => handleMarkAll('absent')} className="text-sm bg-red-100 text-red-700 font-semibold px-3 py-1.5 rounded-lg" disabled={isLoading}>Mark All Absent</button>
-                </div>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                {studentsInClass.length > 0 ? studentsInClass.map(student => {
-                    const status = currentRecords[student.id];
-                    const isLocked = status?.includes('_locked');
-                    const isSuggested = status === 'present_suggested';
-                    
-                    let presentBtnClass = 'btn-secondary';
-                    if (status?.startsWith('present')) presentBtnClass = 'bg-green-600 text-white';
-                    if (isSuggested) presentBtnClass = 'bg-yellow-400 text-black animate-pulse';
-
-                    let absentBtnClass = 'btn-secondary';
-                    if (status?.startsWith('absent')) absentBtnClass = 'bg-red-600 text-white';
-
-                    return (
-                        <div key={student.id} className={`flex items-center justify-between p-3 rounded-xl ${isLocked ? 'bg-gray-200 dark:bg-slate-700/50' : 'bg-bg-primary'}`}>
-                            <div>
-                                <p className="font-semibold">{student.name}</p>
-                                <p className="text-xs text-text-secondary">Roll: {student.roll || 'N/A'}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {isLocked && <span className="text-xs font-bold text-text-secondary">LOCKED</span>}
-                                {isSuggested && <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400">ADMIN SUGGESTION</span>}
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleStatusChange(student.id, 'present')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${presentBtnClass}`} disabled={isLoading || isLocked}>{isSuggested ? 'Confirm' : 'P'}</button>
-                                    <button onClick={() => handleStatusChange(student.id, 'absent')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${absentBtnClass}`} disabled={isLoading || isLocked}>A</button>
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div className="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={onClose}></div>
+                <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                <div className={`inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle w-full ${sizeClasses[size]}`}>
+                    <div className="bg-bg-secondary px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div className="sm:flex sm:items-start">
+                            <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                <h3 className="text-lg leading-6 font-medium text-text-primary" id="modal-title">{title}</h3>
+                                {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mt-3" role="alert">{error}</div>}
+                                <div className="mt-4">
+                                    {children}
                                 </div>
                             </div>
                         </div>
-                    );
-                }) : <p className="text-center text-text-secondary p-4">No students in this class.</p>}
-            </div>
-             <div className="flex justify-end mt-6">
-                <button onClick={handleSave} className="btn-primary" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save Attendance"}</button>
-            </div>
-        </SectionCard>
-    );
-};
-
-const TeacherChatPage = ({ user, classes, students, facultyProfile }: { user: User; classes: Class[]; students: Student[]; facultyProfile: Faculty | undefined; }) => {
-    const teacherClasses = useMemo(() => {
-        if (!facultyProfile) return [];
-        return classes.filter(c => c.branch === facultyProfile.department);
-    }, [classes, facultyProfile]);
-
-    const [selectedChat, setSelectedChat] = useState<{ type: 'class' | 'student'; id: string; name: string; } | null>(null);
-    const [message, setMessage] = useState('');
-    
-    return (
-        <SectionCard title="Campus Chat" className="flex flex-col md:flex-row gap-0 p-0 overflow-hidden h-[80vh]">
-            <div className="w-full md:w-1/3 border-r border-border-primary flex flex-col">
-                <h4 className="p-4 font-bold border-b border-border-primary text-lg">Conversations</h4>
-                <div className="flex-grow overflow-y-auto">
-                    {teacherClasses.map(c => (
-                        <div key={c.id}>
-                            <div onClick={() => setSelectedChat({ type: 'class', id: c.id, name: `${c.name} Group`})} className={`p-4 cursor-pointer font-semibold border-b border-border-primary/50 ${selectedChat?.id === c.id && selectedChat.type === 'class' ? 'bg-blue-100 dark:bg-slate-700' : 'hover:bg-bg-primary'}`}>{c.name} (Group)</div>
-                            {students.filter(s => s.classId === c.id).map(s => (
-                                <div key={s.id} onClick={() => setSelectedChat({ type: 'student', id: s.id, name: s.name})} className={`pl-8 p-3 text-sm cursor-pointer border-b border-border-primary/50 ${selectedChat?.id === s.id && selectedChat.type === 'student' ? 'bg-blue-100 dark:bg-slate-700' : 'hover:bg-bg-primary'}`}>{s.name}</div>
-                            ))}
-                        </div>
-                    ))}
+                    </div>
                 </div>
             </div>
-            <div className="w-full md:w-2/3 flex flex-col">
-                {selectedChat ? (
-                    <>
-                        <div className="p-4 border-b border-border-primary font-bold text-lg">{selectedChat.name}</div>
-                        <div className="flex-grow p-6">
-                            <p className="text-center text-text-secondary">No messages yet.</p>
-                        </div>
-                        <div className="p-4 border-t border-border-primary bg-bg-primary">
-                             <form className="flex items-center gap-3">
-                                <label htmlFor="chat-message" className="sr-only">Type your message</label>
-                                <TextInput name="chat-message" id="chat-message" value={message} onChange={e => setMessage(e.target.value)} placeholder="Type your message..." />
-                                <button type="submit" className="btn-primary p-3"><SendIcon /></button>
-                            </form>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex-grow flex items-center justify-center text-text-secondary">Select a class or student to start chatting.</div>
-                )}
-            </div>
-        </SectionCard>
+        </div>
     );
 };
 
-// --- END: NEW TEACHER FEATURE PAGES ---
+export const FormField = ({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) => (
+    <div>
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
+        {children}
+    </div>
+);
+
+export const TextInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <input {...props} className={`input-base ${props.className || ''}`} />
+);
+
+export const SelectInput = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
+    <select {...props} className={`input-base ${props.className || ''}`}>
+        {props.children}
+    </select>
+);
+
+export const SearchInput = ({ value, onChange, placeholder, label, id }: { value: string; onChange: (value: string) => void; placeholder?: string; label: string; id: string }) => (
+    <div className="relative">
+        <label htmlFor={id} className="sr-only">{label}</label>
+        <input
+            id={id}
+            type="search"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder || "Search..."}
+            className="w-full pl-10 pr-4 py-2 border border-border-primary rounded-md bg-bg-primary focus:ring-accent-primary focus:border-accent-primary"
+        />
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+        </div>
+    </div>
+);
+
+export const ErrorDisplay = ({ message }: { message: string | null }) => {
+    if (!message) return null;
+    return (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative my-4" role="alert">
+            <strong className="font-bold">Error: </strong>
+            <span className="block sm:inline">{message}</span>
+        </div>
+    );
+};
+
+export const FeedbackBanner = ({ feedback, onDismiss }: { feedback: { type: 'success' | 'error', message: string } | null, onDismiss: () => void }) => {
+    if (!feedback) return null;
+    const isSuccess = feedback.type === 'success';
+    const baseClasses = 'fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg flex items-center gap-3';
+    const colorClasses = isSuccess
+        ? 'bg-green-100 dark:bg-green-900/50 border border-green-400 dark:border-green-600 text-green-800 dark:text-green-200'
+        : 'bg-red-100 dark:bg-red-900/50 border border-red-400 dark:border-red-600 text-red-800 dark:text-red-200';
+
+    return (
+        <div className={`${baseClasses} ${colorClasses}`}>
+            <span>{feedback.message}</span>
+            <button onClick={onDismiss} className="text-xl font-bold">&times;</button>
+        </div>
+    );
+};
+// --- END: SHARED UI COMPONENTS ---
 
 const FullScreenLoader = ({ message }: { message: string }) => (
     <div className="fixed inset-0 bg-bg-primary flex flex-col items-center justify-center z-50">
@@ -418,37 +128,13 @@ const FullScreenLoader = ({ message }: { message: string }) => (
     </div>
 );
 
-const fetchWithAuth = async (url: string, options: RequestInit = {}, token: string | null) => {
-    const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    const response = await fetch(url, { ...options, headers });
+// --- START: REFACTORED LAYOUT COMPONENTS ---
 
-    if (response.status === 401 || response.status === 403) {
-        sessionStorage.clear();
-        window.location.hash = '/login';
-        throw new Error('Session expired. Please log in again.');
-    }
-    return response;
-};
-
-const handleApiError = async (response: Response) => {
-    let errorMsg = `Server responded with status: ${response.status}`;
-    try {
-        const errorData = await response.json();
-        errorMsg = errorData.message || 'The server returned an unspecified error.';
-    } catch {}
-    throw new Error(errorMsg);
-};
-
-// --- START: NEW LAYOUT COMPONENTS ---
-
-// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
-const NavItem: React.FC<{ to: string; icon: React.ReactNode; label: string; }> = ({ to, icon, label }) => (
+const NavItem: React.FC<{ to: string; icon: React.ReactNode; label: string; }> = React.memo(({ to, icon, label }) => (
     <NavLink
         to={to}
         end={to === '/'}
-        className={({ isActive }: { isActive: boolean }) =>
+        className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
                 isActive
                     ? 'bg-accent-primary text-accent-text'
@@ -459,9 +145,12 @@ const NavItem: React.FC<{ to: string; icon: React.ReactNode; label: string; }> =
         {icon}
         <span className="flex-1">{label}</span>
     </NavLink>
-);
+));
 
-const Sidebar = ({ user, onLogout, theme, toggleTheme }: { user: User; onLogout: () => void; theme: string; toggleTheme: () => void; }) => {
+const Sidebar = React.memo(() => {
+    const { user, logout, theme, toggleTheme } = useAppContext();
+    if (!user) return null;
+
     const adminNavLinks = [
         { to: '/', icon: <HomeIcon className="h-5 w-5" />, label: 'Dashboard' },
         { to: '/scheduler', icon: <SchedulerIcon className="h-5 w-5" />, label: 'Timetable Scheduler' },
@@ -497,332 +186,162 @@ const Sidebar = ({ user, onLogout, theme, toggleTheme }: { user: User; onLogout:
             </nav>
             <div className="mt-auto pt-4 border-t border-border-primary flex items-center justify-between">
                  <button onClick={toggleTheme} className="btn-secondary p-2.5">{theme === 'dark' ? <SunIcon /> : <MoonIcon />}</button>
-                 <button onClick={onLogout} className="btn-secondary flex items-center gap-2"><LogoutIcon /> Logout</button>
+                 <button onClick={logout} className="btn-secondary flex items-center gap-2"><LogoutIcon /> Logout</button>
             </div>
         </aside>
     );
-};
+});
 
-// FIX: Made 'children' prop optional and provided a default value to fix TypeScript error.
-const AppLayout = ({ user, onLogout, theme, toggleTheme, children = null }: { user: User; onLogout: () => void; theme: string; toggleTheme: () => void; children?: React.ReactNode; }) => {
+const AppLayout = ({ children }: { children: React.ReactNode }) => {
     return (
         <div className="flex h-screen">
-            <Sidebar user={user} onLogout={onLogout} theme={theme} toggleTheme={toggleTheme} />
+            <Sidebar />
             <main className="flex-1 overflow-y-auto p-8">
                 {children}
             </main>
         </div>
     );
 };
-// --- END: NEW LAYOUT COMPONENTS ---
-
-// --- START: MODIFIED TEACHER DASHBOARD ---
-const TeacherDashboardLayout = (props: {
-    user: User;
-    faculty: Faculty[];
-}) => {
-    const { user, faculty } = props;
-
-    const facultyProfile = useMemo(() => faculty.find(f => f.id === user.profileId), [faculty, user.profileId]);
-
-    if (!facultyProfile) {
-        return <div className="p-8">Could not find teacher profile.</div>;
-    }
-    const subtitle = `Welcome back, ${facultyProfile.name} | ${facultyProfile.department} Department`;
-    
-    return (
-        <div>
-            <div className="mb-8">
-                <h1 className="text-4xl font-extrabold">Teacher Portal</h1>
-                <p className="text-text-secondary mt-2 text-lg">{subtitle}</p>
-            </div>
-            <Outlet />
-        </div>
-    );
-};
-
-// --- END: MODIFIED TEACHER DASHBOARD ---
+// --- END: REFACTORED LAYOUT COMPONENTS ---
 
 
-export const App = () => {
-    const [user, setUser] = useState<User | null>(() => { try { const u = sessionStorage.getItem('user'); return u ? JSON.parse(u) : null; } catch { return null; } });
-    const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('token'));
-    const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');
-    const [appState, setAppState] = useState<'loading' | 'ready' | 'error'>('loading');
+const AuthenticatedApp = () => {
+    // FIX: Destructured all necessary data and handlers from context to pass down as props.
+    const { 
+        user, appState, classes, faculty, subjects, rooms, students, users, 
+        constraints, timetable, attendance, token, handleSaveEntity, handleDeleteEntity, 
+        handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance, 
+        handleSaveUser, handleDeleteUser, handleResetData 
+    } = useAppContext();
 
-    const [classes, setClasses] = useState<Class[]>([]);
-    const [faculty, setFaculty] = useState<Faculty[]>([]);
-    const [subjects, setSubjects] = useState<Subject[]>([]);
-    const [rooms, setRooms] = useState<Room[]>([]);
-    const [students, setStudents] = useState<Student[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [constraints, setConstraints] = useState<Constraints | null>(null);
-    const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
-    const [attendance, setAttendance] = useState<Attendance>({});
-    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-    
     useEffect(() => {
-        const fetchData = async () => {
-            if (!token) { setAppState('ready'); return; }
-            try {
-                const response = await fetchWithAuth(`${API_BASE_URL}/all-data`, {}, token);
-                if (!response.ok) await handleApiError(response);
-                const data = await response.json();
-                setClasses(data.classes || []);
-                setFaculty(data.faculty || []);
-                setSubjects(data.subjects || []);
-                setRooms(data.rooms || []);
-                setStudents(data.students || []);
-                setConstraints(data.constraints || null);
-                setTimetable(data.timetable || []);
-                setAttendance(data.attendance || {});
-                setChatMessages(data.chatMessages || []);
-                if (data.users) setUsers(data.users);
-            } catch (error) {
-                console.error("Failed to fetch initial data:", error);
-            } finally {
-                setAppState('ready');
-            }
-        };
-        fetchData();
-    }, [token]);
-
-    useEffect(() => { document.documentElement.classList.toggle('dark', theme === 'dark'); localStorage.setItem('app_theme', theme); }, [theme]);
-    const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
-
-    const handleLogin = (loggedInUser: User, authToken: string) => {
-        setUser(loggedInUser);
-        setToken(authToken);
-        sessionStorage.setItem('user', JSON.stringify(loggedInUser));
-        sessionStorage.setItem('token', authToken);
-        setAppState('loading');
-    };
-
-    const handleLogout = () => {
-        setUser(null); setToken(null); setUsers([]); sessionStorage.clear();
-    };
-
-    const handleSaveEntity = async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => {
-        const isAdding = !data.id;
-        const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;
-        const method = isAdding ? 'POST' : 'PUT';
-        
-        const payload = { ...data };
-        if (isAdding) {
-            delete payload.id;
-        }
-
-        const response = await fetchWithAuth(url, { method, body: JSON.stringify(payload) }, token);
-        if (!response.ok) await handleApiError(response);
-        const savedItem = await response.json();
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type] as React.Dispatch<React.SetStateAction<any[]>>;
-        setter(prev => isAdding ? [...prev, savedItem] : prev.map(item => item.id === savedItem.id ? savedItem : item));
-    };
-
-    const handleDeleteEntity = async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => {
-        const response = await fetchWithAuth(`${API_BASE_URL}/${type}/${id}`, { method: 'DELETE' }, token);
-        if (!response.ok) await handleApiError(response);
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type] as React.Dispatch<React.SetStateAction<any[]>>;
-        setter(prev => prev.filter(item => item.id !== id));
-    };
-    
-    const handleUpdateConstraints = async (newConstraints: Constraints) => {
-        setConstraints(newConstraints);
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/constraints`, { method: 'PUT', body: JSON.stringify(newConstraints) }, token);
-            if (!response.ok) await handleApiError(response);
-        } catch (error) {
-            console.error("Failed to save constraints:", error);
-        }
-    };
-    
-    const handleSaveTimetable = async (newTimetable: TimetableEntry[]) => {
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/timetable`, { method: 'POST', body: JSON.stringify(newTimetable) }, token);
-            if (!response.ok) await handleApiError(response);
-            setTimetable(newTimetable);
-        } catch (error) {
-            console.error("Failed to save timetable:", error);
-            throw error;
-        }
-    };
-
-    const handleUpdateAttendance = async (classId: string, date: string, studentId: string, status: AttendanceStatus) => {
-        setAttendance(prev => ({ ...prev, [classId]: { ...(prev[classId] || {}), [date]: { ...((prev[classId] && prev[classId][date]) || {}), [studentId]: status } } }));
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/attendance`, { method: 'PUT', body: JSON.stringify({ classId, date, studentId, status }) }, token);
-            if (!response.ok) await handleApiError(response);
-        } catch (error) { console.error("Failed to update attendance:", error); }
-    };
-
-    const handleSaveClassAttendance = async (classId: string, date: string, records: { [studentId: string]: AttendanceStatus }) => {
-        setAttendance(prev => {
-            const newAttendance = { ...prev };
-            if (!newAttendance[classId]) newAttendance[classId] = {};
-            newAttendance[classId][date] = records;
-            return newAttendance;
-        });
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/attendance/class`, { method: 'PUT', body: JSON.stringify({ classId, date, records }) }, token);
-            if (!response.ok) await handleApiError(response);
-        } catch (error) { console.error("Failed to save class attendance:", error); }
-    };
-
-    const handleSendMessage = async (messageText: string, classId: string) => {
-        if (!user) return;
-        const userMessage: ChatMessage = {
-            id: `user-msg-${Date.now()}`,
-            channel: 'query',
-            author: user.username,
-            role: user.role,
-            text: messageText,
-            timestamp: Date.now(),
-            classId: classId,
-        };
-        setChatMessages(prev => [...prev, userMessage]);
-
-        try {
-            const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {
-                method: 'POST',
-                body: JSON.stringify({ messageText, classId })
-            }, token);
-            if (!response.ok) throw await handleApiError(response);
-            const aiMessage = await response.json();
-            setChatMessages(prev => [...prev, aiMessage]);
-        } catch (error) {
-            console.error("Failed to send message:", error);
-            const errorMessage: ChatMessage = {
-                id: `err-msg-${Date.now()}`,
-                channel: 'query',
-                author: 'System',
-                role: 'admin',
-                text: "Sorry, I couldn't connect to the AI assistant. Please try again later.",
-                timestamp: Date.now(),
-                classId: classId,
-            };
-            setChatMessages(prev => [...prev.slice(0, -1), errorMessage]);
-        }
-    };
-    
-    const handleResetData = async () => {
-        setAppState('loading');
-        try {
-            await fetchWithAuth(`${API_BASE_URL}/reset-data`, { method: 'POST' }, token);
-            const response = await fetchWithAuth(`${API_BASE_URL}/all-data`, {}, token);
-            if (!response.ok) await handleApiError(response);
-            const data = await response.json();
-            setClasses(data.classes || []); setFaculty(data.faculty || []); setSubjects(data.subjects || []);
-            setRooms(data.rooms || []); setStudents(data.students || []); setConstraints(data.constraints || null);
-            setTimetable(data.timetable || []); setAttendance(data.attendance || {});
-            if (data.users) setUsers(data.users);
-        } finally {
-            setAppState('ready');
-        }
-    };
-    
-    const handleSaveUser = async (userData: any) => {
-      const isAdding = !userData._id;
-      const url = isAdding ? `${API_BASE_URL}/users` : `${API_BASE_URL}/users/${userData._id}`;
-      const method = isAdding ? 'POST' : 'PUT';
-
-      const bodyData = { ...userData };
-      if (!isAdding) delete bodyData._id;
-
-      const response = await fetchWithAuth(url, { method, body: JSON.stringify(bodyData) }, token);
-      if (!response.ok) await handleApiError(response);
-      const savedUser = await response.json();
-      setUsers(prev => isAdding ? [...prev, savedUser] : prev.map(u => u._id === savedUser._id ? savedUser : u));
-    };
-    const handleDeleteUser = async (userId: string) => {
-      const response = await fetchWithAuth(`${API_BASE_URL}/users/${userId}`, { method: 'DELETE' }, token);
-      if (!response.ok) await handleApiError(response);
-      setUsers(prev => prev.filter(u => u._id !== userId));
-    };
+        // This effect can be used for any actions needed after user is authenticated
+        // and initial data is loaded.
+    }, [appState]);
 
     if (appState === 'loading') {
         return <FullScreenLoader message="Loading Campus Data..." />;
     }
 
-    if (!user) {
+    if (!user) return <Navigate to="/login" />;
+
+    // --- STUDENT ROUTING ---
+    if (user.role === 'student') {
         return (
-            <HashRouter>
-                <Routes>
-                    <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-                    <Route path="*" element={<Navigate to="/login" />} />
-                </Routes>
-            </HashRouter>
+             <Routes>
+                <Route path="/login" element={<Navigate to="/" />} />
+                <Route path="*" element={<Dashboard />} />
+            </Routes>
         );
     }
     
-    if (user.role === 'student') {
-        const studentDashboardProps = {
-            user, onLogout: handleLogout, theme, toggleTheme,
-            classes, faculty, subjects, students, users,
-            constraints, timetable, attendance, token,
-            onUpdateAttendance: handleUpdateAttendance,
-            chatMessages, onSendMessage: handleSendMessage
-        };
-        return (
-            <HashRouter>
-                <Routes>
-                    <Route path="/login" element={<Navigate to="/" />} />
-                    <Route path="*" element={<Dashboard {...studentDashboardProps} />} />
-                </Routes>
-            </HashRouter>
-        );
-    }
-
-    const teacherDashboardProps = {
-        user: user, 
-        faculty: faculty, 
-    };
-
+    // --- ADMIN & TEACHER ROUTING ---
     return (
-        <HashRouter>
-            <AppLayout user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme}>
-                <Routes>
+        <AppLayout>
+            <Suspense fallback={<FullScreenLoader message="Loading Module..." />}>
+                 <Routes>
                     {user.role === 'admin' && (
                         <>
-                            <Route
-                                path="/scheduler"
-                                element={
-                                    <TimetableScheduler
-                                        classes={classes} faculty={faculty} subjects={subjects} rooms={rooms} students={students}
-                                        constraints={constraints} setConstraints={handleUpdateConstraints}
-                                        onSaveEntity={handleSaveEntity} onDeleteEntity={handleDeleteEntity} onResetData={handleResetData}
-                                        token={token || ''} onSaveTimetable={handleSaveTimetable}
-                                    />
-                                }
-                            />
-                            <Route
-                                path="/smart-classroom"
-                                element={
-                                    <SmartClassroom
-                                        user={user} classes={classes} faculty={faculty} students={students} users={users} attendance={attendance}
-                                        onSaveEntity={handleSaveEntity} onDeleteEntity={handleDeleteEntity}
-                                        onSaveUser={handleSaveUser} onDeleteUser={handleDeleteUser}
-                                        onSaveClassAttendance={handleSaveClassAttendance}
-                                    />
-                                }
-                            />
+                            {/* FIX: Passed all required props to TimetableScheduler. */}
+                            <Route path="/scheduler" element={<TimetableScheduler 
+                                classes={classes}
+                                faculty={faculty}
+                                subjects={subjects}
+                                rooms={rooms}
+                                students={students}
+                                constraints={constraints}
+                                setConstraints={handleUpdateConstraints}
+                                onSaveEntity={handleSaveEntity}
+                                onDeleteEntity={handleDeleteEntity}
+                                onResetData={handleResetData}
+                                token={token || ''}
+                                onSaveTimetable={handleSaveTimetable}
+                            />} />
+                            {/* FIX: Passed all required props to SmartClassroom. */}
+                            <Route path="/smart-classroom" element={<SmartClassroom 
+                                user={user}
+                                classes={classes}
+                                faculty={faculty}
+                                students={students}
+                                users={users}
+                                attendance={attendance}
+                                onSaveEntity={handleSaveEntity}
+                                onDeleteEntity={handleDeleteEntity}
+                                onSaveUser={handleSaveUser}
+                                onDeleteUser={handleDeleteUser}
+                                onSaveClassAttendance={handleSaveClassAttendance}
+                            />} />
+                            {/* FIX: Passed user prop to ModuleSelectionPage. */}
                             <Route path="/" element={<ModuleSelectionPage user={user} />} />
                         </>
                     )}
                     {user.role === 'teacher' && (
-                        <Route path="/" element={<TeacherDashboardLayout {...teacherDashboardProps} />}>
-                             <Route index element={<TimetableGrid timetable={timetable} role="teacher" constraints={constraints} />} />
-                             <Route path="attendance" element={<TeacherAttendancePage classes={classes} students={students} attendance={attendance} onSaveClassAttendance={handleSaveClassAttendance} />} />
+                        <Route path="/" element={<TeacherDashboardLayout />}>
+                             {/* FIX: Passed timetable and constraints props to TimetableGrid. */}
+                             <Route index element={<TimetableGrid timetable={timetable} constraints={constraints} role="teacher" />} />
+                             <Route path="attendance" element={<TeacherAttendancePage />} />
                              <Route path="ims" element={<IMSPage />} />
                              <Route path="smart-tools" element={<SmartToolsPage />} />
-                             <Route path="availability" element={<AvailabilityPage facultyProfile={faculty.find(f => f.id === user.profileId)!} constraints={constraints} onUpdateConstraints={handleUpdateConstraints} />} />
+                             <Route path="availability" element={<AvailabilityPage />} />
                              <Route path="requests" element={<RequestsPage />} />
                              <Route path="notifications" element={<NotificationsPage />} />
-                             <Route path="chat" element={<TeacherChatPage user={user} classes={classes} students={students} facultyProfile={faculty.find(f => f.id === user.profileId)} />} />
+                             <Route path="chat" element={<TeacherChatPage />} />
                         </Route>
                     )}
                     <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
-            </AppLayout>
-        </HashRouter>
+            </Suspense>
+        </AppLayout>
     );
+};
+
+const AppRoutes = () => {
+    const { user, token, appState } = useAppContext();
+    const [authChecked, setAuthChecked] = useState(false);
+
+    useEffect(() => {
+        // This ensures we don't flash the login page while checking session storage.
+        if (appState !== 'loading') {
+            setAuthChecked(true);
+        }
+    }, [appState]);
+
+    if (!authChecked) {
+        return <FullScreenLoader message="Initializing..." />;
+    }
+    
+    return (
+        <Routes>
+            {!user || !token ? (
+                 <>
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="*" element={<Navigate to="/login" />} />
+                </>
+            ) : (
+                <Route path="*" element={<AuthenticatedApp />} />
+            )}
+        </Routes>
+    );
+}
+
+
+export const App = () => {
+    return (
+      <AppProvider>
+        <HashRouter>
+            <ThemedApp />
+        </HashRouter>
+      </AppProvider>
+    );
+};
+
+const ThemedApp = () => {
+    const { theme } = useAppContext();
+    useEffect(() => {
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(theme);
+      localStorage.setItem('app_theme', theme);
+    }, [theme]);
+
+    return <AppRoutes />;
 };

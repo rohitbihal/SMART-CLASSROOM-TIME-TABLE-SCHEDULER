@@ -1,6 +1,6 @@
 // To run this server:
 // 1. In your project directory, run 'npm init -y'
-// 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken bcrypt'
+// 2. Run 'npm install express mongoose cors dotenv @google/genai jsonwebtoken bcrypt express-rate-limit express-validator'
 // 3. Create a '.env' file in the same directory.
 // 4. Add your MongoDB connection string, Gemini API key, and a JWT Secret to the .env file:
 //    MONGO_URI=YOUR_MONGODB_CONNECTION_STRING
@@ -18,6 +18,8 @@ import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { GoogleGenAI, Type } from "@google/genai";
+import { rateLimit } from 'express-rate-limit';
+import { body, validationResult } from 'express-validator';
 
 dotenv.config();
 
@@ -43,6 +45,16 @@ if (!process.env.API_KEY) {
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// --- Security Middleware ---
+const apiLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	limit: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
+	standardHeaders: 'draft-7',
+	legacyHeaders: false,
+    message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+app.use('/api/', apiLimiter);
 
 // Serve static files from the 'dist' directory
 app.use(express.static(path.join(__dirname, 'dist')));
@@ -190,8 +202,6 @@ async function seedDatabase() {
 
 mongoose.connect(process.env.MONGO_URI).then(async () => {
     console.log('MongoDB connected successfully.');
-    // The seedDatabase function is idempotent, so it's safe to run on every startup.
-    // It will only add documents if they don't already exist.
     console.log("Ensuring database has initial seed data...");
     await seedDatabase();
 }).catch(err => {
@@ -273,15 +283,44 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
     } catch (error) { handleApiError(res, error, 'fetching all data'); }
 });
 
+// --- Validation Middleware ---
+const validate = (req, res, next) => {
+    const errors = validationResult(req);
+    if (errors.isEmpty()) {
+        return next();
+    }
+    const extractedErrors = [];
+    errors.array().map(err => extractedErrors.push({ [err.path]: err.msg }));
+
+    return res.status(422).json({
+        message: 'Validation failed',
+        errors: extractedErrors,
+    });
+};
+
+const userValidationRules = [
+    body('username').isEmail().normalizeEmail().withMessage('Please enter a valid email address.'),
+    body('password').if(body('password').exists({checkFalsy: true})).isLength({ min: 8 }).withMessage('Password must be at least 8 characters long.')
+      .matches(/\d/).withMessage('Password must contain a number.')
+      .matches(/[a-z]/).withMessage('Password must contain a lowercase letter.')
+      .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter.'),
+    body('role').isIn(['teacher', 'student']).withMessage('Invalid role specified.'),
+    body('profileId').notEmpty().withMessage('A profile must be linked.')
+];
+const studentValidationRules = [
+    body('name').trim().escape().notEmpty().withMessage('Student name is required.'),
+    body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Please enter a valid email.'),
+    body('classId').notEmpty().withMessage('Class ID is required.'),
+];
+
 // --- Entity CRUD ---
-const createRouterFor = (type) => {
+const createRouterFor = (type, validationRules = []) => {
     const router = express.Router();
     const Model = collections[type];
-    router.post('/', async (req, res) => {
+    router.post('/', ...validationRules, validate, async (req, res) => {
         try {
             const doc = { ...req.body };
             if (!doc.id) {
-                // Generate a unique ID if one isn't provided by the client
                 doc.id = new mongoose.Types.ObjectId().toString();
             }
             const newItem = new Model(doc);
@@ -291,7 +330,7 @@ const createRouterFor = (type) => {
             handleApiError(res, e, `${type} creation`);
         }
     });
-    router.put('/:id', async (req, res) => { try { const updated = await Model.findOneAndUpdate({ id: req.params.id }, req.body, { new: true, runValidators: true }); if (!updated) return res.status(404).json({ message: 'Not found' }); res.json(updated); } catch (e) { handleApiError(res, e, `${type} update`); } });
+    router.put('/:id', ...validationRules, validate, async (req, res) => { try { const updated = await Model.findOneAndUpdate({ id: req.params.id }, req.body, { new: true, runValidators: true }); if (!updated) return res.status(404).json({ message: 'Not found' }); res.json(updated); } catch (e) { handleApiError(res, e, `${type} update`); } });
     router.delete('/:id', async (req, res) => { try { const deleted = await Model.findOneAndDelete({ id: req.params.id }); if (!deleted) return res.status(404).json({ message: 'Not found' }); res.status(204).send(); } catch (e) { handleApiError(res, e, `${type} deletion`); } });
     return router;
 };
@@ -299,12 +338,80 @@ app.use('/api/class', authMiddleware, adminOnly, createRouterFor('class'));
 app.use('/api/faculty', authMiddleware, adminOnly, createRouterFor('faculty'));
 app.use('/api/subject', authMiddleware, adminOnly, createRouterFor('subject'));
 app.use('/api/room', authMiddleware, adminOnly, createRouterFor('room'));
-app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student'));
+app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student', studentValidationRules));
+
+// --- NEW: PAGINATED ENDPOINTS ---
+app.get('/api/paginated/students', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { classId, page = 1, limit = 10, search = '' } = req.query;
+        const query = { classId };
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { roll: { $regex: search, $options: 'i' } },
+            ];
+        }
+
+        const options = {
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10),
+            lean: true,
+            sort: { name: 1 }
+        };
+
+        // This requires mongoose-paginate-v2, which is not in the user's package.json
+        // I will implement manual pagination to avoid adding a new large dependency.
+        const skip = (options.page - 1) * options.limit;
+        const totalDocs = await Student.countDocuments(query);
+        const docs = await Student.find(query).sort(options.sort).skip(skip).limit(options.limit).lean();
+        
+        const totalPages = Math.ceil(totalDocs / options.limit);
+
+        res.json({
+            docs, totalDocs, limit: options.limit, totalPages, page: options.page,
+            hasNextPage: options.page < totalPages, hasPrevPage: options.page > 1
+        });
+        
+    } catch (e) {
+        handleApiError(res, e, 'paginated student fetch');
+    }
+});
+
+app.get('/api/paginated/users', authMiddleware, adminOnly, async (req, res) => {
+    try {
+        const { role, page = 1, limit = 10, search = '' } = req.query;
+        const query = { role };
+        if (search) {
+            // This is more complex as we need to search by profile name
+            const profileModel = role === 'teacher' ? Faculty : Student;
+            const matchingProfiles = await profileModel.find({ name: { $regex: search, $options: 'i' } }).select('id').lean();
+            const profileIds = matchingProfiles.map(p => p.id);
+            query.$or = [
+                { username: { $regex: search, $options: 'i' } },
+                { profileId: { $in: profileIds } }
+            ];
+        }
+
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const totalDocs = await User.countDocuments(query);
+        const docs = await User.find(query).sort({ username: 1 }).skip(skip).limit(parseInt(limit, 10)).lean();
+        
+        const totalPages = Math.ceil(totalDocs / parseInt(limit, 10));
+
+        res.json({
+            docs, totalDocs, limit: parseInt(limit, 10), totalPages, page: parseInt(page, 10),
+            hasNextPage: parseInt(page, 10) < totalPages, hasPrevPage: parseInt(page, 10) > 1
+        });
+
+    } catch (e) {
+        handleApiError(res, e, 'paginated user fetch');
+    }
+});
 
 // --- User Management ---
-app.get('/api/users', authMiddleware, adminOnly, async (req, res) => { try { res.json(await User.find({ role: { $ne: 'admin' } })); } catch (e) { handleApiError(res, e, 'fetching users'); } });
-app.post('/api/users', authMiddleware, adminOnly, async (req, res) => { try { const { username, password, role, profileId } = req.body; const hashedPassword = await bcrypt.hash(password, saltRounds); const newUser = new User({ username, password: hashedPassword, role, profileId }); await newUser.save(); res.status(201).json(newUser); } catch (e) { handleApiError(res, e, 'user creation'); } });
-app.put('/api/users/:id', authMiddleware, adminOnly, async (req, res) => {
+app.post('/api/users', authMiddleware, adminOnly, userValidationRules, validate, async (req, res) => { try { const { username, password, role, profileId } = req.body; const hashedPassword = await bcrypt.hash(password, saltRounds); const newUser = new User({ username, password: hashedPassword, role, profileId }); await newUser.save(); res.status(201).json(newUser); } catch (e) { handleApiError(res, e, 'user creation'); } });
+app.put('/api/users/:id', authMiddleware, adminOnly, userValidationRules, validate, async (req, res) => {
     try {
         const { username, password, role, profileId } = req.body;
         const userToUpdate = await User.findById(req.params.id);
@@ -328,7 +435,7 @@ app.put('/api/constraints', authMiddleware, adminOnly, async (req, res) => {
     try {
         const updatedConstraints = await Constraints.findOneAndUpdate(
             { identifier: 'global_constraints' },
-            { $set: req.body }, // Use $set to merge fields instead of overwriting
+            { $set: req.body }, 
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
         res.json(updatedConstraints);
@@ -408,7 +515,6 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
     const { user } = req;
 
     try {
-        // 1. Save user's message
         const userMessage = new ChatMessage({
             id: messageId,
             text: messageText,
@@ -420,7 +526,6 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
         });
         await userMessage.save();
 
-        // 2. Gather context for the AI
         const student = await Student.findOne({ id: user.profileId }).lean();
         const studentClass = await Class.findOne({ id: classId }).lean();
         if (!student || !studentClass) return res.status(404).json({ message: "Student profile not found." });
@@ -432,7 +537,6 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
             ChatMessage.find({ classId }).sort({ timestamp: -1 }).limit(5).lean()
         ]);
         
-        // 3. Generate prompt and call Gemini
         const prompt = generateChatPrompt(student, studentClass, timetable, subjects, faculty, history.reverse());
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
@@ -446,21 +550,17 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
 
         const aiResponseText = response.text;
         
-        // 4. Save AI's response
         const aiMessage = new ChatMessage({
             id: `ai-msg-${Date.now()}`,
             text: aiResponseText,
             classId: classId,
             author: 'Campus AI',
-            role: 'admin', // Representing the system
+            role: 'admin',
             channel: 'query',
             timestamp: Date.now(),
         });
         await aiMessage.save();
-
-        // 5. Send AI response back to client
         res.status(201).json(aiMessage);
-
     } catch (error) {
         handleApiError(res, error, 'AI chat processing');
     }
