@@ -48,7 +48,7 @@ const ClassForm = ({ initialData, onSave, constraints }: { initialData: Class | 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-class';
     return (
-        <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
             <FormField label="Branch" htmlFor={`${formId}-branch`}><TextInput id={`${formId}-branch`} name="branch" value={data.branch} onChange={handleChange} required /></FormField>
             <FormField label="Year" htmlFor={`${formId}-year`}><TextInput type="number" id={`${formId}-year`} name="year" value={data.year} onChange={handleChange} required min={1} /></FormField>
@@ -60,7 +60,7 @@ const ClassForm = ({ initialData, onSave, constraints }: { initialData: Class | 
                     {(constraints?.institutionDetails?.blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
                 </SelectInput>
             </FormField>
-            <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
+            <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
 };
@@ -70,13 +70,13 @@ const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onS
     const handleSave = (e: React.FormEvent) => { e.preventDefault(); onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean) }); };
     const formId = initialData?.id || 'new-faculty';
     return (
-        <form onSubmit={handleSave}>
+        <form onSubmit={handleSave} className="space-y-4">
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
             <FormField label="Email" htmlFor={`${formId}-email`}><TextInput type="email" id={`${formId}-email`} name="email" value={data.email} onChange={handleChange} required /></FormField>
             <FormField label="Contact Number (Optional)" htmlFor={`${formId}-contactNumber`}><TextInput type="tel" id={`${formId}-contactNumber`} name="contactNumber" value={data.contactNumber} onChange={handleChange} /></FormField>
             <FormField label="Department" htmlFor={`${formId}-department`}><TextInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required /></FormField>
             <FormField label="Specializations (comma-separated)" htmlFor={`${formId}-specialization`}><TextInput id={`${formId}-specialization`} name="specialization" value={data.specialization} onChange={handleChange} /></FormField>
-            <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
+            <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
 };
@@ -86,7 +86,7 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-subject';
     return (
-        <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
             <FormField label="Code" htmlFor={`${formId}-code`}><TextInput id={`${formId}-code`} name="code" value={data.code} onChange={handleChange} required /></FormField>
             <FormField label="Department" htmlFor={`${formId}-department`}>
@@ -108,7 +108,7 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
                     {faculty.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </SelectInput>
             </FormField>
-            <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
+            <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
 };
@@ -117,7 +117,7 @@ const RoomForm = ({ initialData, onSave, constraints }: { initialData: Room | nu
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-room';
     return (
-        <form onSubmit={(e) => { e.preventDefault(); onSave(data); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
             <FormField label="Number" htmlFor={`${formId}-number`}><TextInput id={`${formId}-number`} name="number" value={data.number} onChange={handleChange} required /></FormField>
             <FormField label="Type" htmlFor={`${formId}-type`}>
                 <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
@@ -132,7 +132,7 @@ const RoomForm = ({ initialData, onSave, constraints }: { initialData: Room | nu
                     {(constraints?.institutionDetails?.blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
                 </SelectInput>
             </FormField>
-            <button type="submit" className="w-full mt-4 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2"><SaveIcon />Save</button>
+            <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
 };
@@ -199,7 +199,7 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
                  <p className="text-xs text-center text-gray-400">PDF import support is coming soon.</p>
                  <p className="text-xs text-center text-gray-400 font-semibold">Note: A universal import from a single file is planned for a future update.</p>
                 <div className="flex justify-end pt-4">
-                     <button type="button" onClick={() => { alert('File processing is a placeholder and not yet implemented.'); onClose(); }} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">Process File</button>
+                     <button type="button" onClick={() => { alert('File processing is a placeholder and not yet implemented.'); onClose(); }} className="btn-primary flex items-center justify-center gap-2">Process File</button>
                 </div>
             </div>
         </Modal>
@@ -241,7 +241,7 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
             <ErrorDisplay message={pageError} />
             <SectionCard title="Institution Details" actions={
                 <div className="flex items-center gap-2">
-                    <button onClick={() => openImportModal()} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md"><UploadIcon />Import Data</button>
+                    <button onClick={() => openImportModal()} className="action-btn-secondary"><UploadIcon />Universal Import</button>
                 </div>
             }>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
@@ -669,7 +669,7 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
     return (
         <div className="space-y-6">
             <SectionCard title="Generate Timetable" actions={
-                <button onClick={onGenerate} disabled={isLoading} className="flex items-center gap-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">
+                <button onClick={onGenerate} disabled={isLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
                     {isLoading ? <><LoadingIcon className="h-5 w-5" /> Generating...</> : <><GenerateIcon /> Generate Timetable</>}
                 </button>
             }>
@@ -679,7 +679,7 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
             {generationResult && (
                 <SectionCard title="Generated Timetable Preview" actions={
                     <div className="flex gap-2">
-                         <button onClick={downloadAsExcel} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700 font-semibold px-3 py-1.5 rounded-md"><DownloadIcon />Download as Excel</button>
+                         <button onClick={downloadAsExcel} className="action-btn-secondary"><DownloadIcon />Download as Excel</button>
                          <button onClick={onSave} className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md"><SaveIcon />Save & Publish</button>
                          <button onClick={onClear} className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md"><DeleteIcon />Clear</button>
                     </div>
@@ -816,7 +816,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
                     <h1 className="text-3xl font-bold">Timetable Scheduler</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-1">AI-Powered Scheduling and Management</p>
                 </div>
-                <button onClick={handleResetData} className="bg-red-500/10 text-red-700 dark:text-red-300 font-semibold text-sm py-2 px-4 rounded-lg">Reset All Data</button>
+                <button onClick={handleResetData} className="btn-danger">Reset All Data</button>
             </header>
             <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8">
                 {tabs.map(tab => (

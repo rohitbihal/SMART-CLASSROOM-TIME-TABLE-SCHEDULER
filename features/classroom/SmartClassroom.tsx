@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon
 } from '../../components/Icons';
-import { SectionCard, Modal, FeedbackBanner } from '../../App';
+import { SectionCard, Modal, FeedbackBanner, FormField, TextInput, SelectInput } from '../../App';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types';
 
 interface SmartClassroomProps {
@@ -29,8 +29,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
                 </div>
             </div>
             <div className="flex gap-2 justify-end pt-6 mt-4 border-t dark:border-slate-700">
-                <button onClick={onClose} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
-                <button onClick={onConfirm} className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Deleting..." : confirmText}</button>
+                <button onClick={onClose} className="btn-secondary disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                <button onClick={onConfirm} className="btn-danger w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Deleting..." : confirmText}</button>
             </div>
         </Modal>
     );
@@ -46,23 +46,23 @@ const StudentForm: React.FC<{ student: Student | null; onSave: (data: Partial<St
         <form onSubmit={handleSubmit} className="space-y-4 bg-white/5 dark:bg-slate-900/50 p-4 rounded-lg my-2">
             <div>
                 <label htmlFor={`${formId}-name`} className="sr-only">Student Name</label>
-                <input id={`${formId}-name`} name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Alice Sharma" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
+                <TextInput id={`${formId}-name`} name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Alice Sharma" required disabled={isLoading} />
             </div>
             <div>
                  <label htmlFor={`${formId}-email`} className="sr-only">Student Email</label>
-                <input id={`${formId}-email`} name="email" type="email" value={formData.email} onChange={handleChange} placeholder="e.g. name@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+                <TextInput id={`${formId}-email`} name="email" type="email" value={formData.email} onChange={handleChange} placeholder="e.g. name@example.com" disabled={isLoading} />
             </div>
             <div>
                  <label htmlFor={`${formId}-roll`} className="sr-only">Roll Number</label>
-                <input id={`${formId}-roll`} name="roll" value={formData.roll} onChange={handleChange} placeholder="e.g. 23" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+                <TextInput id={`${formId}-roll`} name="roll" value={formData.roll} onChange={handleChange} placeholder="e.g. 23" disabled={isLoading} />
             </div>
             <div>
                  <label htmlFor={`${formId}-contactNumber`} className="sr-only">Contact Number</label>
-                <input id={`${formId}-contactNumber`} name="contactNumber" type="tel" value={formData.contactNumber} onChange={handleChange} placeholder="e.g. 9876543210" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+                <TextInput id={`${formId}-contactNumber`} name="contactNumber" type="tel" value={formData.contactNumber} onChange={handleChange} placeholder="e.g. 9876543210" disabled={isLoading} />
             </div>
             <div className="flex gap-2 justify-end">
-                <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
-                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save Student"}</button>
+                <button type="button" onClick={onCancel} className="btn-secondary disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                <button type="submit" className="btn-primary w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save Student"}</button>
             </div>
         </form>
     );
@@ -94,7 +94,7 @@ const StudentImportModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                 </div>
                  <p className="text-xs text-center text-gray-400">PDF import support is coming soon.</p>
                 <div className="flex justify-end pt-4">
-                     <button type="button" onClick={() => { alert('File processing is a placeholder.'); onClose(); }} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">Process File</button>
+                     <button type="button" onClick={() => { alert('File processing is a placeholder.'); onClose(); }} className="btn-primary flex items-center justify-center gap-2">Process File</button>
                 </div>
             </div>
         </Modal>
@@ -204,19 +204,19 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
                 title="Student Management"
                 actions={(
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setIsImportModalOpen(true)} disabled={isLoading} className="flex items-center gap-1 text-sm bg-gray-100 dark:bg-slate-700/50 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><UploadIcon />Import</button>
-                        <button onClick={() => setEditingStudent({ new: true })} disabled={!selectedClassId || isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add Student</button>
+                        <button onClick={() => setIsImportModalOpen(true)} disabled={isLoading} className="action-btn-secondary disabled:opacity-50"><UploadIcon />Import</button>
+                        <button onClick={() => setEditingStudent({ new: true })} disabled={!selectedClassId || isLoading} className="action-btn-primary disabled:opacity-50"><AddIcon />Add Student</button>
                     </div>
                 )}
             >
                 <div className="flex flex-col md:flex-row gap-4 mb-4">
-                    <select id="class-selector" name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                    <SelectInput id="class-selector" name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} disabled={isLoading}>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    </SelectInput>
                     <div className="relative flex-grow">
                         <label htmlFor="student-search" className="sr-only">Search students in this class</label>
                         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                        <input type="text" id="student-search" name="student-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                        <TextInput type="text" id="student-search" name="student-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="pl-10" disabled={isLoading} />
                     </div>
                 </div>
                 {(editingStudent && 'new' in editingStudent) && <StudentForm student={null} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />}
@@ -318,33 +318,29 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="bg-red-100 text-red-700 p-2 rounded">{error}</div>}
-            <div>
-                <label htmlFor="userRole" className="block text-sm font-medium mb-1">Role</label>
-                <select id="userRole" name="role" value={formData.role} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+            <FormField label="Role" htmlFor="userRole">
+                <SelectInput id="userRole" name="role" value={formData.role} onChange={handleChange} disabled={isLoading}>
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
-                </select>
-            </div>
-            <div>
-                <label htmlFor="userProfileId" className="block text-sm font-medium mb-1">Link to Profile</label>
-                <select id="userProfileId" name="profileId" value={formData.profileId} onChange={handleChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading}>
+                </SelectInput>
+            </FormField>
+            <FormField label="Link to Profile" htmlFor="userProfileId">
+                <SelectInput id="userProfileId" name="profileId" value={formData.profileId} onChange={handleChange} required disabled={isLoading}>
                     <option value="" disabled>Select a profile...</option>
                     {availableProfiles.map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
-                </select>
-            </div>
-            <div>
-                <label htmlFor="userUsername" className="block text-sm font-medium mb-1">Username (Email)</label>
-                <input id="userUsername" name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required disabled={isLoading} />
-            </div>
-            <div>
-                <label htmlFor="userPassword" className="block text-sm font-medium mb-1">{isEditing ? "New Password (optional)" : "Password"}</label>
-                <input id="userPassword" name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" required={!isEditing} disabled={isLoading} />
-            </div>
+                </SelectInput>
+            </FormField>
+            <FormField label="Username (Email)" htmlFor="userUsername">
+                <TextInput id="userUsername" name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" required disabled={isLoading} />
+            </FormField>
+            <FormField label={isEditing ? "New Password (optional)" : "Password"} htmlFor="userPassword">
+                <TextInput id="userPassword" name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} required={!isEditing} disabled={isLoading} />
+            </FormField>
             <div className="flex gap-2 justify-end pt-4">
-                <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
-                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-28 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save User"}</button>
+                <button type="button" onClick={onCancel} className="btn-secondary disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                <button type="submit" className="btn-primary w-28 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Saving..." : "Save User"}</button>
             </div>
         </form>
     );
@@ -466,7 +462,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
         <>
             <SectionCard
                 title="User Accounts"
-                actions={<button onClick={() => setEditingUser({ role: userType })} disabled={isLoading} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><AddIcon />Add {userType === 'teacher' ? 'Teacher' : 'Student'}</button>}
+                actions={<button onClick={() => setEditingUser({ role: userType })} disabled={isLoading} className="action-btn-primary disabled:opacity-50"><AddIcon />Add {userType === 'teacher' ? 'Teacher' : 'Student'}</button>}
             >
                 <div className="flex flex-col md:flex-row gap-4 mb-4">
                   <div className="bg-gray-100 dark:bg-slate-800 p-1 rounded-lg flex gap-1">
@@ -476,7 +472,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                   <div className="relative flex-grow">
                       <label htmlFor="user-search" className="sr-only">Search by name or email</label>
                       <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                      <input type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={`Search ${userType}s by name or email...`} className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md" disabled={isLoading} />
+                      <TextInput type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={`Search ${userType}s by name or email...`} className="pl-10" disabled={isLoading} />
                   </div>
                 </div>
                 {filteredUsers.length > 0 && (
@@ -532,8 +528,8 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                     <div>
                         <p className="mb-4">This will generate a new temporary password for <strong>{userToReset.username}</strong> and send it to their email. Are you sure?</p>
                         <div className="flex gap-2 justify-end pt-4">
-                            <button onClick={() => setUserToReset(null)} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
-                            <button onClick={handleGenerateCredentials} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md w-40 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Sending..." : "Confirm & Send"}</button>
+                            <button onClick={() => setUserToReset(null)} className="btn-secondary disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                            <button onClick={handleGenerateCredentials} className="btn-primary w-40 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Sending..." : "Confirm & Send"}</button>
                         </div>
                     </div>
                 )}
@@ -638,39 +634,39 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     return (
         <SectionCard
             title="My Profile"
-            actions={!isEditing && <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 text-sm bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 font-semibold px-3 py-1.5 rounded-md"><EditIcon />Edit Profile</button>}
+            actions={!isEditing && <button onClick={() => setIsEditing(true)} className="action-btn-primary"><EditIcon />Edit Profile</button>}
         >
             {isEditing ? (
                 <div className="space-y-6">
                     {formError && <div className="bg-red-100 text-red-700 p-2 rounded">{formError}</div>}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label htmlFor="profileName" className="block text-sm font-medium mb-1">Full Name</label><input id="profileName" name="name" value={profileData.name} onChange={handleChange} className="input-base" disabled={isLoading} /></div>
-                         <div><label htmlFor="profileContact" className="block text-sm font-medium mb-1">Contact Number</label><input id="profileContact" name="contactNumber" type="tel" value={profileData.contactNumber} onChange={handleChange} className="input-base" disabled={isLoading} /></div>
+                        <FormField label="Full Name" htmlFor="profileName"><TextInput id="profileName" name="name" value={profileData.name} onChange={handleChange} disabled={isLoading} /></FormField>
+                        <FormField label="Contact Number" htmlFor="profileContact"><TextInput id="profileContact" name="contactNumber" type="tel" value={profileData.contactNumber} onChange={handleChange} disabled={isLoading} /></FormField>
                         {user.role === 'admin' && (
                             <>
-                                <div><label htmlFor="profileAdminId" className="block text-sm font-medium mb-1">Admin ID</label><input id="profileAdminId" name="adminId" value={profileData.adminId} onChange={handleChange} className="input-base" disabled={isLoading} /></div>
-                                <div><label htmlFor="profileAccessLevel" className="block text-sm font-medium mb-1">Access Level</label>
-                                    <select id="profileAccessLevel" name="accessLevel" value={profileData.accessLevel} onChange={handleChange} className="input-base" disabled={isLoading}>
+                                <FormField label="Admin ID" htmlFor="profileAdminId"><TextInput id="profileAdminId" name="adminId" value={profileData.adminId} onChange={handleChange} disabled={isLoading} /></FormField>
+                                <FormField label="Access Level" htmlFor="profileAccessLevel">
+                                    <SelectInput id="profileAccessLevel" name="accessLevel" value={profileData.accessLevel} onChange={handleChange} disabled={isLoading}>
                                         <option>Super Admin</option>
                                         <option>Timetable Manager</option>
                                         <option>User Management</option>
-                                    </select>
-                                </div>
+                                    </SelectInput>
+                                </FormField>
                             </>
                         )}
-                        {user.role !== 'student' && <div><label htmlFor="profileSpecialization" className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input id="profileSpecialization" name="specialization" value={profileData.specialization} onChange={handleChange} className="input-base" disabled={isLoading} /></div>}
-                        <div className="md:col-span-2"><label htmlFor="profilePicture" className="block text-sm font-medium mb-1">Profile Picture</label><input id="profilePicture" type="file" className="input-base" disabled={isLoading} /></div>
+                        {user.role !== 'student' && <FormField label="Specializations (comma-separated)" htmlFor="profileSpecialization"><TextInput id="profileSpecialization" name="specialization" value={profileData.specialization} onChange={handleChange} disabled={isLoading} /></FormField>}
+                        <div className="md:col-span-2"><FormField label="Profile Picture" htmlFor="profilePicture"><TextInput id="profilePicture" type="file" disabled={isLoading} /></FormField></div>
                     </div>
                     <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                         <h4 className="font-semibold mb-2">Change Password</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div><label htmlFor="newPassword" className="block text-sm font-medium mb-1">New Password</label><input id="newPassword" name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} className="input-base" disabled={isLoading} /></div>
-                             <div><label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm New Password</label><input id="confirmPassword" name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} className="input-base" disabled={isLoading} /></div>
+                             <FormField label="New Password" htmlFor="newPassword"><TextInput id="newPassword" name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} disabled={isLoading} /></FormField>
+                             <FormField label="Confirm New Password" htmlFor="confirmPassword"><TextInput id="confirmPassword" name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} disabled={isLoading} /></FormField>
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => setIsEditing(false)} className="bg-gray-200 dark:bg-slate-600 font-semibold py-2 px-4 rounded-md" disabled={isLoading}>Cancel</button>
-                        <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md w-36" disabled={isLoading}>{isLoading ? "Saving..." : "Save Changes"}</button>
+                        <button onClick={() => setIsEditing(false)} className="btn-secondary" disabled={isLoading}>Cancel</button>
+                        <button onClick={handleSave} className="btn-primary w-36" disabled={isLoading}>{isLoading ? "Saving..." : "Save Changes"}</button>
                     </div>
                 </div>
             ) : (
@@ -738,13 +734,13 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
             <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
                 <div className="flex-1">
                     <label htmlFor="attendance-class" className="block text-sm font-medium mb-1">Select Class</label>
-                    <select id="attendance-class" name="attendance-class" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading}>
+                    <SelectInput id="attendance-class" name="attendance-class" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} disabled={isLoading}>
                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    </SelectInput>
                 </div>
                 <div className="flex-1">
                     <label htmlFor="attendance-date" className="block text-sm font-medium mb-1">Select Date</label>
-                    <input type="date" id="attendance-date" name="attendance-date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+                    <TextInput type="date" id="attendance-date" name="attendance-date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} disabled={isLoading} />
                 </div>
             </div>
             <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4">
@@ -771,7 +767,7 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
                 )) : <p className="text-center text-gray-500 p-4">No students in this class.</p>}
             </div>
             <div className="flex justify-end mt-6">
-                <button onClick={handleSave} className="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save & Lock Attendance"}</button>
+                <button onClick={handleSave} className="btn-primary py-2 px-6 disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save & Lock Attendance"}</button>
             </div>
         </SectionCard>
     );
@@ -867,7 +863,7 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                 <div className="relative w-full md:w-auto md:max-w-xs" ref={searchContainerRef}>
                     <label htmlFor="global-search" className="sr-only">Global Search</label>
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <input
+                    <TextInput
                         type="text"
                         id="global-search"
                         name="global-search"
@@ -875,7 +871,7 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                         onChange={e => { setGlobalSearchQuery(e.target.value); setIsSearchResultsVisible(true); }}
                         onFocus={() => setIsSearchResultsVisible(true)}
                         placeholder="Search students, teachers..."
-                        className="w-full p-2 pl-10 border dark:border-slate-600 bg-gray-50 dark:bg-slate-900/50 rounded-md"
+                        className="pl-10"
                     />
                     {isSearchResultsVisible && searchResults.length > 0 && (
                         <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">

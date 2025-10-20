@@ -59,6 +59,7 @@ if (!process.env.API_KEY) {
 
 
 const app = express();
+app.set('trust proxy', 1); // FIX: Trust proxy to allow rate limiter to work correctly behind a reverse proxy
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
