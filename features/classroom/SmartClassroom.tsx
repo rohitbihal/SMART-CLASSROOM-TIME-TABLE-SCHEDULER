@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon
@@ -40,7 +38,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
 
 // FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
 const StudentForm: React.FC<{ student: Student | null; onSave: (data: Partial<Student>) => void; onCancel: () => void; classId: string; isLoading: boolean; }> = ({ student, onSave, onCancel, classId, isLoading }) => {
-    const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '' } : { name: '', email: '', roll: '', classId });
+    const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '', contactNumber: student.contactNumber || '' } : { name: '', email: '', roll: '', classId, contactNumber: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave(formData); };
     const formId = `student-form-${student?.id || 'new'}`;
@@ -57,6 +55,10 @@ const StudentForm: React.FC<{ student: Student | null; onSave: (data: Partial<St
             <div>
                  <label htmlFor={`${formId}-roll`} className="sr-only">Roll Number</label>
                 <input id={`${formId}-roll`} name="roll" value={formData.roll} onChange={handleChange} placeholder="e.g. 23" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
+            </div>
+            <div>
+                 <label htmlFor={`${formId}-contactNumber`} className="sr-only">Contact Number</label>
+                <input id={`${formId}-contactNumber`} name="contactNumber" type="tel" value={formData.contactNumber} onChange={handleChange} placeholder="e.g. 9876543210" className="w-full p-2 border bg-gray-50 dark:bg-slate-700 border-gray-300 dark:border-slate-600 rounded-md" disabled={isLoading} />
             </div>
             <div className="flex gap-2 justify-end">
                 <button type="button" onClick={onCancel} className="bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 font-semibold py-2 px-4 rounded-md disabled:opacity-50" disabled={isLoading}>Cancel</button>
@@ -78,7 +80,7 @@ const StudentImportModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                 <p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV or Excel file to bulk-add students. Make sure your file has the correct columns.</p>
                 <div className="p-3 bg-gray-100 dark:bg-slate-700/50 rounded-md">
                     <p className="text-sm font-semibold">File Format:</p>
-                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">Required columns: name, email, classId, roll</p>
+                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">Required columns: name, email, classId, roll. Optional: contactNumber</p>
                 </div>
                 <div>
                     <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
@@ -360,7 +362,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const selectAllUsersCheckboxRef = useRef<HTMLInputElement>(null);
 
-    const profileMap = useMemo(() => { const map = new Map<string, { name: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name })); students.forEach(s => map.set(s.id, { name: s.name })); return map; }, [faculty, students]);
+    const profileMap = useMemo(() => { const map = new Map<string, { name: string, contactNumber?: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name, contactNumber: f.contactNumber })); students.forEach(s => map.set(s.id, { name: s.name, contactNumber: s.contactNumber })); return map; }, [faculty, students]);
     const filteredUsers = useMemo(() => users.filter(u => u.role === userType && (u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))), [users, searchTerm, profileMap, userType]);
     
     const allUserIdsInView = useMemo(() => filteredUsers.map(u => u._id!).filter(Boolean), [filteredUsers]);
@@ -493,7 +495,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                             <div className="flex-grow flex justify-between items-center">
                                 <div>
                                     <p className="font-semibold">{profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'}</p>
-                                    <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username}`}</p>
+                                    <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username} | ${profileMap.get(user.profileId || '')?.contactNumber || 'No contact'}`}</p>
                                 </div>
                                 <div className="flex gap-2"> 
                                     <button onClick={() => setEditingUser(user)} className="text-indigo-500 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
@@ -545,30 +547,41 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     const [isLoading, setIsLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
 
-    const userProfile = useMemo(() => {
+    const userProfile = useMemo((): Faculty | Student | null => {
         if (!user.profileId) return null;
-        if (user.role === 'teacher' || user.role === 'admin') { // Admin often has a faculty profile
-            return faculty.find(f => f.id === user.profileId);
+        if (user.role === 'admin') {
+            return faculty.find(f => f.id === user.profileId) || {
+                id: user.profileId,
+                name: user.username.split('@')[0],
+                email: user.username,
+                department: 'Administration',
+                specialization: [],
+                accessLevel: 'Super Admin',
+                adminId: `ADM-${user.profileId.substring(0, 4)}`,
+                contactNumber: '',
+            };
         }
-        if (user.role === 'student') {
-            return students.find(s => s.id === user.profileId);
-        }
+        if (user.role === 'teacher') return faculty.find(f => f.id === user.profileId) || null;
+        if (user.role === 'student') return students.find(s => s.id === user.profileId) || null;
         return null;
     }, [user, faculty, students]);
     
-    const [profileData, setProfileData] = useState({ name: '', specialization: '' });
+    const [profileData, setProfileData] = useState({ name: '', specialization: '', adminId: '', contactNumber: '', accessLevel: 'Super Admin' as Faculty['accessLevel'] });
     const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
 
     useEffect(() => {
         if (userProfile) {
             setProfileData({
                 name: userProfile.name,
-                specialization: 'specialization' in userProfile ? userProfile.specialization.join(', ') : ''
+                specialization: 'specialization' in userProfile ? userProfile.specialization.join(', ') : '',
+                adminId: 'adminId' in userProfile ? userProfile.adminId || '' : '',
+                contactNumber: 'contactNumber' in userProfile ? userProfile.contactNumber || '' : '',
+                accessLevel: 'accessLevel' in userProfile ? userProfile.accessLevel : 'Super Admin',
             });
         }
     }, [userProfile]);
 
-    const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setProfileData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
     const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -586,26 +599,19 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
 
         setIsLoading(true);
         try {
-            // 1. Update Profile (Faculty/Student record)
             if (userProfile) {
                 const profilePayload = {
                     ...userProfile,
                     name: profileData.name,
-                    ...( 'specialization' in userProfile && { specialization: profileData.specialization.split(',').map(s => s.trim()) } )
+                    contactNumber: profileData.contactNumber,
+                    ...(user.role !== 'student' && { specialization: profileData.specialization.split(',').map(s => s.trim()) }),
+                    ...(user.role === 'admin' && { adminId: profileData.adminId, accessLevel: profileData.accessLevel })
                 };
                 await onSaveEntity(user.role === 'student' ? 'student' : 'faculty', profilePayload);
             }
 
-            // 2. Update User (password, if changed)
             if (passwordData.newPassword) {
-                const userPayload = {
-                    _id: user._id,
-                    password: passwordData.newPassword,
-                    // Pass other fields to ensure they aren't overwritten
-                    username: user.username,
-                    role: user.role,
-                    profileId: user.profileId,
-                };
+                const userPayload = { _id: user._id, password: passwordData.newPassword, username: user.username, role: user.role, profileId: user.profileId };
                 await onSaveUser(userPayload);
             }
             
@@ -626,7 +632,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     }
 
     const ProfileField = ({ label, value }: { label: string, value: React.ReactNode }) => (
-        <div><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><p className="font-medium">{value}</p></div>
+        <div><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><p className="font-medium">{value || 'N/A'}</p></div>
     );
 
     return (
@@ -638,14 +644,28 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 <div className="space-y-6">
                     {formError && <div className="bg-red-100 text-red-700 p-2 rounded">{formError}</div>}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label htmlFor="profileName" className="block text-sm font-medium mb-1">Full Name</label><input id="profileName" name="name" value={profileData.name} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
-                        {'specialization' in userProfile && <div><label htmlFor="profileSpecialization" className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input id="profileSpecialization" name="specialization" value={profileData.specialization} onChange={handleProfileChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>}
+                        <div><label htmlFor="profileName" className="block text-sm font-medium mb-1">Full Name</label><input id="profileName" name="name" value={profileData.name} onChange={handleChange} className="input-base" disabled={isLoading} /></div>
+                         <div><label htmlFor="profileContact" className="block text-sm font-medium mb-1">Contact Number</label><input id="profileContact" name="contactNumber" type="tel" value={profileData.contactNumber} onChange={handleChange} className="input-base" disabled={isLoading} /></div>
+                        {user.role === 'admin' && (
+                            <>
+                                <div><label htmlFor="profileAdminId" className="block text-sm font-medium mb-1">Admin ID</label><input id="profileAdminId" name="adminId" value={profileData.adminId} onChange={handleChange} className="input-base" disabled={isLoading} /></div>
+                                <div><label htmlFor="profileAccessLevel" className="block text-sm font-medium mb-1">Access Level</label>
+                                    <select id="profileAccessLevel" name="accessLevel" value={profileData.accessLevel} onChange={handleChange} className="input-base" disabled={isLoading}>
+                                        <option>Super Admin</option>
+                                        <option>Timetable Manager</option>
+                                        <option>User Management</option>
+                                    </select>
+                                </div>
+                            </>
+                        )}
+                        {user.role !== 'student' && <div><label htmlFor="profileSpecialization" className="block text-sm font-medium mb-1">Specializations (comma-separated)</label><input id="profileSpecialization" name="specialization" value={profileData.specialization} onChange={handleChange} className="input-base" disabled={isLoading} /></div>}
+                        <div className="md:col-span-2"><label htmlFor="profilePicture" className="block text-sm font-medium mb-1">Profile Picture</label><input id="profilePicture" type="file" className="input-base" disabled={isLoading} /></div>
                     </div>
                     <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                         <h4 className="font-semibold mb-2">Change Password</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div><label htmlFor="newPassword" className="block text-sm font-medium mb-1">New Password</label><input id="newPassword" name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
-                             <div><label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm New Password</label><input id="confirmPassword" name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} className="w-full p-2 border bg-gray-50 dark:bg-slate-700 rounded-md" disabled={isLoading} /></div>
+                             <div><label htmlFor="newPassword" className="block text-sm font-medium mb-1">New Password</label><input id="newPassword" name="newPassword" type="password" value={passwordData.newPassword} onChange={handlePasswordChange} className="input-base" disabled={isLoading} /></div>
+                             <div><label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm New Password</label><input id="confirmPassword" name="confirmPassword" type="password" value={passwordData.confirmPassword} onChange={handlePasswordChange} className="input-base" disabled={isLoading} /></div>
                         </div>
                     </div>
                     <div className="flex justify-end gap-2">
@@ -658,8 +678,11 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ProfileField label="Full Name" value={userProfile.name} />
                         <ProfileField label="Username/Email" value={user.username} />
-                        {('department' in userProfile) && <ProfileField label="Department" value={userProfile.department} />}
-                        {('specialization' in userProfile) && <ProfileField label="Specialization" value={userProfile.specialization.join(', ')} />}
+                        {'contactNumber' in userProfile && <ProfileField label="Contact Number" value={userProfile.contactNumber} />}
+                        {'department' in userProfile && <ProfileField label="Department" value={userProfile.department} />}
+                        {user.role === 'admin' && 'adminId' in userProfile && <ProfileField label="Admin ID" value={userProfile.adminId} />}
+                        {user.role === 'admin' && 'accessLevel' in userProfile && <ProfileField label="Access Level" value={userProfile.accessLevel} />}
+                        {'specialization' in userProfile && userProfile.specialization.length > 0 && <ProfileField label="Specialization" value={userProfile.specialization.join(', ')} />}
                     </div>
                 </div>
             )}
@@ -678,7 +701,7 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
     useEffect(() => {
         const existingRecords = attendance[selectedClassId]?.[selectedDate] || {};
         const initialRecords = studentsInClass.reduce((acc, student) => {
-            acc[student.id] = existingRecords[student.id] || 'absent';
+            acc[student.id] = existingRecords[student.id] || 'unmarked';
             return acc;
         }, {} as AttendanceRecord);
         setCurrentRecords(initialRecords);
@@ -703,9 +726,11 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
     };
     
     const summary = useMemo(() => {
-        const present = Object.values(currentRecords).filter(s => s.startsWith('present')).length;
-        const absent = Object.values(currentRecords).filter(s => s.startsWith('absent')).length;
-        return { total: studentsInClass.length, present, absent };
+        const statuses = Object.values(currentRecords);
+        const present = statuses.filter(s => s.startsWith('present')).length;
+        const absent = statuses.filter(s => s.startsWith('absent')).length;
+        const unmarked = statuses.filter(s => s === 'unmarked').length;
+        return { total: studentsInClass.length, present, absent, unmarked };
     }, [currentRecords, studentsInClass]);
 
     return (
@@ -727,6 +752,7 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
                     <span>Total Students: {summary.total}</span>
                     <span className="text-green-600 dark:text-green-400">Present: {summary.present}</span>
                     <span className="text-red-600 dark:text-red-400">Absent: {summary.absent}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Unmarked: {summary.unmarked}</span>
                 </div>
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto pr-2">

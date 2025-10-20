@@ -15,6 +15,9 @@ export interface Faculty {
   department: string;
   specialization: string[];
   email: string;
+  adminId?: string;
+  contactNumber?: string;
+  accessLevel?: 'Super Admin' | 'Timetable Manager' | 'User Management';
 }
 
 export interface Subject {
@@ -41,6 +44,7 @@ export interface Student {
   email?: string;
   classId: string;
   roll?: string;
+  contactNumber?: string;
 }
 
 export interface TimetableEntry {
@@ -130,6 +134,7 @@ export interface InstitutionDetails {
     academicYear: string;
     semester: 'Odd' | 'Even';
     session: 'Regular' | 'Summer School' | 'Winter School';
+    blocks?: string[];
 }
 
 export interface Constraints {
@@ -159,7 +164,7 @@ export interface TeacherRequest {
 }
 
 // Attendance Types
-export type AttendanceStatus = 'present' | 'absent' | 'present_locked' | 'absent_locked' | 'present_suggested';
+export type AttendanceStatus = 'present' | 'absent' | 'present_locked' | 'absent_locked' | 'present_suggested' | 'unmarked';
 export type AttendanceRecord = { [studentId: string]: AttendanceStatus };
 export type Attendance = { [classId: string]: { [date: string]: AttendanceRecord } };
 
