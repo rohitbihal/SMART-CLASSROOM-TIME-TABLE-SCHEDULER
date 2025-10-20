@@ -818,11 +818,13 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
         e.preventDefault();
         const text = newMessage.trim();
         if (!text || !selectedClassId) return;
-        
+
         setIsSending(true);
+        setFeedback(null);
         try {
             await onAdminSendMessage(selectedClassId, text);
             setNewMessage('');
+            setFeedback({ type: 'success', message: 'Message sent successfully!' });
         } catch (err) {
             const message = err instanceof Error ? err.message : "An unknown error occurred.";
             setFeedback({ type: 'error', message: `Failed to send message: ${message}` });
