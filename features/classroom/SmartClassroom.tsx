@@ -1,19 +1,23 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon
+    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon, ClockIcon, ChatIcon, SendIcon, AIIcon
 } from '../../components/Icons';
 import { SectionCard, Modal, FeedbackBanner, FormField, TextInput, SelectInput } from '../../App';
-import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord } from '../../types';
+import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord, Constraints, ChatMessage } from '../../types';
 
 interface SmartClassroomProps {
     user: User;
     classes: Class[]; faculty: Faculty[]; students: Student[]; users: User[];
     attendance: Attendance;
+    constraints: Constraints | null;
+    chatMessages: ChatMessage[];
     onSaveEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', data: any) => Promise<void>;
     onDeleteEntity: (type: 'student' | 'class' | 'faculty' | 'room' | 'subject', id: string) => Promise<void>;
     onSaveUser: (userData: any) => Promise<void>;
     onDeleteUser: (userId: string) => Promise<void>;
     onSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
+    onUpdateConstraints: (constraints: Constraints) => Promise<void>;
+    onAdminSendMessage: (classId: string, text: string) => Promise<void>;
 }
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', isLoading = false }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; isLoading?: boolean; }) => {
@@ -773,8 +777,122 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
     );
 };
 
+const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'constraints' | 'chatMessages' | 'onUpdateConstraints' | 'onAdminSendMessage'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+    const [chatWindow, setChatWindow] = useState(constraints?.chatWindow || { start: '09:00', end: '17:00' });
+    const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
+    const [newMessage, setNewMessage] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    const selectedClassName = useMemo(() => classes.find(c => c.id === selectedClassId)?.name, [classes, selectedClassId]);
+
+    const filteredMessages = useMemo(() => {
+        return chatMessages
+            .filter(m => m.classId === selectedClassId)
+            .sort((a, b) => a.timestamp - b.timestamp);
+    }, [chatMessages, selectedClassId]);
+
+    useEffect(() => {
+        if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+    }, [filteredMessages]);
+
+    const handleSaveSettings = async () => {
+        if (!constraints) return;
+        setIsSaving(true);
+        setFeedback(null);
+        try {
+            await onUpdateConstraints({ ...constraints, chatWindow });
+            setFeedback({ type: 'success', message: 'Chatbot availability updated!' });
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "An unknown error occurred.";
+            setFeedback({ type: 'error', message: `Failed to save settings: ${message}` });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const text = newMessage.trim();
+        if (!text || !selectedClassId) return;
+        
+        setIsSending(true);
+        try {
+            await onAdminSendMessage(selectedClassId, text);
+            setNewMessage('');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "An unknown error occurred.";
+            setFeedback({ type: 'error', message: `Failed to send message: ${message}` });
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 flex flex-col gap-6">
+                <SectionCard title="Chatbot Availability">
+                    <p className="text-sm text-text-secondary mb-4">Set the time window when the student chatbot is active.</p>
+                    <div className="space-y-4">
+                        <FormField label="Start Time" htmlFor="chat-start"><TextInput type="time" id="chat-start" value={chatWindow.start} onChange={e => setChatWindow(p => ({...p, start: e.target.value}))} /></FormField>
+                        <FormField label="End Time" htmlFor="chat-end"><TextInput type="time" id="chat-end" value={chatWindow.end} onChange={e => setChatWindow(p => ({...p, end: e.target.value}))} /></FormField>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border-primary flex justify-end">
+                        <button onClick={handleSaveSettings} className="btn-primary w-full flex items-center justify-center gap-2" disabled={isSaving}>
+                            {isSaving ? 'Saving...' : <><ClockIcon className="h-5 w-5"/>Save Schedule</>}
+                        </button>
+                    </div>
+                </SectionCard>
+                <SectionCard title="Select Class" className="flex-1">
+                    <div className="space-y-1 max-h-96 overflow-y-auto">
+                        {classes.map(c => (
+                            <button key={c.id} onClick={() => setSelectedClassId(c.id)} className={`w-full text-left p-3 rounded-md transition-colors text-sm font-medium ${selectedClassId === c.id ? 'bg-accent-primary text-accent-text' : 'hover:bg-bg-tertiary'}`}>
+                                {c.name}
+                            </button>
+                        ))}
+                    </div>
+                </SectionCard>
+            </div>
+            <div className="lg:col-span-2">
+                 <SectionCard title={`Live Chat: ${selectedClassName || 'Select a Class'}`} className="flex flex-col h-[75vh]">
+                     <div ref={chatContainerRef} className="flex-grow p-4 space-y-6 overflow-y-auto bg-gray-50 dark:bg-slate-900/50 rounded-lg">
+                        {filteredMessages.length > 0 ? filteredMessages.map(msg => {
+                             const isUser = msg.role === 'student';
+                             const isAdmin = msg.role === 'admin' && msg.author === 'Admin';
+                             const isBot = msg.author === 'Campus AI';
+
+                             const alignment = isUser ? 'justify-end' : 'justify-start';
+                             const bubbleColor = isAdmin ? 'bg-green-600 text-white' : isUser ? 'bg-accent-primary text-accent-text' : 'bg-bg-tertiary text-text-primary';
+                             const avatarIcon = isAdmin ? <ShieldIcon className="h-5 w-5" /> : isUser ? <ProfileIcon className="h-5 w-5" /> : <AIIcon className="h-5 w-5" />;
+                             const avatarBg = isAdmin ? 'bg-green-100 dark:bg-green-900/50 text-green-600' : isUser ? 'bg-blue-100 dark:bg-slate-600 text-accent-primary' : 'bg-bg-tertiary text-text-secondary';
+                             
+                             return (
+                                 <div key={msg.id} className={`flex items-end gap-3 w-full ${alignment}`}>
+                                    {!isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatarIcon}</div>}
+                                    <div className="flex flex-col gap-1 max-w-[80%]">
+                                        <p className={`text-xs text-text-secondary ${isUser ? 'text-right' : 'text-left'}`}>{msg.author}</p>
+                                        <div className={`rounded-2xl p-3.5 ${bubbleColor}`}><p className="text-sm leading-relaxed">{msg.text}</p></div>
+                                    </div>
+                                    {isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatarIcon}</div>}
+                                 </div>
+                             );
+                         }) : <p className="text-center text-text-secondary">No messages in this chat yet.</p>}
+                     </div>
+                     <form onSubmit={handleSendMessage} className="mt-4 pt-4 border-t border-border-primary flex items-center gap-3">
+                         <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Message ${selectedClassName || ''}...`} disabled={!selectedClassId || isSending} />
+                         <button type="submit" className="btn-primary p-3" disabled={!selectedClassId || !newMessage.trim() || isSending}><SendIcon /></button>
+                     </form>
+                 </SectionCard>
+            </div>
+        </div>
+    );
+};
+
 export const SmartClassroom = (props: SmartClassroomProps) => {
-    const { user, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance } = props;
+    const { user, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage } = props;
     const [activeTab, setActiveTab] = useState('profile');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -846,6 +964,8 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                 return <UserManagementTab users={users} faculty={faculty} students={students} onSaveUser={onSaveUser} onDeleteUser={onDeleteUser} setFeedback={setFeedback} />;
             case 'attendance':
                 return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
+            case 'chatbot':
+                 return <ChatbotControlTab classes={classes} constraints={constraints} chatMessages={chatMessages} onUpdateConstraints={onUpdateConstraints} onAdminSendMessage={onAdminSendMessage} setFeedback={setFeedback} />;
             case 'profile':
             default:
                 return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;
@@ -890,6 +1010,7 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                 <TabButton tab="students" label="Student Management" icon={<StudentIcon className="h-5 w-5" />} />
                 <TabButton tab="users" label="User Accounts" icon={<UsersIcon className="h-5 w-5" />} />
                 <TabButton tab="attendance" label="Attendance" icon={<AttendanceIcon className="h-5 w-5" />} />
+                <TabButton tab="chatbot" label="Chatbot Control" icon={<ChatIcon className="h-5 w-5" />} />
             </nav>
             <main>
                 {renderContent()}

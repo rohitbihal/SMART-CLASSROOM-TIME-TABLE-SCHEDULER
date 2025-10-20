@@ -138,11 +138,22 @@ export interface Institution {
     blocks?: string[];
 }
 
+// NEW: Type for defining fixed, pre-scheduled classes.
+export interface FixedClassConstraint {
+  id: string;
+  classId: string;
+  subjectId: string;
+  day: string;
+  time: string;
+  roomId?: string;
+}
+
 export interface Constraints {
     maxConsecutiveClasses: number;
     timePreferences: TimePreferences;
     chatWindow?: { start: string; end: string; };
     classSpecific: ClassSpecificConstraint[];
+    fixedClasses?: FixedClassConstraint[]; // Added fixed classes
     maxConcurrentClassesPerDept: { [department: string]: number };
     facultyPreferences?: FacultyPreference[];
     roomResourceConstraints?: RoomResourceConstraint;

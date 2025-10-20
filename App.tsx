@@ -22,8 +22,8 @@ const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid').th
 
 // FIX: Added and exported shared UI components that were missing, causing import errors.
 // --- START: SHARED UI COMPONENTS ---
-export const SectionCard = ({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode; }) => (
-    <div className="bg-bg-secondary border border-border-primary rounded-xl shadow-sm">
+export const SectionCard = ({ title, actions, children, className }: { title: string; actions?: React.ReactNode; children: React.ReactNode; className?: string }) => (
+    <div className={`bg-bg-secondary border border-border-primary rounded-xl shadow-sm ${className}`}>
         <div className="flex items-center justify-between p-4 border-b border-border-primary">
             <h2 className="text-lg font-bold">{title}</h2>
             {actions && <div>{actions}</div>}
@@ -209,9 +209,9 @@ const AuthenticatedApp = () => {
     // FIX: Destructured all necessary data and handlers from context to pass down as props.
     const { 
         user, appState, classes, faculty, subjects, rooms, students, users, institutions,
-        constraints, timetable, attendance, token, handleSaveEntity, handleDeleteEntity, 
+        constraints, timetable, attendance, token, chatMessages, handleSaveEntity, handleDeleteEntity, 
         handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance, 
-        handleSaveUser, handleDeleteUser, handleResetData 
+        handleSaveUser, handleDeleteUser, handleResetData, handleAdminSendMessage 
     } = useAppContext();
 
     useEffect(() => {
@@ -251,6 +251,7 @@ const AuthenticatedApp = () => {
                                 students={students}
                                 institutions={institutions}
                                 constraints={constraints}
+                                timetable={timetable}
                                 setConstraints={handleUpdateConstraints}
                                 onSaveEntity={handleSaveEntity}
                                 onDeleteEntity={handleDeleteEntity}
@@ -266,11 +267,15 @@ const AuthenticatedApp = () => {
                                 students={students}
                                 users={users}
                                 attendance={attendance}
+                                constraints={constraints}
+                                chatMessages={chatMessages}
                                 onSaveEntity={handleSaveEntity}
                                 onDeleteEntity={handleDeleteEntity}
                                 onSaveUser={handleSaveUser}
                                 onDeleteUser={handleDeleteUser}
                                 onSaveClassAttendance={handleSaveClassAttendance}
+                                onUpdateConstraints={handleUpdateConstraints}
+                                onAdminSendMessage={handleAdminSendMessage}
                             />} />
                             {/* FIX: Passed user prop to ModuleSelectionPage. */}
                             <Route path="/" element={<ModuleSelectionPage user={user} />} />

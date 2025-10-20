@@ -114,6 +114,16 @@ const facultyPreferenceSchema = new mongoose.Schema({
     coursePreferences: [{ subjectId: String, time: String, _id: false }],
 }, { _id: false });
 
+// NEW: Schema for defining fixed, pre-scheduled classes.
+const fixedClassSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    classId: { type: String, required: true },
+    subjectId: { type: String, required: true },
+    day: { type: String, required: true },
+    time: { type: String, required: true },
+    roomId: String
+}, { _id: false });
+
 // NEW: Dedicated schema for managing multiple institution profiles.
 const institutionSchema = new mongoose.Schema({
     id: { type: String, unique: true },
@@ -130,6 +140,7 @@ const constraintsSchema = new mongoose.Schema({
     maxConsecutiveClasses: { type: Number, default: 3 },
     timePreferences: { type: timePreferencesSchema, default: () => ({}) },
     facultyPreferences: { type: [facultyPreferenceSchema], default: [] },
+    fixedClasses: { type: [fixedClassSchema], default: [] }, // Added fixed classes
     chatWindow: { start: String, end: String },
     classSpecific: [Object],
     maxConcurrentClassesPerDept: mongoose.Schema.Types.Mixed
@@ -198,6 +209,7 @@ const MOCK_CONSTRAINTS = {
     },
     chatWindow: { start: '09:00', end: '17:00' },
     classSpecific: [],
+    fixedClasses: [],
     maxConcurrentClassesPerDept: { 'CSE': 4 },
 };
 
@@ -291,6 +303,10 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             if (student) {
               return ChatMessage.find({ classId: student.classId }).sort({ timestamp: 1 }).lean();
             }
+          }
+          // Admins get all chat messages
+          if (req.user.role === 'admin') {
+              return ChatMessage.find().sort({ timestamp: 1 }).lean();
           }
           return [];
         };
@@ -606,6 +622,32 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
     }
 });
 
+// NEW: Endpoint for admin to send messages
+app.post('/api/chat/admin-send', authMiddleware, adminOnly, async (req, res) => {
+    const { text, classId } = req.body;
+    const { user } = req;
+
+    if (!text || !classId) {
+        return res.status(400).json({ message: 'Message text and classId are required.' });
+    }
+
+    try {
+        const adminMessage = new ChatMessage({
+            id: `admin-msg-${Date.now()}`,
+            text,
+            classId,
+            author: 'Admin',
+            role: 'admin',
+            channel: 'query',
+            timestamp: Date.now(),
+        });
+        await adminMessage.save();
+        res.status(201).json(adminMessage);
+    } catch (error) {
+        handleApiError(res, error, 'Admin chat send');
+    }
+});
+
 // --- Reset and Generation ---
 app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
     try {
@@ -654,10 +696,22 @@ const formatLunchSlotForPrompt = (prefs) => {
 
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
     const facultyMap = Object.fromEntries(faculty.map(f => [f.id, f.name]));
+    const classMap = Object.fromEntries(classes.map(c => [c.id, c.name]));
+    const subjectMap = Object.fromEntries(subjects.map(s => [s.id, s.name]));
+    const roomMap = Object.fromEntries(rooms.map(r => [r.id, r.number]));
+
     const subjectsWithFacultyNames = subjects.map(s => ({ ...s, assignedFaculty: facultyMap[s.assignedFacultyId] || 'Unassigned' }));
     const { timePreferences } = constraints;
     const timeSlots = generateTimeSlotsForPrompt(timePreferences);
     const lunchSlot = formatLunchSlotForPrompt(timePreferences);
+
+    const fixedClassesForPrompt = (constraints.fixedClasses || []).map(fc => ({
+        className: classMap[fc.classId],
+        subject: subjectMap[fc.subjectId],
+        day: fc.day,
+        time: fc.time,
+        room: fc.roomId ? roomMap[fc.roomId] : 'Any suitable',
+    }));
 
     return `
 You are an expert AI timetable scheduler for a college. Your task is to generate a conflict-free, optimized weekly timetable based on the provided data and constraints.
@@ -676,21 +730,25 @@ Create a timetable for all specified classes, assigning subjects, faculty, and r
 
 **Constraints to Follow Strictly:**
 
-1.  **Global Constraints:**
+1.  **Fixed Classes (Highest Priority):**
+    These classes are pre-scheduled and MUST be included in the timetable exactly as specified. You must schedule all other classes around them.
+    ${fixedClassesForPrompt.length > 0 ? JSON.stringify(fixedClassesForPrompt, null, 2) : "None"}
+
+2.  **Global Constraints:**
     *   A class cannot have more than ${constraints.maxConsecutiveClasses} consecutive lectures without a break.
     *   The lunch break is fixed at ${lunchSlot} every day. No classes should be scheduled during this slot.
     *   A faculty member cannot teach more than one class at the same time.
     *   A classroom cannot be assigned to more than one class at the same time.
     *   A class cannot attend more than one subject at the same time.
 
-2.  **Resource Constraints:**
+3.  **Resource Constraints:**
     *   Lab subjects (type: 'lab') must be assigned to Lab rooms (type: 'lab'). Theory subjects (type: 'theory') must be assigned to Classroom rooms (type: 'classroom').
     *   The number of students in a class must not exceed the capacity of the assigned room.
 
-3.  **Workload Constraint:**
+4.  **Workload Constraint:**
     *   Each subject must be scheduled for exactly its specified 'hoursPerWeek'. Each time slot is one hour.
 
-4.  **Class-Specific Constraints:** ${constraints.classSpecific.length > 0 ? JSON.stringify(constraints.classSpecific, null, 2) : "None"}
+5.  **Class-Specific Constraints:** ${constraints.classSpecific.length > 0 ? JSON.stringify(constraints.classSpecific, null, 2) : "None"}
 
 **Output Format:**
 Your output must be a valid JSON array of timetable entry objects. Do not include any explanations, introductory text, or markdown formatting. The output must be only the JSON array.

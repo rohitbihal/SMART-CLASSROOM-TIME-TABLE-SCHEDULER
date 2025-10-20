@@ -135,3 +135,12 @@ export const resetAllData = async (): Promise<{ message: string }> => {
     if (!response.ok) throw await handleApiError(response);
     return response.json();
 }
+
+export const sendAdminMessage = async (payload: { classId: string, text: string }): Promise<ChatMessage> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/admin-send`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};

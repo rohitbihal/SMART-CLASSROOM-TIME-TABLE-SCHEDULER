@@ -36,6 +36,7 @@ interface AppContextType {
     // FIX: Changed records type to AttendanceRecord to match the actual data structure and fix type error.
     handleSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
+    handleAdminSendMessage: (classId: string, text: string) => Promise<void>;
     handleResetData: () => Promise<void>;
     handleSaveUser: (userData: any) => Promise<any>;
     handleDeleteUser: (userId: string) => Promise<void>;
@@ -146,6 +147,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         // AI response handling should be done in the component to show loading state
     }, [user]);
 
+    const handleAdminSendMessage = useCallback(async (classId: string, text: string) => {
+        const newMessage = await api.sendAdminMessage({ classId, text });
+        setChatMessages(prev => [...prev, newMessage]);
+    }, []);
+
     const handleResetData = useCallback(async () => {
         await api.resetAllData();
         await fetchData(); // Refetch all data after reset
@@ -170,11 +176,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         user, token, appState, theme, login, logout, toggleTheme,
         classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
+        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
+        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
     ]);
 
     return (

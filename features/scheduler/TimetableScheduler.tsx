@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon } from '../../components/Icons';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../App';
-import { PlaceholderContent } from '../dashboard/PlaceholderContent';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
@@ -16,6 +15,7 @@ interface TimetableSchedulerProps {
     rooms: Room[];
     students: Student[];
     institutions: Institution[];
+    timetable: TimetableEntry[];
     constraints: Constraints | null;
     setConstraints: (c: Constraints) => void;
     onSaveEntity: (type: EntityType | 'student', data: any) => Promise<void>;
@@ -207,42 +207,23 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
     );
 };
 
-const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; }) => {
+const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal, selectedInstitutionId, setSelectedInstitutionId, institutionFormState, setInstitutionFormState, activeBlocks }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; selectedInstitutionId: string | 'new'; setSelectedInstitutionId: (id: string | 'new') => void; institutionFormState: Partial<Institution>; setInstitutionFormState: (state: Partial<Institution>) => void; activeBlocks: string[]; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
-    
-    const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | 'new'>(institutions[0]?.id || 'new');
-    const [formState, setFormState] = useState<Partial<Institution>>({});
     const isCreatingNew = selectedInstitutionId === 'new';
-
-    useEffect(() => {
-        const initialId = institutions[0]?.id;
-        if (initialId) {
-            setSelectedInstitutionId(initialId);
-        }
-    }, [institutions]);
-    
-    useEffect(() => {
-        if (isCreatingNew) {
-            setFormState({ name: '', academicYear: '', semester: 'Odd', session: 'Regular', blocks: [] });
-        } else {
-            const selected = institutions.find(inst => inst.id === selectedInstitutionId);
-            setFormState(selected || {});
-        }
-    }, [selectedInstitutionId, institutions, isCreatingNew]);
 
     const handleInstituteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (name === 'blocks') {
-            setFormState(prev => ({ ...prev, blocks: value.split(',').map(b => b.trim()).filter(Boolean) }));
+            setInstitutionFormState({ ...institutionFormState, blocks: value.split(',').map(b => b.trim()).filter(Boolean) });
         } else {
-            setFormState(prev => ({ ...prev, [name]: value }));
+            setInstitutionFormState({ ...institutionFormState, [name]: value });
         }
     };
     
     const handleSaveInstitution = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const savedInstitution = await onSaveEntity('institution', { ...formState, id: isCreatingNew ? undefined : selectedInstitutionId });
+            const savedInstitution = await onSaveEntity('institution', { ...institutionFormState, id: isCreatingNew ? undefined : selectedInstitutionId });
             if (isCreatingNew) {
                 setSelectedInstitutionId(savedInstitution.id);
             }
@@ -252,7 +233,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
     };
 
     const handleDeleteInstitution = async () => {
-        if (isCreatingNew || !window.confirm(`Are you sure you want to delete "${formState.name}"? This cannot be undone.`)) return;
+        if (isCreatingNew || !window.confirm(`Are you sure you want to delete "${institutionFormState.name}"? This cannot be undone.`)) return;
         try {
             await onDeleteEntity('institution', selectedInstitutionId);
             setSelectedInstitutionId(institutions[0]?.id || 'new');
@@ -260,8 +241,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
             console.error("Failed to delete institution", error);
         }
     };
-
-    const activeBlocks = useMemo(() => formState.blocks || [], [formState.blocks]);
+    
     const [blockFilter, setBlockFilter] = useState<string>('all');
     
     const handleSearch = (type: EntityType, value: string) => setSearch(prev => ({ ...prev, [type]: value }));
@@ -291,20 +271,20 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                             </SelectInput>
                         </FormField>
                         <FormField label="Institution Name" htmlFor="inst-name">
-                            <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={formState.name || ''} onChange={handleInstituteFormChange} required />
+                            <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={institutionFormState.name || ''} onChange={handleInstituteFormChange} required />
                         </FormField>
                         <FormField label="Academic Year" htmlFor="inst-acad-year">
-                            <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={formState.academicYear || ''} onChange={handleInstituteFormChange} required />
+                            <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={institutionFormState.academicYear || ''} onChange={handleInstituteFormChange} required />
                         </FormField>
                         <FormField label="Semester" htmlFor="inst-semester">
-                            <SelectInput id="inst-semester" name="semester" value={formState.semester || 'Odd'} onChange={handleInstituteFormChange}>
+                            <SelectInput id="inst-semester" name="semester" value={institutionFormState.semester || 'Odd'} onChange={handleInstituteFormChange}>
                                 <option value="Odd">Odd Semester (Aug-Dec)</option>
                                 <option value="Even">Even Semester (Jan-May)</option>
                             </SelectInput>
                         </FormField>
                         <div className="md:col-span-2">
                             <FormField label="Campus Blocks (comma-separated)" htmlFor="inst-blocks">
-                                <TextInput id="inst-blocks" name="blocks" placeholder="e.g., A-Block, B-Block, Science Wing" value={(formState.blocks || []).join(', ')} onChange={handleInstituteFormChange} />
+                                <TextInput id="inst-blocks" name="blocks" placeholder="e.g., A-Block, B-Block, Science Wing" value={(institutionFormState.blocks || []).join(', ')} onChange={handleInstituteFormChange} />
                             </FormField>
                         </div>
                     </div>
@@ -656,13 +636,69 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
     );
 };
 
-const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classes }: { constraints: Constraints | null; setConstraints: (c: Constraints) => void; faculty: Faculty[], subjects: Subject[], classes: Class[] }) => {
+// NEW: Component for managing fixed class constraints
+const FixedClassesContent = ({ constraints, onConstraintsChange, classes, subjects, rooms }: { constraints: Constraints; onConstraintsChange: (c: Constraints) => void; classes: Class[], subjects: Subject[], rooms: Room[] }) => {
+    const initialState = { classId: '', subjectId: '', day: '', time: '', roomId: '' };
+    const [newFixedClass, setNewFixedClass] = useState(initialState);
+    
+    const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes]);
+    const subjectMap = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
+    const roomMap = useMemo(() => new Map(rooms.map(r => [r.id, r.number])), [rooms]);
+
+    const handleAdd = () => {
+        if (!newFixedClass.classId || !newFixedClass.subjectId || !newFixedClass.day || !newFixedClass.time) {
+            alert("Please fill all required fields.");
+            return;
+        }
+        const updatedConstraints = {
+            ...constraints,
+            fixedClasses: [...(constraints.fixedClasses || []), { ...newFixedClass, id: `fixed-${Date.now()}` }]
+        };
+        onConstraintsChange(updatedConstraints);
+        setNewFixedClass(initialState);
+    };
+
+    const handleDelete = (id: string) => {
+        const updatedConstraints = {
+            ...constraints,
+            fixedClasses: (constraints.fixedClasses || []).filter(fc => fc.id !== id)
+        };
+        onConstraintsChange(updatedConstraints);
+    };
+    
+    return (
+        <SectionCard title="Fixed Class Scheduling">
+            <p className="text-text-secondary text-sm mb-4">Define classes that must occur at a specific time. The AI will treat these as absolute, non-negotiable constraints.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4 border dark:border-slate-700 rounded-lg">
+                <SelectInput value={newFixedClass.classId} onChange={e => setNewFixedClass({...newFixedClass, classId: e.target.value})}><option value="">Select Class</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</SelectInput>
+                <SelectInput value={newFixedClass.subjectId} onChange={e => setNewFixedClass({...newFixedClass, subjectId: e.target.value})}><option value="">Select Subject</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput>
+                <SelectInput value={newFixedClass.day} onChange={e => setNewFixedClass({...newFixedClass, day: e.target.value})}><option value="">Select Day</option>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput>
+                <SelectInput value={newFixedClass.time} onChange={e => setNewFixedClass({...newFixedClass, time: e.target.value})}><option value="">Select Time</option>{TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}</SelectInput>
+                <button onClick={handleAdd} className="btn-primary flex items-center justify-center gap-2"><AddIcon/> Add Pin</button>
+            </div>
+            <div className="mt-4">
+                <h4 className="font-semibold mb-2">Pinned Classes:</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {(constraints.fixedClasses || []).length > 0 ? (constraints.fixedClasses || []).map(fc => (
+                        <div key={fc.id} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                            <p className="text-sm font-medium"><strong>{classMap.get(fc.classId)}</strong> - {subjectMap.get(fc.subjectId)} on <span className="capitalize">{fc.day}</span> at {fc.time}</p>
+                            <button onClick={() => handleDelete(fc.id)} className="text-red-500"><DeleteIcon/></button>
+                        </div>
+                    )) : <p className="text-text-secondary text-sm text-center p-4">No classes have been pinned.</p>}
+                </div>
+            </div>
+        </SectionCard>
+    );
+};
+
+const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classes, rooms }: { constraints: Constraints | null; setConstraints: (c: Constraints) => void; faculty: Faculty[], subjects: Subject[], classes: Class[], rooms: Room[] }) => {
     const [activeSubTab, setActiveSubTab] = useState('time');
     
     if (!constraints) return <LoadingIcon />;
 
     const subTabs = [
         { key: 'time', label: 'Time & Day', icon: <ConstraintsIcon /> },
+        { key: 'fixed', label: 'Fixed Classes', icon: <PinIcon /> },
         { key: 'faculty', label: 'Faculty Preferences', icon: <AvailabilityIcon /> },
         { key: 'additional', label: 'Additional Rules', icon: <AnalyticsIcon /> }
     ];
@@ -676,6 +712,7 @@ const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classe
             </div>
 
             {activeSubTab === 'time' && <TimePreferencesVisual prefs={constraints.timePreferences} onChange={(newPrefs) => setConstraints({ ...constraints, timePreferences: newPrefs })} />}
+            {activeSubTab === 'fixed' && <FixedClassesContent constraints={constraints} onConstraintsChange={setConstraints} classes={classes} subjects={subjects} rooms={rooms} />}
             {activeSubTab === 'faculty' && <FacultyPreferencesContent constraints={constraints} onConstraintsChange={setConstraints} faculty={faculty} subjects={subjects} />}
             {activeSubTab === 'additional' && <AdditionalConstraintsContent constraints={constraints} onConstraintsChange={setConstraints} classes={classes} faculty={faculty} subjects={subjects} />}
 
@@ -765,24 +802,150 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
         </div>
     );
 };
-const ViewTab = ({ students, classes, faculty }: { students: Student[], classes: Class[], faculty: Faculty[] }) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PlaceholderContent title="Detailed View" message="This section will provide detailed views and analytics for the generated timetable. Feature is under development." icon={<ViewIcon />} />
-        <PlaceholderContent title="Analytics" message="This section will provide analytics on faculty load, room utilization, and student schedules. Feature is under development." icon={<AnalyticsIcon />} />
+// NEW: ViewTab now contains analytics and availability viewer
+const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; }) => {
+    const facultyWorkload = useMemo(() => {
+        const assigned = faculty.map(f => {
+            const assignedHours = subjects.filter(s => s.assignedFacultyId === f.id).reduce((sum, s) => sum + s.hoursPerWeek, 0);
+            const scheduledHours = timetable.filter(t => t.faculty === f.name).length;
+            const utilization = assignedHours > 0 ? (scheduledHours / assignedHours) * 100 : 0;
+            return { ...f, assignedHours, scheduledHours, utilization };
+        });
+        return assigned.sort((a, b) => b.utilization - a.utilization);
+    }, [faculty, subjects, timetable]);
+
+    const roomUtilization = useMemo(() => {
+        const totalSlots = DAYS.length * TIME_SLOTS.length;
+        return rooms.map(r => {
+            const scheduledSlots = timetable.filter(t => t.room === r.number).length;
+            const utilization = (scheduledSlots / totalSlots) * 100;
+            return { ...r, scheduledSlots, utilization };
+        }).sort((a,b) => b.utilization - a.utilization);
+    }, [rooms, timetable]);
+
+    const ProgressBar = ({ value }: { value: number }) => (
+        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min(value, 100)}%` }}></div></div>
+    );
+    
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             <div className="lg:col-span-3">
+                 <SectionCard title="Timetable Summary">
+                     <div className="flex justify-around text-center">
+                         <div><p className="text-3xl font-bold text-indigo-500">{timetable.length}</p><p className="text-text-secondary">Total Periods Scheduled</p></div>
+                         <div><p className="text-3xl font-bold text-indigo-500">{faculty.length}</p><p className="text-text-secondary">Total Faculty</p></div>
+                         <div><p className="text-3xl font-bold text-indigo-500">{rooms.length}</p><p className="text-text-secondary">Total Rooms</p></div>
+                     </div>
+                 </SectionCard>
+             </div>
+             <SectionCard title="Faculty Workload" className="lg:col-span-2">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {facultyWorkload.map(f => (
+                        <div key={f.id}>
+                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{f.name}</span><span className="text-text-secondary">{f.scheduledHours} / {f.assignedHours} hrs ({f.utilization.toFixed(0)}%)</span></div>
+                             <ProgressBar value={f.utilization} />
+                        </div>
+                    ))}
+                </div>
+             </SectionCard>
+             <SectionCard title="Room Utilization">
+                 <div className="space-y-4 max-h-96 overflow-y-auto">
+                     {roomUtilization.map(r => (
+                        <div key={r.id}>
+                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{r.number}</span><span className="text-text-secondary">{r.utilization.toFixed(0)}%</span></div>
+                             <ProgressBar value={r.utilization} />
+                        </div>
+                     ))}
+                 </div>
+             </SectionCard>
+        </div>
+    );
+};
+const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { timetable: TimetableEntry[]; rooms: Room[]; constraints: Constraints | null; blocks: string[]; }) => {
+    const [selectedDay, setSelectedDay] = useState(DAYS[0]);
+    const [selectedBlock, setSelectedBlock] = useState('all');
+
+    const filteredRooms = useMemo(() => rooms.filter(r => selectedBlock === 'all' || r.block === selectedBlock), [rooms, selectedBlock]);
+    const scheduleMap = useMemo(() => {
+        const map = new Map<string, string>(); // key: "roomNumber-day-time", value: "className"
+        timetable.forEach(entry => {
+            const key = `${entry.room}-${entry.day}-${entry.time}`;
+            map.set(key, entry.className);
+        });
+        return map;
+    }, [timetable]);
+
+    return (
+        <SectionCard title="Room Availability">
+            <div className="flex gap-4 mb-4">
+                <FormField label="Select Day" htmlFor="day-select"><SelectInput id="day-select" value={selectedDay} onChange={e => setSelectedDay(e.target.value)}>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput></FormField>
+                <FormField label="Filter by Block" htmlFor="block-select"><SelectInput id="block-select" value={selectedBlock} onChange={e => setSelectedBlock(e.target.value)}><option value="all">All Blocks</option>{blocks.map(b=><option key={b} value={b}>{b}</option>)}</SelectInput></FormField>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh]">
+                <table className="w-full text-xs border-collapse">
+                    <thead>
+                        <tr>
+                            <th className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 z-10">Room</th>
+                            {TIME_SLOTS.map(time => <th key={time} className="p-2 border dark:border-slate-700">{time}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredRooms.map(room => (
+                            <tr key={room.id}>
+                                <td className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 font-semibold z-10">{room.number}</td>
+                                {TIME_SLOTS.map(time => {
+                                    const bookedClass = scheduleMap.get(`${room.number}-${selectedDay}-${time}`);
+                                    return (
+                                        <td key={time} className={`p-2 border dark:border-slate-700 text-center ${bookedClass ? 'bg-red-200 dark:bg-red-900/50' : 'bg-green-200 dark:bg-green-900/50'}`}>
+                                            {bookedClass || 'Free'}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </SectionCard>
+    );
+};
+const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; }) => (
+    <div className="space-y-6">
+        <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} />
+        <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
     </div>
 );
 
 export const TimetableScheduler = (props: TimetableSchedulerProps) => {
-    const { classes, faculty, subjects, rooms, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable } = props;
+    const { classes, faculty, subjects, rooms, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable, institutions, timetable } = props;
     const [activeTab, setActiveTab] = useState('setup');
     const [modal, setModal] = useState<{ mode: 'add' | 'edit'; type: EntityType; data: Entity | null } | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationError, setGenerationError] = useState<string | null>(null);
     const [generatedTimetable, setGeneratedTimetable] = useState<TimetableEntry[] | null>(null);
-    // FIX: Updated selectedItems state to include 'institution' and match the full EntityType.
     const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [], institution: [] });
     const [importModalState, setImportModalState] = useState<{ isOpen: boolean; type?: EntityType }>({ isOpen: false });
+
+    // Refactored State: Moved institution management state up to the main component
+    const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | 'new'>('');
+    const [institutionFormState, setInstitutionFormState] = useState<Partial<Institution>>({});
+    const activeBlocks = useMemo(() => institutionFormState.blocks || [], [institutionFormState]);
+
+    useEffect(() => {
+        const initialId = institutions[0]?.id;
+        if (initialId) setSelectedInstitutionId(initialId);
+        else setSelectedInstitutionId('new');
+    }, [institutions]);
+
+    useEffect(() => {
+        if (selectedInstitutionId === 'new') {
+            setInstitutionFormState({ name: '', academicYear: '', semester: 'Odd', session: 'Regular', blocks: [] });
+        } else {
+            const selected = institutions.find(inst => inst.id === selectedInstitutionId);
+            setInstitutionFormState(selected || {});
+        }
+    }, [selectedInstitutionId, institutions]);
 
     const openImportModal = (type?: EntityType) => setImportModalState({ isOpen: true, type });
 
@@ -798,13 +961,12 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const handleDelete = async (type: EntityType, id: string) => { if (window.confirm('Are you sure?')) await onDeleteEntity(type, id); };
     const handleResetData = async () => { if (window.confirm('Are you sure you want to reset ALL data to the initial defaults? This cannot be undone.')) await onResetData(); };
     
-    // FIX: Updated handlers to use EntityType and prevent stale state issues.
     const handleToggleSelect = (type: EntityType, id: string) => {
-        if (type === 'institution') return; // Do not allow selecting institutions
+        if (type === 'institution') return;
         setSelectedItems(prev => ({ ...prev, [type]: prev[type].includes(id) ? prev[type].filter(i => i !== id) : [...prev[type], id] }));
     };
     const handleToggleSelectAll = (type: EntityType, displayedItems: any[]) => {
-        if (type === 'institution') return; // Do not allow selecting institutions
+        if (type === 'institution') return;
         const ids = displayedItems.map(item => item.id);
         setSelectedItems(prev => {
             const allSelected = ids.every(id => prev[type].includes(id));
@@ -849,10 +1011,10 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     
     const renderContent = () => {
         switch (activeTab) {
-            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={openImportModal} />;
+            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={openImportModal} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
             case 'constraints': return <ConstraintsTab {...props} />;
             case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
-            case 'view': return <ViewTab {...props} />;
+            case 'view': return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} />;
             default: return null;
         }
     };
@@ -881,7 +1043,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
             </main>
             {modal && FormComponent && (
                 <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError}>
-                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={[]} />
+                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={activeBlocks} />
                 </Modal>
             )}
              <DataManagementModal isOpen={importModalState.isOpen} onClose={() => setImportModalState({isOpen: false})} initialEntityType={importModalState.type} />
