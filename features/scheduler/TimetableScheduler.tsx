@@ -4,10 +4,10 @@ import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, Err
 import { PlaceholderContent } from '../dashboard/PlaceholderContent';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, InstitutionDetails } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution } from '../../types';
 
-type EntityType = 'class' | 'faculty' | 'subject' | 'room';
-type Entity = Class | Faculty | Subject | Room;
+type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
+type Entity = Class | Faculty | Subject | Room | Institution;
 
 interface TimetableSchedulerProps {
     classes: Class[];
@@ -15,6 +15,7 @@ interface TimetableSchedulerProps {
     subjects: Subject[];
     rooms: Room[];
     students: Student[];
+    institutions: Institution[];
     constraints: Constraints | null;
     setConstraints: (c: Constraints) => void;
     onSaveEntity: (type: EntityType | 'student', data: any) => Promise<void>;
@@ -43,7 +44,7 @@ const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMe
         </table>
     </div>
 );
-const ClassForm = ({ initialData, onSave, constraints }: { initialData: Class | null; onSave: (data: any) => Promise<void>; constraints: Constraints | null; }) => {
+const ClassForm = ({ initialData, onSave, blocks }: { initialData: Class | null; onSave: (data: any) => Promise<void>; blocks: string[]; }) => {
     const [data, setData] = useState(initialData || { id: '', name: '', branch: '', year: 1, section: '', studentCount: 0, block: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-class';
@@ -57,7 +58,7 @@ const ClassForm = ({ initialData, onSave, constraints }: { initialData: Class | 
             <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
                 <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
                     <option value="">No Block</option>
-                    {(constraints?.institutionDetails?.blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
+                    {(blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
                 </SelectInput>
             </FormField>
             <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
@@ -112,7 +113,7 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
         </form>
     );
 };
-const RoomForm = ({ initialData, onSave, constraints }: { initialData: Room | null; onSave: (data: any) => Promise<void>; constraints: Constraints | null; }) => {
+const RoomForm = ({ initialData, onSave, blocks }: { initialData: Room | null; onSave: (data: any) => Promise<void>; blocks: string[]; }) => {
     const [data, setData] = useState(initialData || { id: '', number: '', type: 'classroom', capacity: 0, block: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-room';
@@ -129,7 +130,7 @@ const RoomForm = ({ initialData, onSave, constraints }: { initialData: Room | nu
             <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
                 <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
                     <option value="">No Block</option>
-                    {(constraints?.institutionDetails?.blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
+                    {(blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
                 </SelectInput>
             </FormField>
             <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
@@ -159,7 +160,7 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
         }
     }, [initialEntityType]);
     
-    const formats: { [key in EntityType]: string } = {
+    const formats: { [key in Exclude<EntityType, 'institution'>]: string } = {
         class: "Required: name, branch, year, section, studentCount. Optional: block",
         faculty: "Required: name, department, email. Optional: specialization (comma-separated), contactNumber",
         subject: "Required: name, code, department, hoursPerWeek, assignedFacultyId. Optional: type (theory/lab)",
@@ -184,7 +185,7 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
                 <p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV or Excel file to bulk-add data. Make sure your file follows the specified format.</p>
                 <div className="p-3 bg-gray-100 dark:bg-slate-700/50 rounded-md">
                     <p className="text-sm font-semibold">File Format:</p>
-                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">{formats[entityType]}</p>
+                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">{entityType !== 'institution' && formats[entityType]}</p>
                 </div>
                 <div>
                     <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
@@ -206,22 +207,63 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
     );
 };
 
-const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateConstraints, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal }: { classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; onUpdateConstraints: (c: Constraints) => void; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; }) => {
+const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
-    const [blockFilter, setBlockFilter] = useState<string>('all');
+    
+    const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | 'new'>(institutions[0]?.id || 'new');
+    const [formState, setFormState] = useState<Partial<Institution>>({});
+    const isCreatingNew = selectedInstitutionId === 'new';
+
+    useEffect(() => {
+        const initialId = institutions[0]?.id;
+        if (initialId) {
+            setSelectedInstitutionId(initialId);
+        }
+    }, [institutions]);
+    
+    useEffect(() => {
+        if (isCreatingNew) {
+            setFormState({ name: '', academicYear: '', semester: 'Odd', session: 'Regular', blocks: [] });
+        } else {
+            const selected = institutions.find(inst => inst.id === selectedInstitutionId);
+            setFormState(selected || {});
+        }
+    }, [selectedInstitutionId, institutions, isCreatingNew]);
 
     const handleInstituteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        if (!constraints) return;
         const { name, value } = e.target;
-        let newDetails;
         if (name === 'blocks') {
-            newDetails = { ...(constraints.institutionDetails || {}), blocks: value.split(',').map(b => b.trim()).filter(Boolean) };
+            setFormState(prev => ({ ...prev, blocks: value.split(',').map(b => b.trim()).filter(Boolean) }));
         } else {
-            newDetails = { ...(constraints.institutionDetails || {}), [name]: value };
+            setFormState(prev => ({ ...prev, [name]: value }));
         }
-        onUpdateConstraints({ ...constraints, institutionDetails: newDetails as InstitutionDetails });
+    };
+    
+    const handleSaveInstitution = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const savedInstitution = await onSaveEntity('institution', { ...formState, id: isCreatingNew ? undefined : selectedInstitutionId });
+            if (isCreatingNew) {
+                setSelectedInstitutionId(savedInstitution.id);
+            }
+        } catch (error) {
+            console.error("Failed to save institution", error);
+        }
     };
 
+    const handleDeleteInstitution = async () => {
+        if (isCreatingNew || !window.confirm(`Are you sure you want to delete "${formState.name}"? This cannot be undone.`)) return;
+        try {
+            await onDeleteEntity('institution', selectedInstitutionId);
+            setSelectedInstitutionId(institutions[0]?.id || 'new');
+        } catch (error) {
+            console.error("Failed to delete institution", error);
+        }
+    };
+
+    const activeBlocks = useMemo(() => formState.blocks || [], [formState.blocks]);
+    const [blockFilter, setBlockFilter] = useState<string>('all');
+    
     const handleSearch = (type: EntityType, value: string) => setSearch(prev => ({ ...prev, [type]: value }));
     const filter = <T extends object>(data: T[], query: string) => data.filter(item => Object.values(item).some(val => String(val).toLowerCase().includes(query.toLowerCase())));
     const filtered = { 
@@ -232,10 +274,6 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
     };
     const facultyMap = useMemo(() => Object.fromEntries(faculty.map(f => [f.id, f.name])), [faculty]);
     
-    const details: Partial<InstitutionDetails> = constraints?.institutionDetails || {};
-
-    const allBlocks = useMemo(() => ['all', ...(constraints?.institutionDetails?.blocks || [])], [constraints]);
-
     return (
         <>
             <ErrorDisplay message={pageError} />
@@ -244,38 +282,45 @@ const SetupTab = ({ classes, faculty, subjects, rooms, constraints, onUpdateCons
                     <button onClick={() => openImportModal()} className="action-btn-secondary"><UploadIcon />Universal Import</button>
                 </div>
             }>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                    <FormField label="Institution Name" htmlFor="inst-name">
-                        <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={details.name || ''} onChange={handleInstituteFormChange} />
-                    </FormField>
-                    <FormField label="Academic Year" htmlFor="inst-acad-year">
-                        <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={details.academicYear || ''} onChange={handleInstituteFormChange} />
-                    </FormField>
-                    <FormField label="Semester" htmlFor="inst-semester">
-                        <SelectInput id="inst-semester" name="semester" value={details.semester || 'Odd'} onChange={handleInstituteFormChange}>
-                            <option value="Odd">Odd Semester (Aug-Dec)</option>
-                            <option value="Even">Even Semester (Jan-May)</option>
-                        </SelectInput>
-                    </FormField>
-                    <FormField label="Academic Session" htmlFor="inst-session">
-                        <SelectInput id="inst-session" name="session" value={details.session || 'Regular'} onChange={handleInstituteFormChange}>
-                            <option value="Regular">Regular</option>
-                            <option value="Summer School">Summer School</option>
-                            <option value="Winter School">Winter School</option>
-                        </SelectInput>
-                    </FormField>
-                    <div className="md:col-span-2">
-                        <FormField label="Campus Blocks (comma-separated)" htmlFor="inst-blocks">
-                            <TextInput id="inst-blocks" name="blocks" placeholder="e.g., A-Block, B-Block, Science Wing" value={(details.blocks || []).join(', ')} onChange={handleInstituteFormChange} />
+                <form onSubmit={handleSaveInstitution}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                        <FormField label="Select Institute" htmlFor="inst-select">
+                            <SelectInput id="inst-select" value={selectedInstitutionId} onChange={e => setSelectedInstitutionId(e.target.value)}>
+                                <option value="new">+ Create New Institute</option>
+                                {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name} ({inst.academicYear})</option>)}
+                            </SelectInput>
                         </FormField>
+                        <FormField label="Institution Name" htmlFor="inst-name">
+                            <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={formState.name || ''} onChange={handleInstituteFormChange} required />
+                        </FormField>
+                        <FormField label="Academic Year" htmlFor="inst-acad-year">
+                            <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={formState.academicYear || ''} onChange={handleInstituteFormChange} required />
+                        </FormField>
+                        <FormField label="Semester" htmlFor="inst-semester">
+                            <SelectInput id="inst-semester" name="semester" value={formState.semester || 'Odd'} onChange={handleInstituteFormChange}>
+                                <option value="Odd">Odd Semester (Aug-Dec)</option>
+                                <option value="Even">Even Semester (Jan-May)</option>
+                            </SelectInput>
+                        </FormField>
+                        <div className="md:col-span-2">
+                            <FormField label="Campus Blocks (comma-separated)" htmlFor="inst-blocks">
+                                <TextInput id="inst-blocks" name="blocks" placeholder="e.g., A-Block, B-Block, Science Wing" value={(formState.blocks || []).join(', ')} onChange={handleInstituteFormChange} />
+                            </FormField>
+                        </div>
                     </div>
-                </div>
-                 <p className="text-xs text-right text-gray-400 mt-2">Changes are saved automatically.</p>
+                    <div className="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-border-primary">
+                        {!isCreatingNew && <button type="button" onClick={handleDeleteInstitution} className="btn-danger flex items-center gap-1"><DeleteIcon /> Delete</button>}
+                        <button type="submit" className="btn-primary w-48 flex items-center justify-center gap-2">
+                            {isCreatingNew ? <><AddIcon />Add Institute</> : <><SaveIcon />Save Changes</>}
+                        </button>
+                    </div>
+                </form>
             </SectionCard>
             <div className="my-4">
                 <FormField label="Filter by Block/Campus" htmlFor="block-filter">
                     <SelectInput id="block-filter" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}>
-                        {allBlocks.map(b => <option key={b} value={b}>{b === 'all' ? 'All Blocks' : b}</option>)}
+                         <option value="all">All Blocks</option>
+                        {activeBlocks.map(b => <option key={b} value={b}>{b}</option>)}
                     </SelectInput>
                 </FormField>
             </div>
@@ -735,7 +780,8 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationError, setGenerationError] = useState<string | null>(null);
     const [generatedTimetable, setGeneratedTimetable] = useState<TimetableEntry[] | null>(null);
-    const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [] });
+    // FIX: Updated selectedItems state to include 'institution' and match the full EntityType.
+    const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [], institution: [] });
     const [importModalState, setImportModalState] = useState<{ isOpen: boolean; type?: EntityType }>({ isOpen: false });
 
     const openImportModal = (type?: EntityType) => setImportModalState({ isOpen: true, type });
@@ -752,17 +798,22 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const handleDelete = async (type: EntityType, id: string) => { if (window.confirm('Are you sure?')) await onDeleteEntity(type, id); };
     const handleResetData = async () => { if (window.confirm('Are you sure you want to reset ALL data to the initial defaults? This cannot be undone.')) await onResetData(); };
     
+    // FIX: Updated handlers to use EntityType and prevent stale state issues.
     const handleToggleSelect = (type: EntityType, id: string) => {
+        if (type === 'institution') return; // Do not allow selecting institutions
         setSelectedItems(prev => ({ ...prev, [type]: prev[type].includes(id) ? prev[type].filter(i => i !== id) : [...prev[type], id] }));
     };
     const handleToggleSelectAll = (type: EntityType, displayedItems: any[]) => {
+        if (type === 'institution') return; // Do not allow selecting institutions
         const ids = displayedItems.map(item => item.id);
-        const allSelected = ids.every(id => selectedItems[type].includes(id));
-        if (allSelected) {
-            setSelectedItems(prev => ({ ...prev, [type]: prev[type].filter(i => !ids.includes(i)) }));
-        } else {
-            setSelectedItems(prev => ({ ...prev, [type]: [...new Set([...prev[type], ...ids])] }));
-        }
+        setSelectedItems(prev => {
+            const allSelected = ids.every(id => prev[type].includes(id));
+            if (allSelected) {
+                return { ...prev, [type]: prev[type].filter(i => !ids.includes(i)) };
+            } else {
+                return { ...prev, [type]: [...new Set([...prev[type], ...ids])] };
+            }
+        });
     };
 
     const handleGenerate = useCallback(async () => {
@@ -798,7 +849,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     
     const renderContent = () => {
         switch (activeTab) {
-            case 'setup': return <SetupTab {...props} onUpdateConstraints={setConstraints} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={openImportModal} />;
+            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={openImportModal} />;
             case 'constraints': return <ConstraintsTab {...props} />;
             case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
             case 'view': return <ViewTab {...props} />;
@@ -806,7 +857,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         }
     };
     
-    const forms: { [key in EntityType]: React.FC<any> } = { class: ClassForm, faculty: FacultyForm, subject: SubjectForm, room: RoomForm };
+    const forms: { [key in Exclude<EntityType, 'institution'>]: React.FC<any> } = { class: ClassForm, faculty: FacultyForm, subject: SubjectForm, room: RoomForm };
     const FormComponent = modal ? forms[modal.type] : null;
 
     return (
@@ -830,7 +881,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
             </main>
             {modal && FormComponent && (
                 <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError}>
-                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} constraints={constraints} />
+                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={[]} />
                 </Modal>
             )}
              <DataManagementModal isOpen={importModalState.isOpen} onClose={() => setImportModalState({isOpen: false})} initialEntityType={importModalState.type} />

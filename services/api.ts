@@ -1,4 +1,4 @@
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -58,6 +58,7 @@ type AllData = {
     classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[];
     students: Student[]; users: User[]; constraints: Constraints | null;
     timetable: TimetableEntry[]; attendance: Attendance; chatMessages: ChatMessage[];
+    institutions: Institution[];
 };
 export const fetchAllData = async (): Promise<AllData> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/all-data`);
@@ -80,7 +81,7 @@ export const getPaginatedUsers = async (role: 'teacher' | 'student', page: numbe
 }
 
 // --- DATA MUTATION ---
-type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'student';
+type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution';
 export const saveEntity = async <T>(type: EntityType, data: T & { id?: string }): Promise<T> => {
     const isAdding = !data.id;
     const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;

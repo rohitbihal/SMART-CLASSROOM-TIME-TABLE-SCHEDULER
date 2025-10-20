@@ -128,8 +128,9 @@ export interface AdvancedConstraint {
   travelTimeMinutes?: number;
 }
 
-// FIX: Added a dedicated type for institution details to ensure it's saved correctly.
-export interface InstitutionDetails {
+// NEW: A dedicated type for institution profiles.
+export interface Institution {
+    id: string;
     name: string;
     academicYear: string;
     semester: 'Odd' | 'Even';
@@ -147,7 +148,6 @@ export interface Constraints {
     roomResourceConstraints?: RoomResourceConstraint;
     studentSectionConstraints?: StudentSectionConstraint;
     advancedConstraints?: AdvancedConstraint;
-    institutionDetails?: InstitutionDetails;
 }
 
 // Teacher Request Type for new feature
@@ -195,6 +195,7 @@ export interface PaginatedResponse<T> {
   pagingCounter: number;
   hasPrevPage: boolean;
   hasNextPage: boolean;
+
   prevPage: number | null;
   nextPage: number | null;
 }

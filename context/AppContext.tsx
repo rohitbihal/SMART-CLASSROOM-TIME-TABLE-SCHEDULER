@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
 // FIX: Added AttendanceRecord to imports to fix type error.
-import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord } from '../types';
+import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution } from '../types';
 import * as api from '../services/api';
 import { logger } from '../services/logger';
 
@@ -22,14 +22,15 @@ interface AppContextType {
     rooms: Room[];
     students: Student[];
     users: User[];
+    institutions: Institution[];
     constraints: Constraints | null;
     timetable: TimetableEntry[];
     attendance: Attendance;
     chatMessages: ChatMessage[];
     
     // Data Handlers
-    handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => Promise<any>;
-    handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => Promise<void>;
+    handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => Promise<any>;
+    handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => Promise<void>;
     handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
     handleSaveTimetable: (newTimetable: TimetableEntry[]) => Promise<void>;
     // FIX: Changed records type to AttendanceRecord to match the actual data structure and fix type error.
@@ -55,6 +56,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [rooms, setRooms] = useState<Room[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
     const [users, setUsers] = useState<User[]>([]);
+    const [institutions, setInstitutions] = useState<Institution[]>([]);
     const [constraints, setConstraints] = useState<Constraints | null>(null);
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     const [attendance, setAttendance] = useState<Attendance>({});
@@ -75,6 +77,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setAttendance(data.attendance || {});
             setChatMessages(data.chatMessages || []);
             setUsers(data.users || []);
+            setInstitutions(data.institutions || []);
         } catch (error) {
             logger.error(error as Error, { context: 'fetchAllData' });
             setAppState('error');
@@ -102,16 +105,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     
     const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-    const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', data: any) => {
+    const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => {
         const savedItem = await api.saveEntity(type, data);
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
+        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions }[type];
         setter(prev => !data.id ? [...prev, savedItem] : prev.map(item => item.id === savedItem.id ? savedItem : item));
         return savedItem;
     }, []);
 
-    const handleDeleteEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student', id: string) => {
+    const handleDeleteEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => {
         await api.deleteEntity(type, id);
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents }[type];
+        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions }[type];
         setter(prev => prev.filter(item => item.id !== id));
     }, []);
 
@@ -165,11 +168,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const value = useMemo(() => ({
         user, token, appState, theme, login, logout, toggleTheme,
-        classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages,
+        classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance,
         handleSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
     }), [
-        user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages,
+        user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance,
         handleSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
     ]);

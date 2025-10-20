@@ -208,7 +208,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 const AuthenticatedApp = () => {
     // FIX: Destructured all necessary data and handlers from context to pass down as props.
     const { 
-        user, appState, classes, faculty, subjects, rooms, students, users, 
+        user, appState, classes, faculty, subjects, rooms, students, users, institutions,
         constraints, timetable, attendance, token, handleSaveEntity, handleDeleteEntity, 
         handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance, 
         handleSaveUser, handleDeleteUser, handleResetData 
@@ -249,6 +249,7 @@ const AuthenticatedApp = () => {
                                 subjects={subjects}
                                 rooms={rooms}
                                 students={students}
+                                institutions={institutions}
                                 constraints={constraints}
                                 setConstraints={handleUpdateConstraints}
                                 onSaveEntity={handleSaveEntity}

@@ -59,7 +59,8 @@ if (!process.env.API_KEY) {
 
 
 const app = express();
-app.set('trust proxy', 1); // FIX: Trust proxy to allow rate limiter to work correctly behind a reverse proxy
+// FIX: Trust proxy to allow rate limiter to work correctly behind a reverse proxy (like on Render).
+app.set('trust proxy', 1); 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
@@ -113,19 +114,21 @@ const facultyPreferenceSchema = new mongoose.Schema({
     coursePreferences: [{ subjectId: String, time: String, _id: false }],
 }, { _id: false });
 
-const institutionDetailsSchema = new mongoose.Schema({
-    name: { type: String, default: 'Central University of Technology' },
+// NEW: Dedicated schema for managing multiple institution profiles.
+const institutionSchema = new mongoose.Schema({
+    id: { type: String, unique: true },
+    name: { type: String, required: true },
     academicYear: { type: String, default: '2024-2025' },
     semester: { type: String, default: 'Odd' },
     session: { type: String, default: 'Regular' },
     blocks: { type: [String], default: [] }
-}, { _id: false });
+});
+
 
 const constraintsSchema = new mongoose.Schema({
     identifier: { type: String, default: 'global_constraints', unique: true },
     maxConsecutiveClasses: { type: Number, default: 3 },
     timePreferences: { type: timePreferencesSchema, default: () => ({}) },
-    institutionDetails: { type: institutionDetailsSchema, default: () => ({}) },
     facultyPreferences: { type: [facultyPreferenceSchema], default: [] },
     chatWindow: { start: String, end: String },
     classSpecific: [Object],
@@ -155,8 +158,9 @@ const TimetableEntry = mongoose.model('TimetableEntry', timetableEntrySchema);
 const Constraints = mongoose.model('Constraints', constraintsSchema);
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
+const Institution = mongoose.model('Institution', institutionSchema); // New Model
 
-const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage };
+const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution };
 
 const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
 const MOCK_FACULTY = [ { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210' }, { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211' } ];
@@ -164,6 +168,24 @@ const MOCK_SUBJECTS = [ { id: 's1', name: 'Data Structures', code: 'CS301', depa
 const MOCK_ROOMS = [ { id: 'r1', number: 'CS-101', type: 'classroom', capacity: 65, block: 'A-Block' }, { id: 'r2', number: 'CS-102', type: 'classroom', capacity: 65, block: 'B-Block' }, { id: 'r3', number: 'CS-Lab-1', type: 'lab', capacity: 60, block: 'A-Block' } ];
 const MOCK_STUDENTS = [ { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu', contactNumber: '8765432109' }, { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02', email: 'bob.singh@university.edu', contactNumber: '8765432108' }, { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01', contactNumber: '8765432107' }, { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02', email: 'diana.p@university.edu', contactNumber: '8765432106' } ];
 const MOCK_USERS = [ { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' }, { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' }, { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' } ];
+const MOCK_INSTITUTIONS = [
+    {
+        id: 'inst1',
+        name: 'Central University of Technology',
+        academicYear: '2024-2025',
+        semester: 'Odd',
+        session: 'Regular',
+        blocks: ['A-Block', 'B-Block', 'Science Wing']
+    },
+    {
+        id: 'inst2',
+        name: 'City College of Engineering',
+        academicYear: '2024-28',
+        semester: 'Odd',
+        session: 'Regular',
+        blocks: ['Main Building', 'Tech Park']
+    }
+];
 const MOCK_CONSTRAINTS = {
     maxConsecutiveClasses: 3,
     timePreferences: {
@@ -173,13 +195,6 @@ const MOCK_CONSTRAINTS = {
         lunchStartTime: '12:50',
         lunchDurationMinutes: 45,
         slotDurationMinutes: 50,
-    },
-    institutionDetails: {
-        name: 'Central University of Technology',
-        academicYear: '2024-2025',
-        semester: 'Odd',
-        session: 'Regular',
-        blocks: ['A-Block', 'B-Block', 'Science Wing']
     },
     chatWindow: { start: '09:00', end: '17:00' },
     classSpecific: [],
@@ -197,7 +212,7 @@ async function seedDatabase() {
         
         const modelDataMap = {
             Class: MOCK_CLASSES, Faculty: MOCK_FACULTY, Subject: MOCK_SUBJECTS,
-            Room: MOCK_ROOMS, Student: MOCK_STUDENTS
+            Room: MOCK_ROOMS, Student: MOCK_STUDENTS, Institution: MOCK_INSTITUTIONS,
         };
 
         for (const [modelName, data] of Object.entries(modelDataMap)) {
@@ -279,13 +294,14 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
           }
           return [];
         };
-        const [classes, faculty, subjects, rooms, students, constraints, timetable, attendance, users, chatMessages] = await Promise.all([
+        const [classes, faculty, subjects, rooms, students, constraints, timetable, attendance, users, chatMessages, institutions] = await Promise.all([
             Class.find().lean(), Faculty.find().lean(), Subject.find().lean(), Room.find().lean(), Student.find().lean(),
             Constraints.findOne({ identifier: 'global_constraints' }).lean(),
             TimetableEntry.find().lean(),
             Attendance.find().lean(),
             req.user.role === 'admin' ? User.find({ role: { $ne: 'admin' } }).lean() : Promise.resolve([]),
-            findChatMessages()
+            findChatMessages(),
+            Institution.find().lean()
         ]);
 
         const attendanceMap = attendance.reduce((acc, curr) => {
@@ -298,7 +314,7 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             return acc;
         }, {});
         
-        res.json({ classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance: attendanceMap, chatMessages });
+        res.json({ classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance: attendanceMap, chatMessages, institutions });
     } catch (error) { handleApiError(res, error, 'fetching all data'); }
 });
 
@@ -331,6 +347,10 @@ const studentValidationRules = [
     body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail().withMessage('Please enter a valid email.'),
     body('classId').notEmpty().withMessage('Class ID is required.'),
 ];
+const institutionValidationRules = [
+    body('name').trim().escape().notEmpty().withMessage('Institution name is required.'),
+    body('academicYear').trim().escape().notEmpty().withMessage('Academic Year is required.'),
+];
 
 // --- Entity CRUD ---
 const createRouterFor = (type, validationRules = []) => {
@@ -358,6 +378,7 @@ app.use('/api/faculty', authMiddleware, adminOnly, createRouterFor('faculty'));
 app.use('/api/subject', authMiddleware, adminOnly, createRouterFor('subject'));
 app.use('/api/room', authMiddleware, adminOnly, createRouterFor('room'));
 app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student', studentValidationRules));
+app.use('/api/institution', authMiddleware, adminOnly, createRouterFor('institution', institutionValidationRules));
 
 // --- NEW: PAGINATED ENDPOINTS ---
 app.get('/api/paginated/students', authMiddleware, adminOnly, async (req, res) => {
