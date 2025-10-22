@@ -1,4 +1,4 @@
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -58,7 +58,7 @@ type AllData = {
     classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[];
     students: Student[]; users: User[]; constraints: Constraints | null;
     timetable: TimetableEntry[]; attendance: Attendance; chatMessages: ChatMessage[];
-    institutions: Institution[];
+    institutions: Institution[]; teacherRequests: TeacherRequest[];
 };
 export const fetchAllData = async (): Promise<AllData> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/all-data`);
@@ -157,6 +157,33 @@ export const askCampusAI = async (payload: { messageText: string, classId: strin
 
 export const sendTeacherMessage = async (payload: { classId: string, text: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/send`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+export const updateTeacherAvailability = async (facultyId: string, availability: { [day: string]: string[] }): Promise<Faculty> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/teacher/availability`, {
+        method: 'PUT',
+        body: JSON.stringify({ facultyId, availability })
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+export const submitTeacherRequest = async (requestData: Omit<TeacherRequest, 'id' | 'facultyId' | 'status' | 'submittedDate'>): Promise<TeacherRequest> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/teacher/requests`, {
+        method: 'POST',
+        body: JSON.stringify(requestData)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+export const askTeacherAI = async (payload: { messageText: string, messageId: string }): Promise<ChatMessage> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask/teacher`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });

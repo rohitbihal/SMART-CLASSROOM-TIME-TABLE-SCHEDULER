@@ -28,6 +28,7 @@ export interface Faculty {
   adminId?: string;
   contactNumber?: string;
   accessLevel?: 'Super Admin' | 'Timetable Manager' | 'User Management';
+  availability?: { [day: string]: string[] };
 }
 
 export interface Subject {

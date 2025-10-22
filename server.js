@@ -81,7 +81,7 @@ const saltRounds = 10;
 
 // --- Mongoose Schemas ---
 const classSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, branch: String, year: Number, section: String, studentCount: Number, block: String });
-const facultySchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, department: String, specialization: [String], email: { type: String, required: true, unique: true }, adminId: { type: String, unique: true, sparse: true }, contactNumber: String, accessLevel: String });
+const facultySchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, department: String, specialization: [String], email: { type: String, required: true, unique: true }, adminId: { type: String, unique: true, sparse: true }, contactNumber: String, accessLevel: String, availability: mongoose.Schema.Types.Mixed });
 const subjectSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, code: {type: String, required: true, unique: true}, department: String, type: String, hoursPerWeek: Number, assignedFacultyId: String });
 const roomSchema = new mongoose.Schema({ id: {type: String, unique: true}, number: {type: String, required: true, unique: true}, type: String, capacity: Number, block: String });
 const studentSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, email: {type: String, unique: true, sparse: true}, classId: String, roll: String, contactNumber: String });
@@ -159,6 +159,17 @@ const chatMessageSchema = new mongoose.Schema({
     groundingChunks: { type: mongoose.Schema.Types.Mixed, default: [] }
 });
 
+const teacherRequestSchema = new mongoose.Schema({
+    id: { type: String, unique: true, required: true },
+    facultyId: { type: String, required: true },
+    requestType: String,
+    subject: String,
+    currentSchedule: String,
+    requestedChange: String,
+    reason: String,
+    status: { type: String, default: 'Pending' },
+    submittedDate: { type: String, default: () => new Date().toISOString() },
+});
 
 const Class = mongoose.model('Class', classSchema);
 const Faculty = mongoose.model('Faculty', facultySchema);
@@ -171,8 +182,9 @@ const Constraints = mongoose.model('Constraints', constraintsSchema);
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
 const Institution = mongoose.model('Institution', institutionSchema); // New Model
+const TeacherRequest = mongoose.model('TeacherRequest', teacherRequestSchema);
 
-const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution };
+const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest };
 
 const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
 const MOCK_FACULTY = [ { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210' }, { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211' } ];
@@ -306,15 +318,11 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             }
           }
           if (req.user.role === 'teacher') {
-            const subjectsTaught = await Subject.find({ assignedFacultyId: req.user.profileId }).lean();
-            // This is a simplification; a teacher could teach multiple classes via different subjects.
-            // A more robust solution might involve a `classesTaught` field on the Faculty model.
-            const faculty = await Faculty.findOne({ id: req.user.profileId }).lean();
-            if (faculty) {
-                // For this app, let's assume a teacher might want to see all chats for now.
-                // A better implementation would scope this.
-                return ChatMessage.find().sort({ timestamp: 1 }).lean();
-            }
+            // Fetch AI chat messages and any class-based messages
+            const teacherAIChannel = `teacher-ai-${req.user.profileId}`;
+            // A more complex query could fetch messages from classes the teacher is assigned to.
+            // For now, we'll fetch all messages and let the client filter for simplicity.
+            return ChatMessage.find().sort({ timestamp: 1 }).lean();
           }
           // Admins get all chat messages
           if (req.user.role === 'admin') {
@@ -322,14 +330,15 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
           }
           return [];
         };
-        const [classes, faculty, subjects, rooms, students, constraints, timetable, attendance, users, chatMessages, institutions] = await Promise.all([
+        const [classes, faculty, subjects, rooms, students, constraints, timetable, attendance, users, chatMessages, institutions, teacherRequests] = await Promise.all([
             Class.find().lean(), Faculty.find().lean(), Subject.find().lean(), Room.find().lean(), Student.find().lean(),
             Constraints.findOne({ identifier: 'global_constraints' }).lean(),
             TimetableEntry.find().lean(),
             Attendance.find().lean(),
             req.user.role === 'admin' ? User.find({ role: { $ne: 'admin' } }).lean() : Promise.resolve([]),
             findChatMessages(),
-            Institution.find().lean()
+            Institution.find().lean(),
+            req.user.role === 'teacher' ? TeacherRequest.find({ facultyId: req.user.profileId }).lean() : (req.user.role === 'admin' ? TeacherRequest.find().lean() : Promise.resolve([]))
         ]);
 
         const attendanceMap = attendance.reduce((acc, curr) => {
@@ -342,7 +351,7 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             return acc;
         }, {});
         
-        res.json({ classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance: attendanceMap, chatMessages, institutions });
+        res.json({ classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance: attendanceMap, chatMessages, institutions, teacherRequests });
     } catch (error) { handleApiError(res, error, 'fetching all data'); }
 });
 
@@ -626,8 +635,8 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
         const response = await ai.models.generateContent({
            model: "gemini-2.5-flash",
            contents: `${prompt}${messageText}`,
-           tools: [{googleSearch: {}}],
            config: {
+             tools: [{googleSearch: {}}],
              systemInstruction: "You are a helpful and friendly AI Campus Assistant. Your goal is to answer questions based on the provided context data about the student and campus. For up-to-date or general knowledge questions, use Google Search. If a question is outside your scope, say so. Keep answers concise. Cite your sources from search results when you use them.",
              temperature: 0.5
            }
@@ -669,6 +678,98 @@ app.post('/api/chat/send', authMiddleware, adminOrTeacher, async (req, res) => {
     }
 });
 
+app.put('/api/teacher/availability', authMiddleware, adminOrTeacher, async (req, res) => {
+    const { facultyId, availability } = req.body;
+    if (req.user.role === 'teacher' && req.user.profileId !== facultyId) {
+        return res.status(403).json({ message: "Forbidden: You can only update your own availability." });
+    }
+    try {
+        const updatedFaculty = await Faculty.findOneAndUpdate({ id: facultyId }, { availability }, { new: true });
+        if (!updatedFaculty) return res.status(404).json({ message: 'Faculty not found.' });
+        res.json(updatedFaculty);
+    } catch(e) {
+        handleApiError(res, e, 'teacher availability update');
+    }
+});
+
+app.post('/api/teacher/requests', authMiddleware, adminOrTeacher, async (req, res) => {
+    try {
+        const requestData = {
+            ...req.body,
+            id: `req-${new mongoose.Types.ObjectId()}`,
+            facultyId: req.user.profileId,
+            status: 'Pending',
+            submittedDate: new Date().toISOString()
+        };
+        const newRequest = new TeacherRequest(requestData);
+        await newRequest.save();
+        res.status(201).json(newRequest);
+    } catch(e) {
+        handleApiError(res, e, 'teacher request submission');
+    }
+});
+
+const generateTeacherChatPrompt = (teacherProfile, history) => {
+    return `You are a highly capable AI assistant for ${teacherProfile.name}, a teacher in the ${teacherProfile.department} department. Your purpose is to provide up-to-date information, teaching resources, pedagogical strategies, and answer educational queries using Google Search. Be concise, professional, and cite your sources.
+
+**Context Data:**
+*   Teacher: ${teacherProfile.name}
+*   Department: ${teacherProfile.department}
+*   Specializations: ${teacherProfile.specialization.join(', ')}
+
+**Conversation History (Last 5 messages):**
+${history.map(h => `${h.author}: ${h.text}`).join('\n')}
+
+**New Question from ${teacherProfile.name}:**
+`;
+};
+
+app.post('/api/chat/ask/teacher', authMiddleware, adminOrTeacher, async (req, res) => {
+    if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
+
+    const { messageText, messageId } = req.body;
+    const { user } = req;
+    const channelId = `teacher-ai-${user.profileId}`;
+
+    try {
+        const userMessage = new ChatMessage({
+            id: messageId, text: messageText, author: user.username, role: 'teacher',
+            channel: channelId, classId: channelId, timestamp: Date.now(),
+        });
+        await userMessage.save();
+
+        const teacher = await Faculty.findOne({ id: user.profileId }).lean();
+        if (!teacher) return res.status(404).json({ message: "Teacher profile not found." });
+
+        const history = await ChatMessage.find({ channel: channelId }).sort({ timestamp: -1 }).limit(5).lean();
+        
+        const prompt = generateTeacherChatPrompt(teacher, history.reverse());
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+           model: "gemini-2.5-flash",
+           contents: `${prompt}${messageText}`,
+           config: {
+             tools: [{googleSearch: {}}],
+             systemInstruction: "You are an expert AI assistant for educators. Use Google Search to find the latest information, lesson plans, and teaching strategies. Provide clear, actionable answers and always cite your web sources.",
+             temperature: 0.5
+           }
+        });
+
+        const aiResponseText = response.text;
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        
+        const aiMessage = new ChatMessage({
+            id: `ai-msg-${Date.now()}`, text: aiResponseText, author: 'Campus AI', role: 'admin',
+            channel: channelId, classId: channelId, timestamp: Date.now(), groundingChunks
+        });
+        await aiMessage.save();
+        res.status(201).json(aiMessage);
+    } catch (error) {
+        handleApiError(res, error, 'Teacher AI chat processing');
+    }
+});
+
+
 // --- Reset and Generation ---
 app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
     try {
@@ -683,6 +784,7 @@ app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
 
 // --- Prompt Generation Helpers ---
 const timeToMinutes = (timeStr) => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
