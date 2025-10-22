@@ -155,7 +155,8 @@ attendanceSchema.index({ classId: 1, date: 1 }, { unique: true });
 const chatMessageSchema = new mongoose.Schema({
     id: { type: String, unique: true, required: true },
     author: String, role: String, text: String,
-    timestamp: Number, classId: String, channel: String
+    timestamp: Number, classId: String, channel: String,
+    groundingChunks: { type: mongoose.Schema.Types.Mixed, default: [] }
 });
 
 
@@ -302,6 +303,17 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             const student = await Student.findOne({ id: req.user.profileId }).lean();
             if (student) {
               return ChatMessage.find({ classId: student.classId }).sort({ timestamp: 1 }).lean();
+            }
+          }
+          if (req.user.role === 'teacher') {
+            const subjectsTaught = await Subject.find({ assignedFacultyId: req.user.profileId }).lean();
+            // This is a simplification; a teacher could teach multiple classes via different subjects.
+            // A more robust solution might involve a `classesTaught` field on the Faculty model.
+            const faculty = await Faculty.findOne({ id: req.user.profileId }).lean();
+            if (faculty) {
+                // For this app, let's assume a teacher might want to see all chats for now.
+                // A better implementation would scope this.
+                return ChatMessage.find().sort({ timestamp: 1 }).lean();
             }
           }
           // Admins get all chat messages
@@ -499,6 +511,31 @@ app.put('/api/constraints', authMiddleware, adminOnly, async (req, res) => {
         handleApiError(res, e, 'constraints update');
     }
 });
+
+app.put('/api/constraints/faculty-availability', authMiddleware, adminOrTeacher, async (req, res) => {
+    const { facultyId, unavailability } = req.body;
+    if (req.user.role === 'teacher' && req.user.profileId !== facultyId) {
+        return res.status(403).json({ message: "Forbidden: You can only update your own availability." });
+    }
+    try {
+        const constraints = await Constraints.findOne({ identifier: 'global_constraints' });
+        if (!constraints) return res.status(404).json({ message: 'Constraints document not found.' });
+        const prefIndex = (constraints.facultyPreferences || []).findIndex(p => p.facultyId === facultyId);
+        if (prefIndex > -1) {
+            constraints.facultyPreferences[prefIndex].unavailability = unavailability;
+        } else {
+            if (!constraints.facultyPreferences) constraints.facultyPreferences = [];
+            constraints.facultyPreferences.push({ facultyId, unavailability });
+        }
+        constraints.markModified('facultyPreferences');
+        await constraints.save();
+        res.json(constraints);
+    } catch (e) {
+        handleApiError(res, e, 'faculty availability update');
+    }
+});
+
+
 app.post('/api/timetable', authMiddleware, adminOnly, async (req, res) => { try { await TimetableEntry.deleteMany({}); await TimetableEntry.insertMany(req.body); res.status(201).json(req.body); } catch (e) { handleApiError(res, e, 'timetable save'); } });
 app.put('/api/attendance', authMiddleware, adminOrTeacher, async (req, res) => {
     const { classId, date, studentId, status } = req.body;
@@ -537,30 +574,27 @@ app.put('/api/attendance/class', authMiddleware, adminOrTeacher, async (req, res
 app.get('/api/chat/:classId', authMiddleware, async (req, res) => { try { const messages = await ChatMessage.find({ classId: req.params.classId }).sort({ timestamp: 1 }); res.json(messages); } catch (e) { handleApiError(res, e, 'fetching chat'); } });
 
 // New AI Chat Endpoint
-const generateChatPrompt = (student, studentClass, timetable, subjects, faculty, history) => {
+const generateChatPrompt = (userProfile, userClass, timetable, subjects, faculty, history) => {
     const today = new Date().toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
     
-    return `You are a friendly and helpful AI Campus Assistant for a student named ${student.name}. Your goal is to answer questions based ONLY on the provided context data. If the answer is not in the context, politely say that you don't have that information. Keep your answers concise and clear. Today is ${today}.
+    return `You are a friendly and helpful AI Campus Assistant for ${userProfile.name}. Your goal is to answer questions based on provided context and your general knowledge, using Google Search for recent or specific information. If a question is outside your scope, say you can't help with that. Be concise. Today is ${today}.
 
 **Context Data:**
 
-1.  **Student Details:**
-    *   Name: ${student.name}
-    *   Class: ${studentClass.name}
+1.  **User Details:**
+    *   Name: ${userProfile.name}
+    *   Class: ${userClass ? userClass.name : 'N/A'}
 
-2.  **Student's Weekly Timetable:**
+2.  **User's Weekly Timetable:**
     ${JSON.stringify(timetable, null, 2)}
 
-3.  **Available Subjects:**
-    ${JSON.stringify(subjects.map(s => ({ name: s.name, code: s.code, type: s.type })), null, 2)}
-
-4.  **Faculty List:**
-    ${JSON.stringify(faculty.map(f => ({ name: f.name, department: f.department })), null, 2)}
+3.  **Available Subjects & Faculty:**
+    ${JSON.stringify(subjects.map(s => ({ name: s.name, code: s.code, faculty: faculty.find(f => f.id === s.assignedFacultyId)?.name || 'N/A' })), null, 2)}
 
 **Conversation History (Last 5 messages):**
 ${history.map(h => `${h.author}: ${h.text}`).join('\n')}
 
-**New Question from ${student.name}:**
+**New Question from ${userProfile.name}:**
 `;
 };
 
@@ -572,22 +606,16 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
 
     try {
         const userMessage = new ChatMessage({
-            id: messageId,
-            text: messageText,
-            classId: classId,
-            author: user.username,
-            role: user.role,
-            channel: 'query',
-            timestamp: Date.now(),
+            id: messageId, text: messageText, classId: classId, author: user.username, role: user.role, channel: 'query', timestamp: Date.now(),
         });
         await userMessage.save();
 
         const student = await Student.findOne({ id: user.profileId }).lean();
-        const studentClass = await Class.findOne({ id: classId }).lean();
-        if (!student || !studentClass) return res.status(404).json({ message: "Student profile not found." });
+        const studentClass = classId ? await Class.findOne({ id: classId }).lean() : null;
+        if (!student) return res.status(404).json({ message: "Student profile not found." });
 
         const [timetable, subjects, faculty, history] = await Promise.all([
-            TimetableEntry.find({ className: studentClass.name }).lean(),
+            studentClass ? TimetableEntry.find({ className: studentClass.name }).lean() : Promise.resolve([]),
             Subject.find().lean(),
             Faculty.find().lean(),
             ChatMessage.find({ classId }).sort({ timestamp: -1 }).limit(5).lean()
@@ -598,22 +626,18 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
         const response = await ai.models.generateContent({
            model: "gemini-2.5-flash",
            contents: `${prompt}${messageText}`,
+           tools: [{googleSearch: {}}],
            config: {
-             systemInstruction: "You are a helpful and friendly AI Campus Assistant for a student. Your goal is to answer questions based *only* on the provided context data. If the answer is not in the context, say that you don't have that information. Keep your answers concise and clear.",
-             temperature: 0.3
+             systemInstruction: "You are a helpful and friendly AI Campus Assistant. Your goal is to answer questions based on the provided context data about the student and campus. For up-to-date or general knowledge questions, use Google Search. If a question is outside your scope, say so. Keep answers concise. Cite your sources from search results when you use them.",
+             temperature: 0.5
            }
         });
 
         const aiResponseText = response.text;
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         
         const aiMessage = new ChatMessage({
-            id: `ai-msg-${Date.now()}`,
-            text: aiResponseText,
-            classId: classId,
-            author: 'Campus AI',
-            role: 'admin',
-            channel: 'query',
-            timestamp: Date.now(),
+            id: `ai-msg-${Date.now()}`, text: aiResponseText, classId: classId, author: 'Campus AI', role: 'admin', channel: 'query', timestamp: Date.now(), groundingChunks
         });
         await aiMessage.save();
         res.status(201).json(aiMessage);
@@ -622,8 +646,8 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
     }
 });
 
-// NEW: Endpoint for admin to send messages
-app.post('/api/chat/admin-send', authMiddleware, adminOnly, async (req, res) => {
+// Endpoint for admin/teacher to send messages
+app.post('/api/chat/send', authMiddleware, adminOrTeacher, async (req, res) => {
     const { text, classId } = req.body;
     const { user } = req;
 
@@ -632,19 +656,16 @@ app.post('/api/chat/admin-send', authMiddleware, adminOnly, async (req, res) => 
     }
 
     try {
-        const adminMessage = new ChatMessage({
-            id: `admin-msg-${Date.now()}`,
-            text,
-            classId,
-            author: 'Admin',
-            role: 'admin',
-            channel: 'query',
-            timestamp: Date.now(),
+        const facultyProfile = await Faculty.findOne({ id: user.profileId }).lean();
+        const authorName = user.role === 'admin' ? 'Admin' : facultyProfile?.name || user.username;
+        
+        const message = new ChatMessage({
+            id: `msg-${Date.now()}`, text, classId, author: authorName, role: user.role, channel: 'query', timestamp: Date.now(),
         });
-        await adminMessage.save();
-        res.status(201).json(adminMessage);
+        await message.save();
+        res.status(201).json(message);
     } catch (error) {
-        handleApiError(res, error, 'Admin chat send');
+        handleApiError(res, error, 'Privileged chat send');
     }
 });
 

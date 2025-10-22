@@ -32,10 +32,12 @@ interface AppContextType {
     handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => Promise<any>;
     handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => Promise<void>;
     handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
+    handleUpdateFacultyAvailability: (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => Promise<void>;
     handleSaveTimetable: (newTimetable: TimetableEntry[]) => Promise<void>;
     // FIX: Changed records type to AttendanceRecord to match the actual data structure and fix type error.
     handleSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
+    // FIX: Renamed handleTeacherSendMessage to handleAdminSendMessage to resolve usage error in App.tsx.
     handleAdminSendMessage: (classId: string, text: string) => Promise<void>;
     handleResetData: () => Promise<void>;
     handleSaveUser: (userData: any) => Promise<any>;
@@ -82,6 +84,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         } catch (error) {
             logger.error(error as Error, { context: 'fetchAllData' });
             setAppState('error');
+            // If auth fails, log out
+            if (error instanceof Error && error.message.includes('Session expired')) {
+                logout();
+            }
         } finally {
             setAppState('ready');
         }
@@ -124,6 +130,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setConstraints(updatedConstraints);
     }, []);
 
+    const handleUpdateFacultyAvailability = useCallback(async (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => {
+        const updatedConstraints = await api.updateFacultyAvailability(facultyId, unavailability);
+        setConstraints(updatedConstraints);
+    }, []);
+
     const handleSaveTimetable = useCallback(async (newTimetable: TimetableEntry[]) => {
         await api.saveTimetable(newTimetable);
         setTimetable(newTimetable);
@@ -139,16 +150,28 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         });
     }, []);
     
-    // Note: Chat handling can be complex. This is a simplified version.
     const handleSendMessage = useCallback(async (messageText: string, messageId: string, classId: string) => {
         if (!user) return;
         const userMessage: ChatMessage = { id: messageId, channel: 'query', author: user.username, role: user.role, text: messageText, timestamp: Date.now(), classId };
         setChatMessages(prev => [...prev, userMessage]);
-        // AI response handling should be done in the component to show loading state
+        try {
+            const aiResponse = await api.askCampusAI({ messageText, classId, messageId });
+            setChatMessages(prev => [...prev, aiResponse]);
+        } catch (error) {
+            logger.error(error as Error, { context: 'handleSendMessage' });
+            // FIX: Added missing 'channel' property to satisfy the ChatMessage type.
+            const errorMessage: ChatMessage = {
+                id: `error-${Date.now()}`, author: 'Campus AI', role: 'admin',
+                text: 'I seem to be having trouble connecting. Please try again in a moment.',
+                timestamp: Date.now(), classId, channel: 'query'
+            };
+            setChatMessages(prev => [...prev, errorMessage]);
+            throw error;
+        }
     }, [user]);
 
     const handleAdminSendMessage = useCallback(async (classId: string, text: string) => {
-        const newMessage = await api.sendAdminMessage({ classId, text });
+        const newMessage = await api.sendTeacherMessage({ classId, text });
         setChatMessages(prev => [...prev, newMessage]);
     }, []);
 
@@ -175,11 +198,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const value = useMemo(() => ({
         user, token, appState, theme, login, logout, toggleTheme,
         classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions,
-        handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance,
+        handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
         handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions,
-        handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance,
+        handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
         handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile
     ]);
 

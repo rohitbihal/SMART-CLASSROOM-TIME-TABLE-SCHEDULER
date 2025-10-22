@@ -1,4 +1,14 @@
 // === From types.ts ===
+
+// NEW: Type for grounding chunks from Gemini search
+export interface GroundingChunk {
+  web?: {
+    uri: string;
+    title: string;
+  };
+  // Can be extended with other grounding types like 'maps' if needed
+}
+
 export interface Class {
   id: string;
   name: string;
@@ -65,6 +75,7 @@ export interface ChatMessage {
   timestamp: number;
   classId: string; // To scope messages to a class
   channel: string; // To support different channels like 'query', 'attendance'
+  groundingChunks?: GroundingChunk[]; // For search-grounded responses
 }
 
 export interface NonConsecutiveConstraint {

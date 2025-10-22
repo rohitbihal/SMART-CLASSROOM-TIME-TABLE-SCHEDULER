@@ -118,6 +118,15 @@ export const updateConstraints = async (constraints: Constraints): Promise<Const
     return response.json();
 }
 
+export const updateFacultyAvailability = async (facultyId: string, unavailability: { day: string, timeSlot: string }[]): Promise<Constraints> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/constraints/faculty-availability`, {
+        method: 'PUT',
+        body: JSON.stringify({ facultyId, unavailability })
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
 export const saveTimetable = async (timetable: TimetableEntry[]): Promise<TimetableEntry[]> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/timetable`, { method: 'POST', body: JSON.stringify(timetable) });
     if (!response.ok) throw await handleApiError(response);
@@ -136,8 +145,18 @@ export const resetAllData = async (): Promise<{ message: string }> => {
     return response.json();
 }
 
-export const sendAdminMessage = async (payload: { classId: string, text: string }): Promise<ChatMessage> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/chat/admin-send`, {
+// --- CHAT API ---
+export const askCampusAI = async (payload: { messageText: string, classId: string, messageId: string }): Promise<ChatMessage> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+export const sendTeacherMessage = async (payload: { classId: string, text: string }): Promise<ChatMessage> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/send`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });
