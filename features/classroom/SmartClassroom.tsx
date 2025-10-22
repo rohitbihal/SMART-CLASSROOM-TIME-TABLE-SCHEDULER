@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon, ClockIcon, ChatIcon, SendIcon, AIIcon
+    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon, ClockIcon, ChatIcon, SendIcon, AIIcon, SaveIcon
 } from '../../components/Icons';
 import { SectionCard, Modal, FeedbackBanner, FormField, TextInput, SelectInput } from '../../App';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord, Constraints, ChatMessage } from '../../types';
@@ -779,6 +779,7 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
 
 const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'constraints' | 'chatMessages' | 'onUpdateConstraints' | 'onAdminSendMessage'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
     const [chatWindow, setChatWindow] = useState(constraints?.chatWindow || { start: '09:00', end: '17:00' });
+    const [isChatEnabled, setIsChatEnabled] = useState(constraints?.isChatboxEnabled ?? true);
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [newMessage, setNewMessage] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -788,10 +789,18 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
     const selectedClassName = useMemo(() => classes.find(c => c.id === selectedClassId)?.name, [classes, selectedClassId]);
 
     const filteredMessages = useMemo(() => {
+        const channel = `admin-chat-${selectedClassId}`;
         return chatMessages
-            .filter(m => m.classId === selectedClassId)
+            .filter(m => m.channel === channel)
             .sort((a, b) => a.timestamp - b.timestamp);
     }, [chatMessages, selectedClassId]);
+    
+    useEffect(() => {
+        if (constraints) {
+            setChatWindow(constraints.chatWindow || { start: '09:00', end: '17:00' });
+            setIsChatEnabled(constraints.isChatboxEnabled ?? true);
+        }
+    }, [constraints]);
 
     useEffect(() => {
         if (chatContainerRef.current) {
@@ -804,8 +813,8 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
         setIsSaving(true);
         setFeedback(null);
         try {
-            await onUpdateConstraints({ ...constraints, chatWindow });
-            setFeedback({ type: 'success', message: 'Chatbot availability updated!' });
+            await onUpdateConstraints({ ...constraints, chatWindow, isChatboxEnabled: isChatEnabled });
+            setFeedback({ type: 'success', message: 'Chat settings updated!' });
         } catch (err) {
             const message = err instanceof Error ? err.message : "An unknown error occurred.";
             setFeedback({ type: 'error', message: `Failed to save settings: ${message}` });
@@ -836,15 +845,34 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 flex flex-col gap-6">
-                <SectionCard title="Chatbot Availability">
-                    <p className="text-sm text-text-secondary mb-4">Set the time window when the student chatbot is active.</p>
-                    <div className="space-y-4">
-                        <FormField label="Start Time" htmlFor="chat-start"><TextInput type="time" id="chat-start" value={chatWindow.start} onChange={e => setChatWindow(p => ({...p, start: e.target.value}))} /></FormField>
-                        <FormField label="End Time" htmlFor="chat-end"><TextInput type="time" id="chat-end" value={chatWindow.end} onChange={e => setChatWindow(p => ({...p, end: e.target.value}))} /></FormField>
+                <SectionCard title="Chatbot & Chatbox Settings">
+                    <div>
+                        <h4 className="font-semibold text-lg mb-2">Campus AI Availability</h4>
+                        <p className="text-sm text-text-secondary mb-4">Set the time window when the student AI chatbot is active.</p>
+                        <div className="space-y-4">
+                            <FormField label="Start Time" htmlFor="chat-start"><TextInput type="time" id="chat-start" value={chatWindow.start} onChange={e => setChatWindow(p => ({...p, start: e.target.value}))} /></FormField>
+                            <FormField label="End Time" htmlFor="chat-end"><TextInput type="time" id="chat-end" value={chatWindow.end} onChange={e => setChatWindow(p => ({...p, end: e.target.value}))} /></FormField>
+                        </div>
+                    </div>
+                    <div className="border-t border-border-primary mt-6 pt-6">
+                        <h4 className="font-semibold text-lg mb-2">Student/Teacher Chatbox</h4>
+                        <div className="flex items-center justify-between bg-bg-tertiary p-4 rounded-lg">
+                            <div>
+                                <p className="font-semibold">Enable Chatbox</p>
+                                <p className="text-sm text-text-secondary">Allow students and teachers to communicate directly and in class groups.</p>
+                            </div>
+                            <label htmlFor="chatbox-toggle" className="flex items-center cursor-pointer">
+                                <div className="relative">
+                                    <input type="checkbox" id="chatbox-toggle" className="sr-only" checked={isChatEnabled} onChange={() => setIsChatEnabled(!isChatEnabled)} />
+                                    <div className={`block w-14 h-8 rounded-full ${isChatEnabled ? 'bg-accent-primary' : 'bg-gray-400'}`}></div>
+                                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isChatEnabled ? 'transform translate-x-6' : ''}`}></div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-border-primary flex justify-end">
                         <button onClick={handleSaveSettings} className="btn-primary w-full flex items-center justify-center gap-2" disabled={isSaving}>
-                            {isSaving ? 'Saving...' : <><ClockIcon className="h-5 w-5"/>Save Schedule</>}
+                            {isSaving ? 'Saving...' : <><SaveIcon className="h-5 w-5"/>Save All Settings</>}
                         </button>
                     </div>
                 </SectionCard>
@@ -859,32 +887,25 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
                 </SectionCard>
             </div>
             <div className="lg:col-span-2">
-                 <SectionCard title={`Live Chat: ${selectedClassName || 'Select a Class'}`} className="flex flex-col h-[75vh]">
+                 <SectionCard title={`Admin Broadcast: ${selectedClassName || 'Select a Class'}`} className="flex flex-col h-[75vh]">
                      <div ref={chatContainerRef} className="flex-grow p-4 space-y-6 overflow-y-auto bg-gray-50 dark:bg-slate-900/50 rounded-lg">
                         {filteredMessages.length > 0 ? filteredMessages.map(msg => {
-                             const isUser = msg.role === 'student';
-                             const isAdmin = msg.role === 'admin' && msg.author === 'Admin';
-                             const isBot = msg.author === 'Campus AI';
-
-                             const alignment = isUser ? 'justify-end' : 'justify-start';
-                             const bubbleColor = isAdmin ? 'bg-green-600 text-white' : isUser ? 'bg-accent-primary text-accent-text' : 'bg-bg-tertiary text-text-primary';
-                             const avatarIcon = isAdmin ? <ShieldIcon className="h-5 w-5" /> : isUser ? <ProfileIcon className="h-5 w-5" /> : <AIIcon className="h-5 w-5" />;
-                             const avatarBg = isAdmin ? 'bg-green-100 dark:bg-green-900/50 text-green-600' : isUser ? 'bg-blue-100 dark:bg-slate-600 text-accent-primary' : 'bg-bg-tertiary text-text-secondary';
+                             const isAdmin = msg.role === 'admin';
+                             const bubbleColor = isAdmin ? 'bg-green-600 text-white' : 'bg-bg-tertiary text-text-primary';
                              
                              return (
-                                 <div key={msg.id} className={`flex items-end gap-3 w-full ${alignment}`}>
-                                    {!isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatarIcon}</div>}
+                                 <div key={msg.id} className="flex items-end gap-3 w-full justify-start">
+                                    <div className="h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/50 text-green-600"><ShieldIcon className="h-5 w-5" /></div>
                                     <div className="flex flex-col gap-1 max-w-[80%]">
-                                        <p className={`text-xs text-text-secondary ${isUser ? 'text-right' : 'text-left'}`}>{msg.author}</p>
+                                        <p className="text-xs text-text-secondary text-left">{msg.author}</p>
                                         <div className={`rounded-2xl p-3.5 ${bubbleColor}`}><p className="text-sm leading-relaxed">{msg.text}</p></div>
                                     </div>
-                                    {isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatarIcon}</div>}
                                  </div>
                              );
-                         }) : <p className="text-center text-text-secondary">No messages in this chat yet.</p>}
+                         }) : <p className="text-center text-text-secondary">No messages in this chat yet. Send a broadcast message to all members of the selected class.</p>}
                      </div>
                      <form onSubmit={handleSendMessage} className="mt-4 pt-4 border-t border-border-primary flex items-center gap-3">
-                         <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Message ${selectedClassName || ''}...`} disabled={!selectedClassId || isSending} />
+                         <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Broadcast to ${selectedClassName || ''}...`} disabled={!selectedClassId || isSending} />
                          <button type="submit" className="btn-primary p-3" disabled={!selectedClassId || !newMessage.trim() || isSending}><SendIcon /></button>
                      </form>
                  </SectionCard>
@@ -1012,7 +1033,7 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                 <TabButton tab="students" label="Student Management" icon={<StudentIcon className="h-5 w-5" />} />
                 <TabButton tab="users" label="User Accounts" icon={<UsersIcon className="h-5 w-5" />} />
                 <TabButton tab="attendance" label="Attendance" icon={<AttendanceIcon className="h-5 w-5" />} />
-                <TabButton tab="chatbot" label="Chatbot Control" icon={<ChatIcon className="h-5 w-5" />} />
+                <TabButton tab="chatbot" label="Chat Control" icon={<ChatIcon className="h-5 w-5" />} />
             </nav>
             <main>
                 {renderContent()}

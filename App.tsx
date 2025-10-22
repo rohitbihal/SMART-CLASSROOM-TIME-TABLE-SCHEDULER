@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
-import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon } from './components/Icons';
+import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, UsersIcon } from './components/Icons';
 import { User } from './types';
 import { AppProvider, useAppContext } from './context/AppContext';
 
@@ -18,6 +18,7 @@ const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage'
 const RequestsPage = lazy(() => import('./features/teacher/RequestsPage').then(module => ({ default: module.RequestsPage })));
 const NotificationsPage = lazy(() => import('./features/teacher/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage').then(module => ({ default: module.TeacherChatPage })));
+const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage').then(module => ({ default: module.TeacherChatboxPage })));
 const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid').then(module => ({ default: module.TimetableGrid })));
 
 // FIX: Added and exported shared UI components that were missing, causing import errors.
@@ -173,7 +174,8 @@ const Sidebar = React.memo(() => {
         { to: '/availability', icon: <AvailabilityIcon className="h-5 w-5" />, label: 'Availability' },
         { to: '/requests', icon: <RequestsIcon className="h-5 w-5" />, label: 'Requests' },
         { to: '/notifications', icon: <NotificationsIcon className="h-5 w-5" />, label: 'Notifications' },
-        { to: '/chat', icon: <ChatIcon className="h-5 w-5" />, label: 'Chat' },
+        { to: '/chat', icon: <ChatIcon className="h-5 w-5" />, label: 'Campus AI' },
+        { to: '/chatbox', icon: <UsersIcon className="h-5 w-5" />, label: 'Chatbox' },
     ];
 
     const navLinks = user.role === 'admin' ? adminNavLinks : teacherNavLinks;
@@ -300,6 +302,7 @@ const AuthenticatedApp = () => {
                              <Route path="requests" element={<RequestsPage />} />
                              <Route path="notifications" element={<NotificationsPage />} />
                              <Route path="chat" element={<TeacherChatPage />} />
+                             <Route path="chatbox" element={<TeacherChatboxPage />} />
                         </Route>
                     )}
                     <Route path="*" element={<Navigate to="/" />} />

@@ -155,8 +155,19 @@ export const askCampusAI = async (payload: { messageText: string, classId: strin
     return response.json();
 };
 
-export const sendTeacherMessage = async (payload: { classId: string, text: string }): Promise<ChatMessage> => {
+// Renamed for clarity: This sends admin/teacher broadcasts
+export const sendAdminMessage = async (payload: { classId: string, text: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/send`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+// NEW: For student-teacher chatbox
+export const sendHumanMessage = async (payload: { channel: string, text: string }): Promise<ChatMessage> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/message`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });

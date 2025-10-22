@@ -71,11 +71,12 @@ export interface TimetableEntry {
 export interface ChatMessage {
   id: string;
   author: string;
+  authorId?: string; // User's profileId
   role: 'student' | 'teacher' | 'admin';
   text: string;
   timestamp: number;
   classId: string; // To scope messages to a class
-  channel: string; // To support different channels like 'query', 'attendance'
+  channel: string; // To support different channels like 'query', 'attendance', 'class-c1', 'dm-f1-st2'
   groundingChunks?: GroundingChunk[]; // For search-grounded responses
 }
 
@@ -164,6 +165,7 @@ export interface Constraints {
     maxConsecutiveClasses: number;
     timePreferences: TimePreferences;
     chatWindow?: { start: string; end: string; };
+    isChatboxEnabled?: boolean;
     classSpecific: ClassSpecificConstraint[];
     fixedClasses?: FixedClassConstraint[]; // Added fixed classes
     maxConcurrentClassesPerDept: { [department: string]: number };

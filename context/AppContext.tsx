@@ -42,6 +42,7 @@ interface AppContextType {
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
     handleAdminSendMessage: (classId: string, text: string) => Promise<void>;
     handleTeacherAskAI: (messageText: string, messageId: string) => Promise<void>;
+    handleSendHumanMessage: (channel: string, text: string) => Promise<void>;
     handleResetData: () => Promise<void>;
     handleSaveUser: (userData: any) => Promise<any>;
     handleDeleteUser: (userId: string) => Promise<void>;
@@ -205,9 +206,33 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }, [user]);
 
     const handleAdminSendMessage = useCallback(async (classId: string, text: string) => {
-        const newMessage = await api.sendTeacherMessage({ classId, text });
+        const newMessage = await api.sendAdminMessage({ classId, text });
         setChatMessages(prev => [...prev, newMessage]);
     }, []);
+
+    const handleSendHumanMessage = useCallback(async (channel: string, text: string) => {
+        if (!user) return;
+        const optimisticMessage: ChatMessage = {
+            id: `local-${Date.now()}`,
+            channel,
+            text,
+            author: user.username,
+            authorId: user.profileId,
+            role: user.role,
+            timestamp: Date.now(),
+            classId: '',
+        };
+        setChatMessages(prev => [...prev, optimisticMessage]);
+    
+        try {
+            const newMessage = await api.sendHumanMessage({ channel, text });
+            setChatMessages(prev => prev.map(m => m.id === optimisticMessage.id ? newMessage : m));
+        } catch (error) {
+            logger.error(error as Error, { context: 'handleSendHumanMessage' });
+            setChatMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
+            throw error;
+        }
+    }, [user]);
 
     const handleResetData = useCallback(async () => {
         await api.resetAllData();
@@ -233,11 +258,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         user, token, appState, theme, login, logout, toggleTheme,
         classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI,
+        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage,
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI,
+        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage
     ]);
 
     return (

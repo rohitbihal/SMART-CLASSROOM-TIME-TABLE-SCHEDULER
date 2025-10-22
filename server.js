@@ -142,6 +142,7 @@ const constraintsSchema = new mongoose.Schema({
     facultyPreferences: { type: [facultyPreferenceSchema], default: [] },
     fixedClasses: { type: [fixedClassSchema], default: [] }, // Added fixed classes
     chatWindow: { start: String, end: String },
+    isChatboxEnabled: { type: Boolean, default: true },
     classSpecific: [Object],
     maxConcurrentClassesPerDept: mongoose.Schema.Types.Mixed
 });
@@ -154,8 +155,13 @@ const attendanceSchema = new mongoose.Schema({
 attendanceSchema.index({ classId: 1, date: 1 }, { unique: true });
 const chatMessageSchema = new mongoose.Schema({
     id: { type: String, unique: true, required: true },
-    author: String, role: String, text: String,
-    timestamp: Number, classId: String, channel: String,
+    author: String,
+    authorId: String,
+    role: String,
+    text: String,
+    timestamp: Number,
+    classId: String,
+    channel: String,
     groundingChunks: { type: mongoose.Schema.Types.Mixed, default: [] }
 });
 
@@ -221,6 +227,7 @@ const MOCK_CONSTRAINTS = {
         slotDurationMinutes: 50,
     },
     chatWindow: { start: '09:00', end: '17:00' },
+    isChatboxEnabled: true,
     classSpecific: [],
     fixedClasses: [],
     maxConcurrentClassesPerDept: { 'CSE': 4 },
@@ -311,24 +318,17 @@ const handleApiError = (res, error, context) => {
 app.get('/api/all-data', authMiddleware, async (req, res) => {
     try {
         const findChatMessages = async () => {
-          if (req.user.role === 'student') {
-            const student = await Student.findOne({ id: req.user.profileId }).lean();
-            if (student) {
-              return ChatMessage.find({ classId: student.classId }).sort({ timestamp: 1 }).lean();
-            }
-          }
-          if (req.user.role === 'teacher') {
-            // Fetch AI chat messages and any class-based messages
-            const teacherAIChannel = `teacher-ai-${req.user.profileId}`;
-            // A more complex query could fetch messages from classes the teacher is assigned to.
-            // For now, we'll fetch all messages and let the client filter for simplicity.
-            return ChatMessage.find().sort({ timestamp: 1 }).lean();
-          }
-          // Admins get all chat messages
+          // For privacy, admins do not see student-teacher chats.
+          // They only see AI chats and their own broadcast announcements.
           if (req.user.role === 'admin') {
-              return ChatMessage.find().sort({ timestamp: 1 }).lean();
+              return ChatMessage.find({ channel: { $regex: /^admin-chat-/ } }).sort({ timestamp: 1 }).lean();
           }
-          return [];
+
+          // For simplicity in this context, we fetch all non-admin messages for teachers and students.
+          // The client-side will be responsible for filtering and displaying relevant conversations.
+          // In a production environment with many users, this query should be more specific
+          // to fetch only conversations the user is a part of.
+          return ChatMessage.find({ channel: { $not: { $regex: /^admin-chat-/ } } }).sort({ timestamp: 1 }).lean();
         };
         const [classes, faculty, subjects, rooms, students, constraints, timetable, attendance, users, chatMessages, institutions, teacherRequests] = await Promise.all([
             Class.find().lean(), Faculty.find().lean(), Subject.find().lean(), Room.find().lean(), Student.find().lean(),
@@ -655,7 +655,7 @@ app.post('/api/chat/ask', authMiddleware, async (req, res) => {
     }
 });
 
-// Endpoint for admin/teacher to send messages
+// Endpoint for admin/teacher to send broadcast messages
 app.post('/api/chat/send', authMiddleware, adminOrTeacher, async (req, res) => {
     const { text, classId } = req.body;
     const { user } = req;
@@ -669,12 +669,53 @@ app.post('/api/chat/send', authMiddleware, adminOrTeacher, async (req, res) => {
         const authorName = user.role === 'admin' ? 'Admin' : facultyProfile?.name || user.username;
         
         const message = new ChatMessage({
-            id: `msg-${Date.now()}`, text, classId, author: authorName, role: user.role, channel: 'query', timestamp: Date.now(),
+            id: `msg-${Date.now()}`, text, classId, 
+            author: authorName,
+            authorId: user.profileId,
+            role: user.role, 
+            channel: `admin-chat-${classId}`, 
+            timestamp: Date.now(),
         });
         await message.save();
         res.status(201).json(message);
     } catch (error) {
         handleApiError(res, error, 'Privileged chat send');
+    }
+});
+
+// NEW: Endpoint for student-teacher chatbox messages
+app.post('/api/chat/message', authMiddleware, async (req, res) => {
+    const { text, channel } = req.body;
+    const { user } = req;
+
+    if (!text || !channel) {
+        return res.status(400).json({ message: 'Message text and channel are required.' });
+    }
+    if (user.role === 'admin') {
+        return res.status(403).json({ message: 'Admins cannot participate in student-teacher chats.' });
+    }
+
+    try {
+        const profile = user.role === 'teacher' 
+            ? await Faculty.findOne({ id: user.profileId }).lean()
+            : await Student.findOne({ id: user.profileId }).lean();
+        
+        const authorName = profile?.name || user.username;
+        
+        const message = new ChatMessage({
+            id: `msg-${new mongoose.Types.ObjectId()}`,
+            text,
+            channel,
+            author: authorName,
+            authorId: user.profileId,
+            role: user.role,
+            timestamp: Date.now(),
+            classId: channel.startsWith('class-') ? channel.replace('class-', '') : ''
+        });
+        await message.save();
+        res.status(201).json(message);
+    } catch (error) {
+        handleApiError(res, error, 'chat message send');
     }
 });
 

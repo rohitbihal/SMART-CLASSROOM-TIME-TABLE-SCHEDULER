@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import {
-    LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon
+    LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon, UsersIcon
 } from '../../components/Icons';
 import { ChatInterface } from '../chat/ChatInterface';
 import { TimetableGrid } from './TimetableGrid';
 import { PlaceholderContent } from './PlaceholderContent';
 import { User, Class, ChatMessage } from '../../types';
 import { useAppContext } from '../../context/AppContext';
+import { Chatbox, Conversation } from '../chat/Chatbox';
 
 const Header = () => {
     const { user, logout, theme, toggleTheme, students, classes } = useAppContext();
@@ -34,8 +35,52 @@ const Header = () => {
     );
 };
 
+const StudentChatbox = () => {
+    const { user, faculty, students, classes, subjects, chatMessages, constraints, handleSendHumanMessage } = useAppContext();
+
+    const studentProfile = useMemo(() => students.find(s => s.id === user?.profileId), [students, user]);
+    const classProfile = useMemo(() => classes.find(c => c.id === studentProfile?.classId), [classes, studentProfile]);
+
+    const conversations = useMemo((): Conversation[] => {
+        if (!classProfile || !user?.profileId || !studentProfile) return [];
+
+        const classConv: Conversation = {
+            id: `class-${classProfile.id}`,
+            name: `${classProfile.name} Group`,
+            type: 'class'
+        };
+
+        const classSubjects = subjects.filter(s => s.department === classProfile.branch);
+        const teacherIds = [...new Set(classSubjects.map(s => s.assignedFacultyId))];
+        const teachers = faculty.filter(f => teacherIds.includes(f.id));
+
+        const teacherConvs: Conversation[] = teachers.map(t => ({
+            id: `dm-${[studentProfile.id, t.id].sort().join('-')}`,
+            name: t.name,
+            type: 'dm'
+        }));
+        
+        return [classConv, ...teacherConvs];
+    }, [classProfile, studentProfile, faculty, user, subjects, classes]);
+
+    if (!constraints?.isChatboxEnabled) {
+        return <PlaceholderContent title="Chatbox Disabled" message="The chat feature is currently disabled by the administrator." icon={<ChatIcon />} />
+    }
+    
+    if (!user) return null;
+
+    return (
+        <Chatbox 
+            conversations={conversations}
+            messages={chatMessages}
+            onSendMessage={handleSendHumanMessage}
+            currentUser={user}
+        />
+    );
+};
+
 const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile: Class | undefined }) => {
-    const { timetable, chatMessages, handleSendMessage, constraints } = useAppContext();
+    const { timetable, chatMessages, handleSendMessage, constraints, subjects } = useAppContext();
     const [activeTab, setActiveTab] = useState('schedule');
     const [isChatLoading, setIsChatLoading] = useState(false);
     
@@ -51,6 +96,7 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
     const tabs = [
         { key: 'schedule', label: 'My Schedule', icon: <SchedulerIcon className='h-5 w-5' /> },
         { key: 'chat', label: 'Campus AI', icon: <ChatIcon className='h-5 w-5' /> },
+        { key: 'chatbox', label: 'Chatbox', icon: <UsersIcon className='h-5 w-5' /> },
         { key: 'ims', label: 'IMS', icon: <IMSIcon className='h-5 w-5' /> },
         { key: 'smart-tools', label: 'Smart Tools', icon: <SmartToolsIcon className='h-5 w-5' /> },
         { key: 'subjects', label: 'Subjects', icon: <BookOpenIcon className='h-5 w-5' /> },
@@ -65,11 +111,12 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
         switch(activeTab) {
             case 'schedule': return <TimetableGrid timetable={timetable} role="student" constraints={constraints} />;
             case 'chat': return <ChatInterface 
-                messages={chatMessages} 
+                messages={chatMessages.filter(m => m.channel === 'query')} 
                 onSendMessage={handleSendMessageWrapper} 
                 isLoading={isChatLoading}
                 classProfile={classProfile} 
             />;
+            case 'chatbox': return <StudentChatbox />;
             default: return <PlaceholderContent
                 title="Coming Soon"
                 message={`The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`}
