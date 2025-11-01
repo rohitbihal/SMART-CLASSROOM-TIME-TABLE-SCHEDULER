@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionCard } from '../../App';
+import { SectionCard } from '../../components/common';
 import { NotificationsIcon } from '../../components/Icons';
 
 const MOCK_NOTIFICATIONS = [

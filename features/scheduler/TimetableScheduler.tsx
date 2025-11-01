@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon } from '../../components/Icons';
-import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../App';
+import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
 import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment } from '../../types';
-import { QueryTab } from './QueryTab';
-import { NotificationsTab } from './NotificationsTab';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
@@ -1148,8 +1146,6 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         { key: 'constraints', label: 'Constraints', icon: <ConstraintsIcon /> },
         { key: 'generate', label: 'Generate', icon: <GenerateIcon /> },
         { key: 'view', label: 'View & Analytics', icon: <ViewIcon /> },
-        { key: 'query', label: 'Query Management', icon: <QueryIcon /> },
-        { key: 'notifications', label: 'Notification Center', icon: <NotificationBellIcon /> },
     ];
     
     const renderContent = () => {
@@ -1158,8 +1154,6 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
             case 'constraints': return <ConstraintsTab {...props} />;
             case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
             case 'view': return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} />;
-            case 'query': return <QueryTab />;
-            case 'notifications': return <NotificationsTab />;
             default: return null;
         }
     };

@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-// FIX: Imported shared components from the correct path.
 import { SectionCard, Modal, FormField, SelectInput, SearchInput, TextInput } from '../../components/common';
-import { QueryIcon, ClockIcon, CheckCircleIcon, XCircleIcon, InfoIcon, FilterIcon } from '../../components/Icons';
+import { QueryIcon, ClockIcon, CheckCircleIcon, XCircleIcon, InfoIcon, FilterIcon, SendIcon } from '../../components/Icons';
 import { useAppContext } from '../../context/AppContext';
 import { TeacherQuery } from '../../types';
 
@@ -13,6 +12,41 @@ const statusStyles: Record<Status, { icon: React.ReactNode, text: string, chip: 
     'Rejected': { icon: <XCircleIcon className="h-5 w-5 text-red-500" />, text: 'text-red-500', chip: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
     'Under Review': { icon: <InfoIcon className="h-5 w-5 text-blue-500" />, text: 'text-blue-500', chip: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' },
 };
+
+// NEW: Mock chat component for query details
+const QueryChat = ({ query, facultyName }: { query: TeacherQuery, facultyName: string }) => {
+    const [messages, setMessages] = useState([
+        { author: facultyName, text: "I've submitted the request for a classroom change. The current room is too small." },
+        { author: 'Admin', text: "Thanks, I'm looking into available rooms now."}
+    ]);
+    const [newMessage, setNewMessage] = useState('');
+
+    const handleSend = () => {
+        if (newMessage.trim()) {
+            setMessages([...messages, { author: 'Admin', text: newMessage.trim() }]);
+            setNewMessage('');
+        }
+    };
+
+    return (
+        <div className="mt-4 pt-4 border-t border-border-primary">
+            <h4 className="font-semibold mb-2">Discussion Thread</h4>
+            <div className="h-40 bg-bg-primary rounded-lg p-2 overflow-y-auto space-y-2 text-sm">
+                {messages.map((msg, i) => (
+                    <div key={i}>
+                        <span className={`font-bold ${msg.author === 'Admin' ? 'text-accent-primary' : ''}`}>{msg.author}: </span>
+                        <span>{msg.text}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+                <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="Type a message..." />
+                <button onClick={handleSend} className="btn-primary p-2.5"><SendIcon /></button>
+            </div>
+        </div>
+    );
+};
+
 
 const QueryDetailModal = ({ query, facultyName, isOpen, onClose, onStatusChange }: { query: TeacherQuery; facultyName: string; isOpen: boolean; onClose: () => void; onStatusChange: (id: string, status: Status, response: string) => void; }) => {
     const [adminResponse, setAdminResponse] = useState('');
@@ -39,7 +73,8 @@ const QueryDetailModal = ({ query, facultyName, isOpen, onClose, onStatusChange 
                     <p className="font-semibold">Reason</p>
                     <p>{query.reason}</p>
                 </div>
-                <FormField label="Admin Response / Comments" htmlFor="admin-response">
+                <QueryChat query={query} facultyName={facultyName} />
+                <FormField label="Admin Response / Final Comments" htmlFor="admin-response">
                     <textarea id="admin-response" value={adminResponse} onChange={e => setAdminResponse(e.target.value)} rows={4} className="input-base" placeholder="Add your comments here..."></textarea>
                 </FormField>
                 <div className="flex justify-end gap-2 pt-4 border-t border-border-primary">
@@ -52,7 +87,7 @@ const QueryDetailModal = ({ query, facultyName, isOpen, onClose, onStatusChange 
     );
 }
 
-export const QueryTab = () => {
+const QueryPage = () => {
     const { teacherRequests, faculty } = useAppContext();
     const [selectedQuery, setSelectedQuery] = useState<TeacherQuery | null>(null);
     const [filters, setFilters] = useState({ search: '', status: 'all', priority: 'all' });
@@ -80,6 +115,7 @@ export const QueryTab = () => {
 
     return (
         <div className="space-y-6">
+            <h1 className="text-3xl font-bold">Query Management</h1>
             <QueryDetailModal 
                 isOpen={!!selectedQuery}
                 onClose={() => setSelectedQuery(null)}
@@ -147,3 +183,5 @@ export const QueryTab = () => {
         </div>
     );
 };
+
+export default QueryPage;

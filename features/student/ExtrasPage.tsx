@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionCard } from '../../App';
+import { SectionCard } from '../../components/common';
 import { ExtrasIcon } from '../../components/Icons';
 
 const links = [

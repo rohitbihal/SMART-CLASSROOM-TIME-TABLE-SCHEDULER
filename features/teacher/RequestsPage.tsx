@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { SectionCard, FormField, SelectInput, TextInput } from '../../App';
+import { SectionCard, FormField, SelectInput, TextInput } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { SendIcon } from '../../components/Icons';
 import { TeacherQuery } from '../../types';

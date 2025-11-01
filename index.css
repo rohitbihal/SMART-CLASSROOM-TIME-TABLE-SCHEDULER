@@ -5,14 +5,14 @@
 @layer base {
   :root {
     /* Color Palette - Light Mode */
-    --bg-primary: theme('colors.slate.100');
+    --bg-primary: theme('colors.slate.50');
     --bg-secondary: theme('colors.white');
-    --bg-tertiary: theme('colors.slate.200');
+    --bg-tertiary: theme('colors.slate.100');
     --text-primary: theme('colors.slate.800');
     --text-secondary: theme('colors.slate.500');
     --border-primary: theme('colors.slate.200');
-    --accent-primary: theme('colors.blue.600');
-    --accent-primary-hover: theme('colors.blue.700');
+    --accent-primary: theme('colors.sky.500');
+    --accent-primary-hover: theme('colors.sky.600');
     --accent-text: theme('colors.white');
   }
 
@@ -24,8 +24,8 @@
     --text-primary: theme('colors.slate.100');
     --text-secondary: theme('colors.slate.400');
     --border-primary: theme('colors.slate.700');
-    --accent-primary: theme('colors.blue.500');
-    --accent-primary-hover: theme('colors.blue.600');
+    --accent-primary: theme('colors.sky.500');
+    --accent-primary-hover: theme('colors.sky.600');
     --accent-text: theme('colors.white');
   }
 

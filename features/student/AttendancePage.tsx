@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionCard } from '../../App';
+import { SectionCard } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { StudentAttendance } from '../../types';
 import { AttendanceIcon } from '../../components/Icons';

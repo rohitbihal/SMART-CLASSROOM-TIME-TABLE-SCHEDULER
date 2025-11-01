@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SectionCard } from '../../App';
+import { SectionCard } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { StudentDashboardNotification } from '../../types';
 import { NotificationsIcon } from '../../components/Icons';

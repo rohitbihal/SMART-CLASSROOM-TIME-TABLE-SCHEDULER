@@ -1,4 +1,4 @@
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -60,6 +60,8 @@ type AllData = {
     timetable: TimetableEntry[]; attendance: Attendance; chatMessages: ChatMessage[];
     institutions: Institution[]; teacherRequests: TeacherQuery[];
     studentAttendance: StudentAttendance[]; exams: Exam[]; notifications: StudentDashboardNotification[];
+    syllabusProgress: SyllabusProgress[]; meetings: Meeting[]; calendarEvents: CalendarEvent[];
+    appNotifications: AppNotification[];
 };
 export const fetchAllData = async (): Promise<AllData> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/all-data`);

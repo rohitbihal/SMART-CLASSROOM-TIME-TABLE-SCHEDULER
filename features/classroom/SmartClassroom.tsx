@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
     SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon, ClockIcon, ChatIcon, SendIcon, AIIcon, SaveIcon
 } from '../../components/Icons';
-import { SectionCard, Modal, FeedbackBanner, FormField, TextInput, SelectInput } from '../../App';
+import { SectionCard, Modal, FeedbackBanner, FormField, TextInput, SelectInput } from '../../components/common';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord, Constraints, ChatMessage } from '../../types';
 
 interface SmartClassroomProps {

@@ -178,6 +178,17 @@ export interface FixedClassConstraint {
   roomId?: string;
 }
 
+// NEW: Type for user-defined custom constraints
+export interface CustomConstraint {
+  id: string;
+  name: string;
+  type: 'Hard' | 'Soft';
+  description: string;
+  appliedTo: 'Faculty' | 'Room' | 'Class' | 'Time Slot';
+  priority: 'High' | 'Medium' | 'Low';
+  isActive: boolean;
+}
+
 export interface Constraints {
     maxConsecutiveClasses: number;
     timePreferences: TimePreferences;
@@ -185,6 +196,7 @@ export interface Constraints {
     isChatboxEnabled?: boolean;
     classSpecific: ClassSpecificConstraint[];
     fixedClasses?: FixedClassConstraint[]; // Added fixed classes
+    customConstraints?: CustomConstraint[]; // NEW
     maxConcurrentClassesPerDept: { [department: string]: number };
     facultyPreferences?: FacultyPreference[];
     roomResourceConstraints?: RoomResourceConstraint;
@@ -255,6 +267,7 @@ export interface AppNotification {
     notificationType: 'Meeting' | 'Event' | 'Schedule Change' | 'Exam' | 'Holiday' | 'Emergency' | 'General';
     sentDate: string;
     status: 'Sent' | 'Delivered' | 'Read' | 'Failed';
+    scheduledFor?: string; // NEW for scheduling
 }
 
 export interface StudentAttendance {
@@ -300,6 +313,45 @@ export interface ErrorResponse {
   code?: string;
   details?: any;
 }
+
+// --- NEW: IMS, Calendar, and Meetings Types ---
+export interface SyllabusProgress {
+    id: string;
+    subjectId: string;
+    facultyId: string;
+    lectureNumber: number;
+    assignedTopic: string;
+    taughtTopic: string;
+    date: string;
+    status: 'Completed' | 'Pending' | 'Deferred';
+    variance: boolean;
+}
+export interface CalendarEvent {
+    id: string;
+    eventType: 'Class' | 'Assignment' | 'Test' | 'Meeting' | 'Holiday' | 'Event' | 'Deadline' | 'Seminar';
+    title: string;
+    start: string; // ISO string for date or datetime
+    end: string;   // ISO string for date or datetime
+    description?: string;
+    participants?: string[];
+    allDay?: boolean;
+    color?: string;
+}
+export interface Meeting {
+    id: string;
+    title: string;
+    description: string;
+    meetingType: 'Faculty-Student' | 'Department' | 'Admin-Faculty' | 'One-on-One' | 'Class Meeting' | 'College Meeting';
+    platform: 'Google Meet' | 'Zoom' | 'MS Teams' | 'Offline';
+    meetingLink?: string;
+    room?: string;
+    start: string;
+    end: string;
+    organizerId: string;
+    participants: { type: 'faculty' | 'student', id: string }[];
+    attendance: { participantId: string; status: 'Present' | 'Absent' | 'Excused' }[];
+}
+
 
 // Type guard to check if an error is a structured API error
 export function isApiError(error: unknown): error is ErrorResponse {

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, Exam, StudentDashboardNotification, StudentAttendance, AppNotification } from '../types';
+import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, Exam, StudentDashboardNotification, StudentAttendance, AppNotification, SyllabusProgress, Meeting, CalendarEvent, CustomConstraint } from '../types';
 import * as api from '../services/api';
 import { logger } from '../services/logger';
 
@@ -36,6 +36,11 @@ interface AppContextType {
     // NEW: Admin-sent notifications
     appNotifications: AppNotification[];
 
+    // NEW: IMS, Calendar, Meetings Data
+    syllabusProgress: SyllabusProgress[];
+    meetings: Meeting[];
+    calendarEvents: CalendarEvent[];
+
     // Data Handlers
     handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => Promise<any>;
     handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => Promise<void>;
@@ -54,6 +59,14 @@ interface AppContextType {
     handleSaveUser: (userData: any) => Promise<any>;
     handleDeleteUser: (userId: string) => Promise<void>;
     getFacultyProfile: (profileId: string) => Faculty | undefined;
+    
+    // NEW Handlers for new modules
+    handleCreateMeeting: (meeting: Omit<Meeting, 'id'>) => Promise<void>;
+    handleCreateCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => Promise<void>;
+    handleSendNotification: (notification: Omit<AppNotification, 'id' | 'sentDate' | 'status'>) => Promise<void>;
+    handleAddCustomConstraint: (constraint: Omit<CustomConstraint, 'id'>) => Promise<void>;
+    handleUpdateCustomConstraint: (constraint: CustomConstraint) => Promise<void>;
+    handleDeleteCustomConstraint: (constraintId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -82,6 +95,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [exams, setExams] = useState<Exam[]>([]);
     const [notifications, setNotifications] = useState<StudentDashboardNotification[]>([]);
     const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
+    
+    // NEW: State for IMS, Calendar, Meetings
+    const [syllabusProgress, setSyllabusProgress] = useState<SyllabusProgress[]>([]);
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
 
     const fetchData = useCallback(async () => {
@@ -101,10 +119,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setUsers(data.users || []);
             setInstitutions(data.institutions || []);
             setTeacherRequests(data.teacherRequests || []);
-            // Set new student data
             setStudentAttendance(data.studentAttendance || []);
             setExams(data.exams || []);
             setNotifications(data.notifications || []);
+            setSyllabusProgress(data.syllabusProgress || []);
+            setMeetings(data.meetings || []);
+            setCalendarEvents(data.calendarEvents || []);
+            setAppNotifications(data.appNotifications || []);
         } catch (error) {
             logger.error(error as Error, { context: 'fetchAllData' });
             setAppState('error');
@@ -151,6 +172,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         const updatedConstraints = await api.updateConstraints(newConstraints);
         setConstraints(updatedConstraints);
     }, []);
+    
+    const handleAddCustomConstraint = useCallback(async (constraint: Omit<CustomConstraint, 'id'>) => {
+        if (!constraints) return;
+        const newConstraint = { ...constraint, id: `cc-${Date.now()}`};
+        const newConstraints: Constraints = {
+            ...constraints,
+            customConstraints: [...(constraints.customConstraints || []), newConstraint]
+        };
+        await handleUpdateConstraints(newConstraints);
+    }, [constraints, handleUpdateConstraints]);
+    
+    const handleUpdateCustomConstraint = useCallback(async (constraint: CustomConstraint) => {
+         if (!constraints) return;
+        const newConstraints: Constraints = {
+            ...constraints,
+            customConstraints: (constraints.customConstraints || []).map(c => c.id === constraint.id ? constraint : c)
+        };
+        await handleUpdateConstraints(newConstraints);
+    }, [constraints, handleUpdateConstraints]);
+
+    const handleDeleteCustomConstraint = useCallback(async (constraintId: string) => {
+        if (!constraints) return;
+        const newConstraints: Constraints = {
+            ...constraints,
+            customConstraints: (constraints.customConstraints || []).filter(c => c.id !== constraintId)
+        };
+        await handleUpdateConstraints(newConstraints);
+    }, [constraints, handleUpdateConstraints]);
+
 
     const handleUpdateFacultyAvailability = useCallback(async (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => {
         const updatedConstraints = await api.updateFacultyAvailability(facultyId, unavailability);
@@ -284,17 +334,34 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return faculty.find(f => f.id === profileId);
     }, [faculty]);
 
+    // NEW Handlers
+    const handleCreateMeeting = useCallback(async (meeting: Omit<Meeting, 'id'>) => {
+        const newMeeting = { ...meeting, id: `meet-${Date.now()}`}; // Mock creation
+        setMeetings(prev => [...prev, newMeeting]);
+    }, []);
+    const handleCreateCalendarEvent = useCallback(async (event: Omit<CalendarEvent, 'id'>) => {
+        const newEvent = { ...event, id: `calevent-${Date.now()}`};
+        setCalendarEvents(prev => [...prev, newEvent]);
+    }, []);
+    const handleSendNotification = useCallback(async (notification: Omit<AppNotification, 'id' | 'sentDate' | 'status'>) => {
+        const newNotification = { ...notification, id: `appnotif-${Date.now()}`, sentDate: new Date().toISOString(), status: 'Sent' as const };
+        setAppNotifications(prev => [...prev, newNotification]);
+    }, []);
+
     const value: AppContextType = useMemo(() => ({
         user, token, appState, theme, login, logout, toggleTheme,
         classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
         studentAttendance, exams, notifications, appNotifications,
+        syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
         handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage,
+        handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
-        studentAttendance, exams, notifications, appNotifications,
+        studentAttendance, exams, notifications, appNotifications, syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, login, logout, toggleTheme
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, login, logout, toggleTheme,
+        handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     ]);
 
     return (

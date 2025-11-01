@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { SectionCard, FormField, SelectInput, TextInput } from '../../App';
+// FIX: Imported shared components from the correct path.
+import { SectionCard, FormField, SelectInput, TextInput } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { AppNotification } from '../../types';
 // FIX: Imported the missing InfoIcon component.
@@ -65,7 +66,8 @@ export const NotificationsTab = () => {
                             {recipientType === 'Specific' && (
                                 <div className="mt-4">
                                     <FormField label="Select Classes" htmlFor="specific-classes">
-                                        <SelectInput id="specific-classes" multiple value={specificClassIds} onChange={e => setSpecificClassIds(Array.from(e.target.selectedOptions, option => option.value))}>
+                                        {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
+                                        <SelectInput id="specific-classes" multiple value={specificClassIds} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSpecificClassIds(Array.from(e.target.selectedOptions, option => option.value))}>
                                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </SelectInput>
                                     </FormField>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SectionCard } from '../../App';
+import { SectionCard } from '../../components/common';
 import { DownloadIcon, CalculatorIcon, CalendarIcon, GradebookIcon, PlagiarismCheckerIcon, UploadIcon, SubmitAssignmentIcon, SmartToolsIcon } from '../../components/Icons';
 import { SmartTool } from '../../types';
 import * as api from '../../services/api';

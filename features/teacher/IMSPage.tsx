@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionCard } from '../../App';
+import { SectionCard } from '../../components/common';
 import { UploadIcon, AnalyticsIcon, GradebookIcon } from '../../components/Icons';
 
 // FIX: Defined missing style constants to prevent runtime ReferenceError.

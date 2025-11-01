@@ -93,7 +93,7 @@ const userSchema = new mongoose.Schema({
 });
 userSchema.index({ username: 1, role: 1 }, { unique: true });
 
-const timetableEntrySchema = new mongoose.Schema({ className: String, subject: String, faculty: String, room: String, day: String, time: String, type: String });
+const timetableEntrySchema = new mongoose.Schema({ className: String, subject: String, faculty: String, room: String, day: String, time: String, type: String, classType: String });
 
 const timePreferencesSchema = new mongoose.Schema({
     workingDays: { type: [String], default: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] },
@@ -124,6 +124,14 @@ const fixedClassSchema = new mongoose.Schema({
     roomId: String
 }, { _id: false });
 
+// NEW: Schema for custom, user-defined constraints.
+const customConstraintSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    type: String, description: String, appliedTo: String,
+    priority: String, isActive: Boolean,
+}, { _id: false });
+
 // NEW: Dedicated schema for managing multiple institution profiles.
 const institutionSchema = new mongoose.Schema({
     id: { type: String, unique: true },
@@ -140,7 +148,8 @@ const constraintsSchema = new mongoose.Schema({
     maxConsecutiveClasses: { type: Number, default: 3 },
     timePreferences: { type: timePreferencesSchema, default: () => ({}) },
     facultyPreferences: { type: [facultyPreferenceSchema], default: [] },
-    fixedClasses: { type: [fixedClassSchema], default: [] }, // Added fixed classes
+    fixedClasses: { type: [fixedClassSchema], default: [] },
+    customConstraints: { type: [customConstraintSchema], default: [] },
     chatWindow: { start: String, end: String },
     isChatboxEnabled: { type: Boolean, default: true },
     classSpecific: [Object],
@@ -165,7 +174,6 @@ const chatMessageSchema = new mongoose.Schema({
     groundingChunks: { type: mongoose.Schema.Types.Mixed, default: [] }
 });
 
-// FIX: Aligned schema with frontend 'TeacherQuery' type for consistency
 const teacherRequestSchema = new mongoose.Schema({
     id: { type: String, unique: true, required: true },
     facultyId: { type: String, required: true },
@@ -178,6 +186,13 @@ const teacherRequestSchema = new mongoose.Schema({
     submittedDate: { type: String, default: () => new Date().toISOString() },
     priority: { type: String, default: 'Normal' },
 });
+
+// --- NEW: Schemas for new modules ---
+const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique: true }, subjectId: String, facultyId: String, lectureNumber: Number, assignedTopic: String, taughtTopic: String, date: String, status: String, variance: Boolean });
+const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String });
+const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed] });
+const appNotificationSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, message: String, recipients: mongoose.Schema.Types.Mixed, deliveryMethod: [String], notificationType: String, sentDate: String, status: String, scheduledFor: String });
+
 
 // --- NEW: Student Dashboard Data Schemas ---
 const studentAttendanceSchema = new mongoose.Schema({ studentId: String, subjectId: String, attended: Number, total: Number });
@@ -194,21 +209,25 @@ const TimetableEntry = mongoose.model('TimetableEntry', timetableEntrySchema);
 const Constraints = mongoose.model('Constraints', constraintsSchema);
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
-const Institution = mongoose.model('Institution', institutionSchema); // New Model
+const Institution = mongoose.model('Institution', institutionSchema);
 const TeacherRequest = mongoose.model('TeacherRequest', teacherRequestSchema);
 const StudentAttendance = mongoose.model('StudentAttendance', studentAttendanceSchema);
 const Exam = mongoose.model('Exam', examSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
+// NEW Models
+const SyllabusProgress = mongoose.model('SyllabusProgress', syllabusProgressSchema);
+const CalendarEvent = mongoose.model('CalendarEvent', calendarEventSchema);
+const Meeting = mongoose.model('Meeting', meetingSchema);
+const AppNotification = mongoose.model('AppNotification', appNotificationSchema);
+
 
 const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest };
 
 const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
-// FIX: Added missing fields to MOCK_FACULTY to match the Faculty type and schema.
 const MOCK_FACULTY = [
     { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210', maxWorkload: 18 },
     { id: 'f2', name: 'Prof. Sunita Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211', maxWorkload: 20 }
 ];
-// FIX: Added missing fields to MOCK_SUBJECTS to match the Subject type and schema.
 const MOCK_SUBJECTS = [
     { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f1' },
     { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1' },
@@ -216,7 +235,6 @@ const MOCK_SUBJECTS = [
     { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', semester: 3, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1' },
     { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', semester: 3, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f2' }
 ];
-// FIX: Added missing fields to MOCK_ROOMS to match the Room type and schema.
 const MOCK_ROOMS = [
     { id: 'r1', number: 'CS-101', building: 'Academic Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
     { id: 'r2', number: 'CS-102', building: 'Academic Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
@@ -233,14 +251,6 @@ const MOCK_INSTITUTIONS = [
         session: 'Regular',
         blocks: ['A-Block', 'B-Block', 'Science Wing']
     },
-    {
-        id: 'inst2',
-        name: 'City College of Engineering',
-        academicYear: '2024-28',
-        semester: 'Odd',
-        session: 'Regular',
-        blocks: ['Main Building', 'Tech Park']
-    }
 ];
 const MOCK_CONSTRAINTS = {
     maxConsecutiveClasses: 3,
@@ -256,10 +266,31 @@ const MOCK_CONSTRAINTS = {
     isChatboxEnabled: true,
     classSpecific: [],
     fixedClasses: [],
+    customConstraints: [],
     maxConcurrentClassesPerDept: { 'CSE': 4 },
 };
 
-// --- NEW MOCK DATA FOR STUDENT DASHBOARD ---
+// --- NEW MOCK DATA ---
+const MOCK_SYLLABUS_PROGRESS = [
+    { id: 'sp1', subjectId: 's1', facultyId: 'f1', lectureNumber: 1, assignedTopic: 'Introduction to Arrays', taughtTopic: 'Introduction to Arrays', date: '2024-08-05', status: 'Completed', variance: false },
+    { id: 'sp2', subjectId: 's1', facultyId: 'f1', lectureNumber: 2, assignedTopic: 'Linked Lists', taughtTopic: 'Linked Lists', date: '2024-08-07', status: 'Completed', variance: false },
+    { id: 'sp3', subjectId: 's1', facultyId: 'f1', lectureNumber: 3, assignedTopic: 'Stacks and Queues', taughtTopic: 'Stacks and Queues', date: '2024-08-12', status: 'Completed', variance: false },
+    { id: 'sp4', subjectId: 's1', facultyId: 'f1', lectureNumber: 4, assignedTopic: 'Trees', taughtTopic: 'Intro to Trees & Binary Trees', date: '2024-08-14', status: 'Completed', variance: true },
+    { id: 'sp5', subjectId: 's1', facultyId: 'f1', lectureNumber: 5, assignedTopic: 'Graphs', taughtTopic: 'Graphs', date: '2024-08-19', status: 'Pending', variance: false },
+];
+const MOCK_CALENDAR_EVENTS = [
+    { id: 'ce1', eventType: 'Holiday', title: 'Independence Day', start: '2024-08-15', end: '2024-08-15', allDay: true, color: '#d946ef' },
+    { id: 'ce2', eventType: 'Event', title: 'Tech Fest "Innovate 2024"', start: '2024-09-20T09:00:00', end: '2024-09-21T17:00:00', allDay: false, color: '#0ea5e9' },
+    { id: 'ce3', eventType: 'Test', title: 'Mid-Term Exams Start', start: '2024-10-10', end: '2024-10-18', allDay: true, color: '#f97316' },
+];
+const MOCK_MEETINGS = [
+    { id: 'm1', title: 'Department Meeting: CSE', meetingType: 'Department', platform: 'Offline', room: 'CS-101', start: '2024-08-02T15:00:00', end: '2024-08-02T16:00:00', organizerId: 'f1', participants: [{type: 'faculty', id: 'f1'}, {type: 'faculty', id: 'f2'}] },
+    { id: 'm2', title: 'Project Review - CSE-3-A', meetingType: 'Class Meeting', platform: 'Google Meet', meetingLink: 'https://meet.google.com/xyz-abc-def', start: '2024-08-22T11:00:00', end: '2024-08-22T12:00:00', organizerId: 'f1', participants: [{type: 'student', id: 'st1'}, {type: 'student', id: 'st2'}]}
+];
+const MOCK_APP_NOTIFICATIONS = [
+    { id: 'an1', title: 'Welcome to the new Semester!', message: 'All the best for the upcoming academic year.', recipients: {type: 'Both'}, deliveryMethod: ['In-App'], notificationType: 'General', sentDate: new Date().toISOString(), status: 'Sent' }
+];
+
 const MOCK_STUDENT_ATTENDANCE = [
     { studentId: 'st1', subjectId: 's1', attended: 18, total: 20 },
     { studentId: 'st1', subjectId: 's2', attended: 13, total: 15 },
@@ -290,6 +321,9 @@ async function seedDatabase() {
         const modelDataMap = {
             Class: MOCK_CLASSES, Faculty: MOCK_FACULTY, Subject: MOCK_SUBJECTS,
             Room: MOCK_ROOMS, Student: MOCK_STUDENTS, Institution: MOCK_INSTITUTIONS,
+            // NEW Mocks
+            SyllabusProgress: MOCK_SYLLABUS_PROGRESS, CalendarEvent: MOCK_CALENDAR_EVENTS,
+            Meeting: MOCK_MEETINGS, AppNotification: MOCK_APP_NOTIFICATIONS
         };
 
         for (const [modelName, data] of Object.entries(modelDataMap)) {
@@ -391,7 +425,9 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         const [
             classes, faculty, subjects, rooms, students, constraints, timetable, 
             attendance, users, chatMessages, institutions, teacherRequests,
-            studentAttendance, exams, notifications
+            studentAttendance, exams, notifications,
+            // NEW
+            syllabusProgress, meetings, calendarEvents, appNotifications
         ] = await Promise.all([
             Class.find().lean(), Faculty.find().lean(), Subject.find().lean(), Room.find().lean(), Student.find().lean(),
             Constraints.findOne({ identifier: 'global_constraints' }).lean(),
@@ -401,7 +437,9 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             findChatMessages(),
             Institution.find().lean(),
             req.user.role === 'teacher' ? TeacherRequest.find({ facultyId: req.user.profileId }).lean() : (req.user.role === 'admin' ? TeacherRequest.find().lean() : Promise.resolve([])),
-            ...studentDataPromises
+            ...studentDataPromises,
+            // NEW
+            SyllabusProgress.find().lean(), Meeting.find().lean(), CalendarEvent.find().lean(), AppNotification.find().lean(),
         ]);
 
         const attendanceMap = attendance.reduce((acc, curr) => {
@@ -417,7 +455,9 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         res.json({ 
             classes, faculty, subjects, rooms, students, users, constraints, timetable, 
             attendance: attendanceMap, chatMessages, institutions, teacherRequests,
-            studentAttendance, exams, notifications 
+            studentAttendance, exams, notifications,
+            // NEW
+            syllabusProgress, meetings, calendarEvents, appNotifications
         });
     } catch (error) { handleApiError(res, error, 'fetching all data'); }
 });
@@ -810,11 +850,39 @@ app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
 });
 
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-    const { timePreferences } = constraints;
-    const timeSlots = Array.from({ length: 8 }, (_, i) => `${9 + i}:30-${10 + i}:20`);
-    return `Generate a JSON timetable for these inputs. Data: Classes: ${JSON.stringify(classes)}, Faculty: ${JSON.stringify(faculty)}, Subjects: ${JSON.stringify(subjects)}, Rooms: ${JSON.stringify(rooms)}. Constraints: ${JSON.stringify(constraints)}. Use time slots: ${JSON.stringify(timeSlots)}.`;
+    // A more detailed prompt for better results
+    return `
+      You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable in JSON format.
+      
+      **INPUT DATA:**
+      - Classes: ${JSON.stringify(classes.map(({id, name, studentCount, branch}) => ({id, name, studentCount, branch})))}
+      - Faculty: ${JSON.stringify(faculty.map(({id, name, maxWorkload, department}) => ({id, name, maxWorkload, department})))}
+      - Subjects: ${JSON.stringify(subjects.map(({id, name, code, hoursPerWeek, type, assignedFacultyId}) => ({id, name, code, hoursPerWeek, type, assignedFacultyId})))}
+      - Rooms: ${JSON.stringify(rooms.map(({id, number, capacity, type}) => ({id, number, capacity, type})))}
+
+      **CONSTRAINTS & RULES:**
+      - Global Constraints: ${JSON.stringify(constraints)}
+      - A faculty member cannot teach two classes at the same time.
+      - A class cannot have two subjects at the same time.
+      - A room cannot be occupied by two classes at the same time.
+      - The number of students in a class must not exceed the capacity of the room.
+      - Labs and Tutorials must be assigned to 'Laboratory' or 'Tutorial Room' type rooms respectively. Theory classes go in 'Classroom's.
+      - The total weekly hours for each subject must be met.
+      - Adhere strictly to all 'fixedClasses' defined in constraints. These are non-negotiable and must be placed first.
+      - Respect faculty unavailability preferences.
+      - Try to satisfy soft constraints like faculty preferences and max consecutive classes.
+      - Lunch break is from ${constraints.timePreferences.lunchStartTime} for ${constraints.timePreferences.lunchDurationMinutes} minutes. Do not schedule classes during this time.
+      - Working days are: ${constraints.timePreferences.workingDays.join(', ')}.
+      - Time slots are based on a start time of ${constraints.timePreferences.startTime} and slot duration of ${constraints.timePreferences.slotDurationMinutes} minutes.
+
+      **OUTPUT FORMAT:**
+      - Your output MUST be a valid JSON array of timetable entry objects.
+      - Each object must have these exact keys: "className", "subject", "faculty", "room", "day", "time", "type" ('Theory', 'Lab', or 'Tutorial'), and "classType" ('regular' or 'fixed').
+      - For fixed classes from the constraints, set "classType" to "fixed". For all others, set it to "regular".
+      - Ensure all subject hours are scheduled.
+    `;
 };
-const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['Theory', 'Lab', 'Tutorial'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type'] } };
+const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['Theory', 'Lab', 'Tutorial'] }, classType: { type: Type.STRING, enum: ['regular', 'fixed'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type', 'classType'] } };
 app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "API_KEY is not configured on the server." }); }
     try {
@@ -857,6 +925,25 @@ app.get('/api/tools', authMiddleware, (req, res) => {
     }
     return res.status(403).json({ message: 'No tools available for this role.' });
 });
+
+// NEW endpoints for new modules (mocked for now)
+app.post('/api/meetings', authMiddleware, adminOnly, async (req, res) => {
+    const newMeeting = { ...req.body, id: `meet-${Date.now()}`};
+    // In a real app, you'd save this to the DB
+    console.log("New meeting created (mock):", newMeeting);
+    res.status(201).json(newMeeting);
+});
+app.post('/api/calendar-events', authMiddleware, adminOnly, async (req, res) => {
+    const newEvent = { ...req.body, id: `cal-event-${Date.now()}`};
+    console.log("New calendar event created (mock):", newEvent);
+    res.status(201).json(newEvent);
+});
+app.post('/api/notifications', authMiddleware, adminOnly, async (req, res) => {
+    const newNotification = { ...req.body, id: `app-notif-${Date.now()}`};
+    console.log("New notification created (mock):", newNotification);
+    res.status(201).json(newNotification);
+});
+
 
 app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
