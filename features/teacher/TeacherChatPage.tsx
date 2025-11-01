@@ -18,7 +18,7 @@ const TypingIndicator = () => (
     </div>
 );
 
-const Message = ({ msg, isUser }: { msg: ChatMessage, isUser: boolean }) => {
+const Message: React.FC<{ msg: ChatMessage, isUser: boolean }> = React.memo(({ msg, isUser }) => {
     const alignment = isUser ? 'justify-end' : 'justify-start';
     const bubbleColor = isUser ? 'bg-accent-primary text-accent-text' : 'bg-bg-tertiary text-text-primary';
     const avatar = isUser ? <ProfileIcon className="h-5 w-5" /> : <AIIcon className="h-5 w-5" />;
@@ -50,7 +50,7 @@ const Message = ({ msg, isUser }: { msg: ChatMessage, isUser: boolean }) => {
             {isUser && <div className={`h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center ${avatarBg}`}>{avatar}</div>}
         </div>
     );
-};
+});
 
 export const TeacherChatPage = () => {
     const { user, chatMessages, handleTeacherAskAI } = useAppContext();

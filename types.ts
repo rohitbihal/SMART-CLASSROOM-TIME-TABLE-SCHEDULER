@@ -203,6 +203,40 @@ export interface User {
   password?: string;
 }
 
+// --- NEW: Student Dashboard Specific Types ---
+export interface Exam {
+  id: string;
+  subjectName: string;
+  subjectCode: string;
+  date: string;
+  time: string;
+  room: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export interface StudentAttendance {
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string;
+  attended: number;
+  total: number;
+}
+
+export interface SmartTool {
+  id: string;
+  title: string;
+  description: string;
+  iconName: 'Syllabus' | 'Calculator' | 'Timetable';
+  link: string;
+}
+
 // --- NEW: API & Error Types for enhanced type safety ---
 
 export interface ApiResponse<T> {

@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
-// FIX: Added AttendanceRecord to imports to fix type error.
-import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest } from '../types';
+import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest, Exam, Notification, StudentAttendance } from '../types';
 import * as api from '../services/api';
 import { logger } from '../services/logger';
 
@@ -29,6 +28,11 @@ interface AppContextType {
     chatMessages: ChatMessage[];
     teacherRequests: TeacherRequest[];
     
+    // NEW: Student-specific data
+    studentAttendance: StudentAttendance[];
+    exams: Exam[];
+    notifications: Notification[];
+
     // Data Handlers
     handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => Promise<any>;
     handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => Promise<void>;
@@ -37,10 +41,10 @@ interface AppContextType {
     handleUpdateTeacherAvailability: (facultyId: string, availability: { [day: string]: string[] }) => Promise<void>;
     handleSubmitTeacherRequest: (requestData: Omit<TeacherRequest, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => Promise<void>;
     handleSaveTimetable: (newTimetable: TimetableEntry[]) => Promise<void>;
-    // FIX: Changed records type to AttendanceRecord to match the actual data structure and fix type error.
     handleSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
     handleAdminSendMessage: (classId: string, text: string) => Promise<void>;
+    handleAdminAskAsStudent: (studentId: string, messageText: string) => Promise<ChatMessage>;
     handleTeacherAskAI: (messageText: string, messageId: string) => Promise<void>;
     handleSendHumanMessage: (channel: string, text: string) => Promise<void>;
     handleResetData: () => Promise<void>;
@@ -70,6 +74,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [teacherRequests, setTeacherRequests] = useState<TeacherRequest[]>([]);
     
+    // NEW: State for student-specific data
+    const [studentAttendance, setStudentAttendance] = useState<StudentAttendance[]>([]);
+    const [exams, setExams] = useState<Exam[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+
     const fetchData = useCallback(async () => {
         if (!token) { setAppState('ready'); return; }
         setAppState('loading');
@@ -87,10 +96,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             setUsers(data.users || []);
             setInstitutions(data.institutions || []);
             setTeacherRequests(data.teacherRequests || []);
+            // Set new student data
+            setStudentAttendance(data.studentAttendance || []);
+            setExams(data.exams || []);
+            setNotifications(data.notifications || []);
         } catch (error) {
             logger.error(error as Error, { context: 'fetchAllData' });
             setAppState('error');
-            // If auth fails, log out
             if (error instanceof Error && error.message.includes('Session expired')) {
                 logout();
             }
@@ -108,7 +120,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         sessionStorage.setItem('token', authToken);
         setUser(loggedInUser);
         setToken(authToken);
-        // Data will be fetched by the useEffect hook watching `token`
     };
 
     const logout = () => {
@@ -210,6 +221,20 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setChatMessages(prev => [...prev, newMessage]);
     }, []);
 
+    const handleAdminAskAsStudent = useCallback(async (studentId: string, messageText: string): Promise<ChatMessage> => {
+        try {
+            return await api.askAiAsStudent({ studentId, messageText });
+        } catch (error) {
+            logger.error(error as Error, { context: 'handleAdminAskAsStudent' });
+            const errorMessage: ChatMessage = {
+                id: `error-${Date.now()}`, author: 'System Error', role: 'admin',
+                text: `The AI could not process this request. Details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                timestamp: Date.now(), classId: '', channel: 'admin-test'
+            };
+            return errorMessage;
+        }
+    }, []);
+
     const handleSendHumanMessage = useCallback(async (channel: string, text: string) => {
         if (!user) return;
         const optimisticMessage: ChatMessage = {
@@ -236,7 +261,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
     const handleResetData = useCallback(async () => {
         await api.resetAllData();
-        await fetchData(); // Refetch all data after reset
+        await fetchData();
     }, [fetchData]);
     
     const handleSaveUser = useCallback(async (userData: any) => {
@@ -257,12 +282,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const value = useMemo(() => ({
         user, token, appState, theme, login, logout, toggleTheme,
         classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
+        studentAttendance, exams, notifications,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage,
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
+        studentAttendance, exams, notifications,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage
     ]);
 
     return (

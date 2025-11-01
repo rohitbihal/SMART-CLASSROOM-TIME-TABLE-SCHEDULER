@@ -216,17 +216,14 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 const AuthenticatedApp = () => {
-    // FIX: Destructured all necessary data and handlers from context to pass down as props.
     const { 
         user, appState, classes, faculty, subjects, rooms, students, users, institutions,
         constraints, timetable, attendance, token, chatMessages, handleSaveEntity, handleDeleteEntity, 
         handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance, 
-        handleSaveUser, handleDeleteUser, handleResetData, handleAdminSendMessage 
+        handleSaveUser, handleDeleteUser, handleResetData, handleAdminSendMessage, handleAdminAskAsStudent 
     } = useAppContext();
 
     useEffect(() => {
-        // This effect can be used for any actions needed after user is authenticated
-        // and initial data is loaded.
     }, [appState]);
 
     if (appState === 'loading') {
@@ -235,7 +232,6 @@ const AuthenticatedApp = () => {
 
     if (!user) return <Navigate to="/login" />;
 
-    // --- STUDENT ROUTING ---
     if (user.role === 'student') {
         return (
              <Routes>
@@ -245,14 +241,12 @@ const AuthenticatedApp = () => {
         );
     }
     
-    // --- ADMIN & TEACHER ROUTING ---
     return (
         <AppLayout>
             <Suspense fallback={<FullScreenLoader message="Loading Module..." />}>
                  <Routes>
                     {user.role === 'admin' && (
                         <>
-                            {/* FIX: Passed all required props to TimetableScheduler. */}
                             <Route path="/scheduler" element={<TimetableScheduler 
                                 classes={classes}
                                 faculty={faculty}
@@ -269,7 +263,6 @@ const AuthenticatedApp = () => {
                                 token={token || ''}
                                 onSaveTimetable={handleSaveTimetable}
                             />} />
-                            {/* FIX: Passed all required props to SmartClassroom. */}
                             <Route path="/smart-classroom" element={<SmartClassroom 
                                 user={user}
                                 classes={classes}
@@ -286,14 +279,13 @@ const AuthenticatedApp = () => {
                                 onSaveClassAttendance={handleSaveClassAttendance}
                                 onUpdateConstraints={handleUpdateConstraints}
                                 onAdminSendMessage={handleAdminSendMessage}
+                                onAdminAskAsStudent={handleAdminAskAsStudent}
                             />} />
-                            {/* FIX: Passed user prop to ModuleSelectionPage. */}
                             <Route path="/" element={<ModuleSelectionPage user={user} />} />
                         </>
                     )}
                     {user.role === 'teacher' && (
                         <Route path="/" element={<TeacherDashboardLayout />}>
-                             {/* FIX: Passed timetable and constraints props to TimetableGrid. */}
                              <Route index element={<TimetableGrid timetable={timetable} constraints={constraints} role="teacher" />} />
                              <Route path="attendance" element={<TeacherAttendancePage />} />
                              <Route path="ims" element={<IMSPage />} />
@@ -317,7 +309,6 @@ const AppRoutes = () => {
     const [authChecked, setAuthChecked] = useState(false);
 
     useEffect(() => {
-        // This ensures we don't flash the login page while checking session storage.
         if (appState !== 'loading') {
             setAuthChecked(true);
         }

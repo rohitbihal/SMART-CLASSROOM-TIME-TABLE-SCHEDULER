@@ -1,4 +1,4 @@
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest, StudentAttendance, Exam, Notification } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -59,6 +59,7 @@ type AllData = {
     students: Student[]; users: User[]; constraints: Constraints | null;
     timetable: TimetableEntry[]; attendance: Attendance; chatMessages: ChatMessage[];
     institutions: Institution[]; teacherRequests: TeacherRequest[];
+    studentAttendance: StudentAttendance[]; exams: Exam[]; notifications: Notification[];
 };
 export const fetchAllData = async (): Promise<AllData> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/all-data`);
@@ -133,7 +134,6 @@ export const saveTimetable = async (timetable: TimetableEntry[]): Promise<Timeta
     return response.json();
 }
 
-// FIX: Changed records type from a generic object to the specific AttendanceRecord type.
 export const saveClassAttendance = async (classId: string, date: string, records: AttendanceRecord): Promise<void> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/attendance/class`, { method: 'PUT', body: JSON.stringify({ classId, date, records }) });
     if (!response.ok) throw await handleApiError(response);
@@ -148,6 +148,15 @@ export const resetAllData = async (): Promise<{ message: string }> => {
 // --- CHAT API ---
 export const askCampusAI = async (payload: { messageText: string, classId: string, messageId: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+export const askAiAsStudent = async (payload: { studentId: string, messageText: string }): Promise<ChatMessage> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/admin-ask-as-student`, {
         method: 'POST',
         body: JSON.stringify(payload)
     });

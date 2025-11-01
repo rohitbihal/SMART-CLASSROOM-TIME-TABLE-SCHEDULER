@@ -18,29 +18,32 @@ interface SmartClassroomProps {
     onSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     onUpdateConstraints: (constraints: Constraints) => Promise<void>;
     onAdminSendMessage: (classId: string, text: string) => Promise<void>;
+    onAdminAskAsStudent: (studentId: string, messageText: string) => Promise<ChatMessage>;
 }
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', isLoading = false }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; isLoading?: boolean; }) => {
     if (!isOpen) return null;
     return (
+        // FIX: Wrapped content inside Modal
         <Modal isOpen={isOpen} onClose={onClose} title={title}>
-            <div className="flex items-start gap-4">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/50 sm:mx-0 sm:h-10 sm:w-10">
-                    <ShieldIcon className="h-6 w-6 text-red-600 dark:text-red-300" />
+            <div>
+                <div className="flex items-start gap-4">
+                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/50 sm:mx-0 sm:h-10 sm:w-10">
+                        <ShieldIcon className="h-6 w-6 text-red-600 dark:text-red-300" />
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+                    </div>
                 </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+                <div className="flex gap-2 justify-end pt-6 mt-4 border-t dark:border-slate-700">
+                    <button onClick={onClose} className="btn-secondary disabled:opacity-50" disabled={isLoading}>Cancel</button>
+                    <button onClick={onConfirm} className="btn-danger w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Deleting..." : confirmText}</button>
                 </div>
-            </div>
-            <div className="flex gap-2 justify-end pt-6 mt-4 border-t dark:border-slate-700">
-                <button onClick={onClose} className="btn-secondary disabled:opacity-50" disabled={isLoading}>Cancel</button>
-                <button onClick={onConfirm} className="btn-danger w-32 disabled:opacity-50" disabled={isLoading}>{isLoading ? "Deleting..." : confirmText}</button>
             </div>
         </Modal>
     );
 };
 
-// FIX: Changed to React.FC to handle 'key' prop issue in TypeScript.
 const StudentForm: React.FC<{ student: Student | null; onSave: (data: Partial<Student>) => void; onCancel: () => void; classId: string; isLoading: boolean; }> = ({ student, onSave, onCancel, classId, isLoading }) => {
     const [formData, setFormData] = useState(student ? { ...student, email: student.email || '', roll: student.roll || '', contactNumber: student.contactNumber || '' } : { name: '', email: '', roll: '', classId, contactNumber: '' });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -204,6 +207,7 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
                 isLoading={isLoading}
                 confirmText={`Delete ${selectedStudents.length} Student(s)`}
             />
+            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard
                 title="Student Management"
                 actions={(
@@ -213,46 +217,48 @@ const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity,
                     </div>
                 )}
             >
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                    <SelectInput id="class-selector" name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} disabled={isLoading}>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </SelectInput>
-                    <div className="relative flex-grow">
-                        <label htmlFor="student-search" className="sr-only">Search students in this class</label>
-                        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                        <TextInput type="text" id="student-search" name="student-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="pl-10" disabled={isLoading} />
-                    </div>
-                </div>
-                {(editingStudent && 'new' in editingStudent) && <StudentForm student={null} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />}
-                {studentsInClass.length > 0 && (
-                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
-                        <div className="flex items-center gap-3">
-                            <input type="checkbox" ref={selectAllCheckboxRef} onChange={handleToggleSelectAll} checked={allIdsInView.length > 0 && selectedIdsInView.length === allIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                            <label className="font-medium">{selectedStudents.length > 0 ? `${selectedStudents.length} selected` : 'Select All'}</label>
+                <div>
+                    <div className="flex flex-col md:flex-row gap-4 mb-4">
+                        <SelectInput id="class-selector" name="class-selector" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} disabled={isLoading}>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </SelectInput>
+                        <div className="relative flex-grow">
+                            <label htmlFor="student-search" className="sr-only">Search students in this class</label>
+                            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                            <TextInput type="text" id="student-search" name="student-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students in this class..." className="pl-10" disabled={isLoading} />
                         </div>
-                        {selectedStudents.length > 0 && <button onClick={() => setIsBulkDeleteConfirmOpen(true)} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
                     </div>
-                )}
-                <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
-                    {studentsInClass.length > 0 ? studentsInClass.map(student =>
-                        (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? (
-                            <StudentForm key={student.id} student={student} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />
-                        ) : (
-                            <div key={student.id} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
-                                <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => handleToggleSelect(student.id)} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                <div className="flex-grow flex justify-between items-center">
-                                    <div>
-                                        <p className="font-semibold">{student.name}</p>
-                                        <p className="text-xs text-gray-500 dark:text-slate-400">{`Roll: ${student.roll || 'N/A'} | ${student.email || 'No email'}`}</p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setEditingStudent(student)} className="text-indigo-500 dark:text-indigo-400 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
-                                        <button onClick={() => setStudentToDelete({ id: student.id, name: student.name })} className="text-red-500 dark:text-red-400 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                    {(editingStudent && 'new' in editingStudent) && <StudentForm student={null} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />}
+                    {studentsInClass.length > 0 && (
+                        <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
+                            <div className="flex items-center gap-3">
+                                <input type="checkbox" ref={selectAllCheckboxRef} onChange={handleToggleSelectAll} checked={allIdsInView.length > 0 && selectedIdsInView.length === allIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <label className="font-medium">{selectedStudents.length > 0 ? `${selectedStudents.length} selected` : 'Select All'}</label>
+                            </div>
+                            {selectedStudents.length > 0 && <button onClick={() => setIsBulkDeleteConfirmOpen(true)} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                        </div>
+                    )}
+                    <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
+                        {studentsInClass.length > 0 ? studentsInClass.map(student =>
+                            (editingStudent && 'id' in editingStudent && editingStudent.id === student.id) ? (
+                                <StudentForm key={student.id} student={student} onSave={handleSaveStudent} onCancel={() => setEditingStudent(null)} classId={selectedClassId} isLoading={isLoading} />
+                            ) : (
+                                <div key={student.id} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                                    <input type="checkbox" checked={selectedStudents.includes(student.id)} onChange={() => handleToggleSelect(student.id)} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <div className="flex-grow flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold">{student.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-slate-400">{`Roll: ${student.roll || 'N/A'} | ${student.email || 'No email'}`}</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setEditingStudent(student)} className="text-indigo-500 dark:text-indigo-400 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
+                                            <button onClick={() => setStudentToDelete({ id: student.id, name: student.name })} className="text-red-500 dark:text-red-400 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )
-                    ) : <p className="text-center text-gray-500 p-4">No students found in this class.</p>}
+                            )
+                        ) : <p className="text-center text-gray-500 p-4">No students found in this class.</p>}
+                    </div>
                 </div>
             </SectionCard>
         </>
@@ -322,12 +328,14 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="bg-red-100 text-red-700 p-2 rounded">{error}</div>}
+            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Role" htmlFor="userRole">
                 <SelectInput id="userRole" name="role" value={formData.role} onChange={handleChange} disabled={isLoading}>
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
                 </SelectInput>
             </FormField>
+            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Link to Profile" htmlFor="userProfileId">
                 <SelectInput id="userProfileId" name="profileId" value={formData.profileId} onChange={handleChange} required disabled={isLoading}>
                     <option value="" disabled>Select a profile...</option>
@@ -336,9 +344,11 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
                     ))}
                 </SelectInput>
             </FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Username (Email)" htmlFor="userUsername">
                 <TextInput id="userUsername" name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" required disabled={isLoading} />
             </FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label={isEditing ? "New Password (optional)" : "Password"} htmlFor="userPassword">
                 <TextInput id="userPassword" name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} required={!isEditing} disabled={isLoading} />
             </FormField>
@@ -464,49 +474,53 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
 
     return (
         <>
+            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard
                 title="User Accounts"
                 actions={<button onClick={() => setEditingUser({ role: userType })} disabled={isLoading} className="action-btn-primary disabled:opacity-50"><AddIcon />Add {userType === 'teacher' ? 'Teacher' : 'Student'}</button>}
             >
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                  <div className="bg-gray-100 dark:bg-slate-800 p-1 rounded-lg flex gap-1">
-                      <UserTypeButton type="teacher" label="Teachers" icon={<TeacherIcon className="h-5 w-5" />} />
-                      <UserTypeButton type="student" label="Students" icon={<StudentIcon className="h-5 w-5" />} />
-                  </div>
-                  <div className="relative flex-grow">
-                      <label htmlFor="user-search" className="sr-only">Search by name or email</label>
-                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                      <TextInput type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={`Search ${userType}s by name or email...`} className="pl-10" disabled={isLoading} />
-                  </div>
-                </div>
-                {filteredUsers.length > 0 && (
-                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
-                        <div className="flex items-center gap-3">
-                            <input type="checkbox" ref={selectAllUsersCheckboxRef} onChange={handleToggleSelectAllUsers} checked={allUserIdsInView.length > 0 && selectedUserIdsInView.length === allUserIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                            <label className="font-medium">{selectedUsers.length > 0 ? `${selectedUsers.length} selected` : 'Select All'}</label>
-                        </div>
-                        {selectedUsers.length > 0 && <button onClick={() => setIsBulkDeleteUsersConfirmOpen(true)} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                <div>
+                    <div className="flex flex-col md:flex-row gap-4 mb-4">
+                      <div className="bg-gray-100 dark:bg-slate-800 p-1 rounded-lg flex gap-1">
+                          <UserTypeButton type="teacher" label="Teachers" icon={<TeacherIcon className="h-5 w-5" />} />
+                          <UserTypeButton type="student" label="Students" icon={<StudentIcon className="h-5 w-5" />} />
+                      </div>
+                      <div className="relative flex-grow">
+                          <label htmlFor="user-search" className="sr-only">Search by name or email</label>
+                          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                          <TextInput type="text" id="user-search" name="user-search" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={`Search ${userType}s by name or email...`} className="pl-10" disabled={isLoading} />
+                      </div>
                     </div>
-                )}
-                <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
-                    {filteredUsers.length > 0 ? filteredUsers.map(user =>
-                        <div key={user._id} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
-                            <input type="checkbox" checked={selectedUsers.includes(user._id!)} onChange={() => handleToggleUserSelect(user._id!)} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                            <div className="flex-grow flex justify-between items-center">
-                                <div>
-                                    <p className="font-semibold">{profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'}</p>
-                                    <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username} | ${profileMap.get(user.profileId || '')?.contactNumber || 'No contact'}`}</p>
-                                </div>
-                                <div className="flex gap-2"> 
-                                    <button onClick={() => setEditingUser(user)} className="text-indigo-500 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
-                                    <button onClick={() => setUserToReset(user)} className="text-yellow-500 dark:text-yellow-400 disabled:opacity-50" title="Generate & Send New Credentials" disabled={isLoading}><KeyIcon /></button>
-                                    <button onClick={() => setUserToDelete(user)} className="text-red-500 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                    {filteredUsers.length > 0 && (
+                        <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-slate-900/50 rounded-lg border-b dark:border-slate-700 mb-2 text-sm">
+                            <div className="flex items-center gap-3">
+                                <input type="checkbox" ref={selectAllUsersCheckboxRef} onChange={handleToggleSelectAllUsers} checked={allUserIdsInView.length > 0 && selectedUserIdsInView.length === allUserIdsInView.length} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <label className="font-medium">{selectedUsers.length > 0 ? `${selectedUsers.length} selected` : 'Select All'}</label>
+                            </div>
+                            {selectedUsers.length > 0 && <button onClick={() => setIsBulkDeleteUsersConfirmOpen(true)} className="text-red-500 dark:text-red-400 font-semibold text-sm flex items-center gap-1 disabled:opacity-50" disabled={isLoading}><DeleteIcon />Delete Selected</button>}
+                        </div>
+                    )}
+                    <div className="space-y-2 mt-2 max-h-96 overflow-y-auto pr-2">
+                        {filteredUsers.length > 0 ? filteredUsers.map(user =>
+                            <div key={user._id} className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                                <input type="checkbox" checked={selectedUsers.includes(user._id!)} onChange={() => handleToggleUserSelect(user._id!)} disabled={isLoading} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                <div className="flex-grow flex justify-between items-center">
+                                    <div>
+                                        <p className="font-semibold">{profileMap.get(user.profileId || '')?.name || 'Unlinked Profile'}</p>
+                                        <p className="text-xs text-gray-500 dark:text-slate-400">{`${user.username} | ${profileMap.get(user.profileId || '')?.contactNumber || 'No contact'}`}</p>
+                                    </div>
+                                    <div className="flex gap-2"> 
+                                        <button onClick={() => setEditingUser(user)} className="text-indigo-500 disabled:opacity-50" disabled={isLoading}><EditIcon /></button>
+                                        <button onClick={() => setUserToReset(user)} className="text-yellow-500 dark:text-yellow-400 disabled:opacity-50" title="Generate & Send New Credentials" disabled={isLoading}><KeyIcon /></button>
+                                        <button onClick={() => setUserToDelete(user)} className="text-red-500 disabled:opacity-50" disabled={isLoading}><DeleteIcon /></button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ) : <p className="text-center text-gray-500 p-4">No {userType} accounts found.</p>}
+                        ) : <p className="text-center text-gray-500 p-4">No {userType} accounts found.</p>}
+                    </div>
                 </div>
             </SectionCard>
+            {/* FIX: Wrapped content inside Modal */}
             <Modal isOpen={!!editingUser} onClose={() => !isSaving && setEditingUser(null)} title={editingUser?._id ? "Edit User" : "Add New User"}>
                 {editingUser && <UserForm user={editingUser} onSave={handleSave} onCancel={() => setEditingUser(null)} faculty={faculty} students={students} allUsers={users} isLoading={isSaving} />}
             </Modal>
@@ -527,6 +541,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
                 isLoading={isDeleting}
                 confirmText={`Delete ${selectedUsers.length} Account(s)`}
             />
+            {/* FIX: Wrapped content inside Modal */}
             <Modal isOpen={!!userToReset} onClose={() => !isLoading && setUserToReset(null)} title="Generate New Credentials">
                 {userToReset && (
                     <div>
@@ -727,57 +742,60 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
     
     const summary = useMemo(() => {
         const statuses = Object.values(currentRecords);
-        const present = statuses.filter(s => s.startsWith('present')).length;
-        const absent = statuses.filter(s => s.startsWith('absent')).length;
+        const present = statuses.filter(s => String(s).startsWith('present')).length;
+        const absent = statuses.filter(s => String(s).startsWith('absent')).length;
         const unmarked = statuses.filter(s => s === 'unmarked').length;
         return { total: studentsInClass.length, present, absent, unmarked };
     }, [currentRecords, studentsInClass]);
 
     return (
+        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Attendance Tracking">
-            <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
-                <div className="flex-1">
-                    <label htmlFor="attendance-class" className="block text-sm font-medium mb-1">Select Class</label>
-                    <SelectInput id="attendance-class" name="attendance-class" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} disabled={isLoading}>
-                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </SelectInput>
-                </div>
-                <div className="flex-1">
-                    <label htmlFor="attendance-date" className="block text-sm font-medium mb-1">Select Date</label>
-                    <TextInput type="date" id="attendance-date" name="attendance-date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} disabled={isLoading} />
-                </div>
-            </div>
-            <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4">
-                <div className="flex gap-4 font-medium">
-                    <span>Total Students: {summary.total}</span>
-                    <span className="text-green-600 dark:text-green-400">Present: {summary.present}</span>
-                    <span className="text-red-600 dark:text-red-400">Absent: {summary.absent}</span>
-                    <span className="text-gray-500 dark:text-gray-400">Unmarked: {summary.unmarked}</span>
-                </div>
-            </div>
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                {studentsInClass.length > 0 ? studentsInClass.map(student => (
-                    <div key={student.id} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
-                        <div>
-                            <p className="font-semibold">{student.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-slate-400">Roll: {student.roll || 'N/A'}</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <button title="Mark Present and Lock" onClick={() => handleStatusChange(student.id, 'present_locked')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present_locked' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Lock P</button>
-                            <button title="Mark Absent and Lock" onClick={() => handleStatusChange(student.id, 'absent_locked')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent_locked' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Lock A</button>
-                            <button title="Suggest Present to Teacher" onClick={() => handleStatusChange(student.id, 'present_suggested')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present_suggested' ? 'bg-yellow-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Suggest P</button>
-                        </div>
+            <div>
+                <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
+                    <div className="flex-1">
+                        <label htmlFor="attendance-class" className="block text-sm font-medium mb-1">Select Class</label>
+                        <SelectInput id="attendance-class" name="attendance-class" value={selectedClassId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedClassId(e.target.value)} disabled={isLoading}>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </SelectInput>
                     </div>
-                )) : <p className="text-center text-gray-500 p-4">No students in this class.</p>}
-            </div>
-            <div className="flex justify-end mt-6">
-                <button onClick={handleSave} className="btn-primary py-2 px-6 disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save & Lock Attendance"}</button>
+                    <div className="flex-1">
+                        <label htmlFor="attendance-date" className="block text-sm font-medium mb-1">Select Date</label>
+                        <TextInput type="date" id="attendance-date" name="attendance-date" value={selectedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)} disabled={isLoading} />
+                    </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg mb-4 flex flex-wrap justify-between items-center gap-4">
+                    <div className="flex gap-4 font-medium">
+                        <span>Total Students: {summary.total}</span>
+                        <span className="text-green-600 dark:text-green-400">Present: {summary.present}</span>
+                        <span className="text-red-600 dark:text-red-400">Absent: {summary.absent}</span>
+                        <span className="text-gray-500 dark:text-gray-400">Unmarked: {summary.unmarked}</span>
+                    </div>
+                </div>
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {studentsInClass.length > 0 ? studentsInClass.map(student => (
+                        <div key={student.id} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                            <div>
+                                <p className="font-semibold">{student.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-slate-400">Roll: {student.roll || 'N/A'}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button title="Mark Present and Lock" onClick={() => handleStatusChange(student.id, 'present_locked')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present_locked' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Lock P</button>
+                                <button title="Mark Absent and Lock" onClick={() => handleStatusChange(student.id, 'absent_locked')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'absent_locked' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Lock A</button>
+                                <button title="Suggest Present to Teacher" onClick={() => handleStatusChange(student.id, 'present_suggested')} className={`px-3 py-1.5 text-sm font-bold rounded-md ${currentRecords[student.id] === 'present_suggested' ? 'bg-yellow-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}`} disabled={isLoading}>Suggest P</button>
+                            </div>
+                        </div>
+                    )) : <p className="text-center text-gray-500 p-4">No students in this class.</p>}
+                </div>
+                <div className="flex justify-end mt-6">
+                    <button onClick={handleSave} className="btn-primary py-2 px-6 disabled:opacity-50" disabled={isLoading || studentsInClass.length === 0}>{isLoading ? "Saving..." : "Save & Lock Attendance"}</button>
+                </div>
             </div>
         </SectionCard>
     );
 };
 
-const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'constraints' | 'chatMessages' | 'onUpdateConstraints' | 'onAdminSendMessage'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, setFeedback, students, onAdminAskAsStudent }: Pick<SmartClassroomProps, 'classes' | 'constraints' | 'chatMessages' | 'onUpdateConstraints' | 'onAdminSendMessage' | 'students' | 'onAdminAskAsStudent'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
     const [chatWindow, setChatWindow] = useState(constraints?.chatWindow || { start: '09:00', end: '17:00' });
     const [isChatEnabled, setIsChatEnabled] = useState(constraints?.isChatboxEnabled ?? true);
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
@@ -785,6 +803,12 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
     const [isSaving, setIsSaving] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const chatContainerRef = useRef<HTMLDivElement>(null);
+    
+    // State for the AI testbed
+    const [testStudentId, setTestStudentId] = useState(students[0]?.id || '');
+    const [testQuestion, setTestQuestion] = useState('');
+    const [testResponse, setTestResponse] = useState<ChatMessage | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
 
     const selectedClassName = useMemo(() => classes.find(c => c.id === selectedClassId)?.name, [classes, selectedClassId]);
 
@@ -842,80 +866,168 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
         }
     };
 
+    const handleTestQuery = async () => {
+        const text = testQuestion.trim();
+        if (!text || !testStudentId) return;
+        setIsTesting(true);
+        setTestResponse(null);
+        try {
+            const aiResponse = await onAdminAskAsStudent(testStudentId, text);
+            setTestResponse(aiResponse);
+        } catch (error) {
+            const errorMessage: ChatMessage = {
+                id: `error-${Date.now()}`, author: 'System Error', role: 'admin',
+                text: `The AI could not process this request. Details: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                timestamp: Date.now(), classId: '', channel: 'admin-test'
+            };
+            setTestResponse(errorMessage);
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 flex flex-col gap-6">
-                <SectionCard title="Chatbot & Chatbox Settings">
-                    <div>
-                        <h4 className="font-semibold text-lg mb-2">Campus AI Availability</h4>
-                        <p className="text-sm text-text-secondary mb-4">Set the time window when the student AI chatbot is active.</p>
-                        <div className="space-y-4">
-                            <FormField label="Start Time" htmlFor="chat-start"><TextInput type="time" id="chat-start" value={chatWindow.start} onChange={e => setChatWindow(p => ({...p, start: e.target.value}))} /></FormField>
-                            <FormField label="End Time" htmlFor="chat-end"><TextInput type="time" id="chat-end" value={chatWindow.end} onChange={e => setChatWindow(p => ({...p, end: e.target.value}))} /></FormField>
-                        </div>
-                    </div>
-                    <div className="border-t border-border-primary mt-6 pt-6">
-                        <h4 className="font-semibold text-lg mb-2">Student/Teacher Chatbox</h4>
-                        <div className="flex items-center justify-between bg-bg-tertiary p-4 rounded-lg">
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 flex flex-col gap-6">
+                    {/* FIX: Wrapped content inside SectionCard */}
+                    <SectionCard title="Chatbot & Chatbox Settings">
+                        <div>
                             <div>
-                                <p className="font-semibold">Enable Chatbox</p>
-                                <p className="text-sm text-text-secondary">Allow students and teachers to communicate directly and in class groups.</p>
-                            </div>
-                            <label htmlFor="chatbox-toggle" className="flex items-center cursor-pointer">
-                                <div className="relative">
-                                    <input type="checkbox" id="chatbox-toggle" className="sr-only" checked={isChatEnabled} onChange={() => setIsChatEnabled(!isChatEnabled)} />
-                                    <div className={`block w-14 h-8 rounded-full ${isChatEnabled ? 'bg-accent-primary' : 'bg-gray-400'}`}></div>
-                                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isChatEnabled ? 'transform translate-x-6' : ''}`}></div>
+                                <h4 className="font-semibold text-lg mb-2">Campus AI Availability</h4>
+                                <p className="text-sm text-text-secondary mb-4">Set the time window when the student AI chatbot is active.</p>
+                                <div className="space-y-4">
+                                    <FormField label="Start Time" htmlFor="chat-start"><TextInput type="time" id="chat-start" value={chatWindow.start} onChange={e => setChatWindow(p => ({...p, start: e.target.value}))} /></FormField>
+                                    <FormField label="End Time" htmlFor="chat-end"><TextInput type="time" id="chat-end" value={chatWindow.end} onChange={e => setChatWindow(p => ({...p, end: e.target.value}))} /></FormField>
                                 </div>
-                            </label>
+                            </div>
+                            <div className="border-t border-border-primary mt-6 pt-6">
+                                <h4 className="font-semibold text-lg mb-2">Student/Teacher Chatbox</h4>
+                                <div className="flex items-center justify-between bg-bg-tertiary p-4 rounded-lg">
+                                    <div>
+                                        <p className="font-semibold">Enable Chatbox</p>
+                                        <p className="text-sm text-text-secondary">Allow students and teachers to communicate directly and in class groups.</p>
+                                    </div>
+                                    <label htmlFor="chatbox-toggle" className="flex items-center cursor-pointer">
+                                        <div className="relative">
+                                            <input type="checkbox" id="chatbox-toggle" className="sr-only" checked={isChatEnabled} onChange={() => setIsChatEnabled(!isChatEnabled)} />
+                                            <div className={`block w-14 h-8 rounded-full ${isChatEnabled ? 'bg-accent-primary' : 'bg-gray-400'}`}></div>
+                                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isChatEnabled ? 'transform translate-x-6' : ''}`}></div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-border-primary flex justify-end">
+                                <button onClick={handleSaveSettings} className="btn-primary w-full flex items-center justify-center gap-2" disabled={isSaving}>
+                                    {isSaving ? 'Saving...' : <><SaveIcon className="h-5 w-5"/>Save All Settings</>}
+                                </button>
+                            </div>
+                        </div>
+                    </SectionCard>
+                </div>
+                <div className="lg:col-span-2">
+                     {/* FIX: Wrapped content inside SectionCard */}
+                     <SectionCard title={`Admin Broadcast: ${selectedClassName || 'Select a Class'}`} className="flex flex-col h-[75vh]">
+                        <div>
+                            <div className="flex-1">
+                                 {/* FIX: Wrapped SelectInput inside FormField */}
+                                 <FormField label="Select Class to Broadcast to" htmlFor="broadcast-class-select">
+                                    <SelectInput id="broadcast-class-select" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)}>
+                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </SelectInput>
+                                 </FormField>
+                            </div>
+                             <div ref={chatContainerRef} className="flex-grow p-4 space-y-6 overflow-y-auto bg-gray-50 dark:bg-slate-900/50 rounded-lg my-4">
+                                {filteredMessages.length > 0 ? filteredMessages.map(msg => {
+                                     const isAdmin = msg.role === 'admin';
+                                     const bubbleColor = isAdmin ? 'bg-green-600 text-white' : 'bg-bg-tertiary text-text-primary';
+                                     
+                                     return (
+                                         <div key={msg.id} className="flex items-end gap-3 w-full justify-start">
+                                            <div className="h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/50 text-green-600"><ShieldIcon className="h-5 w-5" /></div>
+                                            <div className="flex flex-col gap-1 max-w-[80%]">
+                                                <p className="text-xs text-text-secondary text-left">{msg.author}</p>
+                                                <div className={`rounded-2xl p-3.5 ${bubbleColor}`}><p className="text-sm leading-relaxed">{msg.text}</p></div>
+                                            </div>
+                                         </div>
+                                     );
+                                 }) : <p className="text-center text-text-secondary">No messages in this chat yet. Send a broadcast message to all members of the selected class.</p>}
+                             </div>
+                             <form onSubmit={handleSendMessage} className="mt-4 pt-4 border-t border-border-primary flex items-center gap-3">
+                                 <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Broadcast to ${selectedClassName || ''}...`} disabled={!selectedClassId || isSending} />
+                                 <button type="submit" className="btn-primary p-3" disabled={!selectedClassId || !newMessage.trim() || isSending}><SendIcon /></button>
+                             </form>
+                        </div>
+                     </SectionCard>
+                </div>
+            </div>
+
+            {/* FIX: Wrapped content inside SectionCard */}
+            <SectionCard title="AI Chatbot Testbed">
+                <div>
+                    <p className="text-text-secondary text-sm mb-4">
+                        Simulate a student's query to test the AI's contextual understanding based on their specific timetable and subjects.
+                    </p>
+                    <div className="space-y-4">
+                        {/* FIX: Wrapped SelectInput inside FormField */}
+                        <FormField label="Simulate as Student" htmlFor="student-test-select">
+                            <SelectInput id="student-test-select" value={testStudentId} onChange={e => { setTestStudentId(e.target.value); setTestResponse(null); }}>
+                                {students.length > 0 ? students.map(s => <option key={s.id} value={s.id}>{s.name}</option>) : <option disabled>No students available</option>}
+                            </SelectInput>
+                        </FormField>
+                        {/* FIX: Wrapped textarea inside FormField */}
+                        <FormField label={`Question from ${students.find(s => s.id === testStudentId)?.name || '...'}`} htmlFor="test-question">
+                            <textarea 
+                                id="test-question" 
+                                rows={3} 
+                                className="input-base" 
+                                placeholder="e.g., What is my first class on Monday?" 
+                                value={testQuestion} 
+                                onChange={e => setTestQuestion(e.target.value)}
+                            />
+                        </FormField>
+                        <div className="flex justify-end">
+                            <button 
+                                onClick={handleTestQuery} 
+                                className="btn-primary flex items-center justify-center gap-2 w-48"
+                                disabled={isTesting || !testStudentId || !testQuestion.trim()}
+                            >
+                                {isTesting ? 'Querying AI...' : <><AIIcon/> Test AI Response</>}
+                            </button>
                         </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-border-primary flex justify-end">
-                        <button onClick={handleSaveSettings} className="btn-primary w-full flex items-center justify-center gap-2" disabled={isSaving}>
-                            {isSaving ? 'Saving...' : <><SaveIcon className="h-5 w-5"/>Save All Settings</>}
-                        </button>
-                    </div>
-                </SectionCard>
-                <SectionCard title="Select Class" className="flex-1">
-                    <div className="space-y-1 max-h-96 overflow-y-auto">
-                        {classes.map(c => (
-                            <button key={c.id} onClick={() => setSelectedClassId(c.id)} className={`w-full text-left p-3 rounded-md transition-colors text-sm font-medium ${selectedClassId === c.id ? 'bg-accent-primary text-accent-text' : 'hover:bg-bg-tertiary'}`}>
-                                {c.name}
-                            </button>
-                        ))}
-                    </div>
-                </SectionCard>
-            </div>
-            <div className="lg:col-span-2">
-                 <SectionCard title={`Admin Broadcast: ${selectedClassName || 'Select a Class'}`} className="flex flex-col h-[75vh]">
-                     <div ref={chatContainerRef} className="flex-grow p-4 space-y-6 overflow-y-auto bg-gray-50 dark:bg-slate-900/50 rounded-lg">
-                        {filteredMessages.length > 0 ? filteredMessages.map(msg => {
-                             const isAdmin = msg.role === 'admin';
-                             const bubbleColor = isAdmin ? 'bg-green-600 text-white' : 'bg-bg-tertiary text-text-primary';
-                             
-                             return (
-                                 <div key={msg.id} className="flex items-end gap-3 w-full justify-start">
-                                    <div className="h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/50 text-green-600"><ShieldIcon className="h-5 w-5" /></div>
-                                    <div className="flex flex-col gap-1 max-w-[80%]">
-                                        <p className="text-xs text-text-secondary text-left">{msg.author}</p>
-                                        <div className={`rounded-2xl p-3.5 ${bubbleColor}`}><p className="text-sm leading-relaxed">{msg.text}</p></div>
-                                    </div>
+                    {(isTesting || testResponse) && (
+                        <div className="mt-6 pt-4 border-t border-border-primary">
+                            <h4 className="font-semibold mb-2">AI Response:</h4>
+                            {isTesting && <div className="flex items-center gap-2 text-text-secondary"><AIIcon className="h-5 w-5 animate-pulse" /><span>Generating response...</span></div>}
+                            {testResponse && (
+                                 <div className="p-4 bg-gray-50 dark:bg-slate-900/50 rounded-lg space-y-2">
+                                    <p className="whitespace-pre-wrap">{testResponse.text}</p>
+                                    {testResponse.groundingChunks && testResponse.groundingChunks.length > 0 && (
+                                        <div className="pt-2 border-t border-border-primary text-xs">
+                                            <p className="font-semibold text-text-secondary mb-1">Sources:</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {testResponse.groundingChunks.map((chunk, index) => chunk.web && (
+                                                    <a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" key={index} className="bg-bg-primary border border-border-primary px-2 py-1 rounded-md hover:bg-border-primary truncate max-w-xs">
+                                                        <SearchIcon className="h-3 w-3 inline-block mr-1" />
+                                                        {chunk.web.title}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                  </div>
-                             );
-                         }) : <p className="text-center text-text-secondary">No messages in this chat yet. Send a broadcast message to all members of the selected class.</p>}
-                     </div>
-                     <form onSubmit={handleSendMessage} className="mt-4 pt-4 border-t border-border-primary flex items-center gap-3">
-                         <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Broadcast to ${selectedClassName || ''}...`} disabled={!selectedClassId || isSending} />
-                         <button type="submit" className="btn-primary p-3" disabled={!selectedClassId || !newMessage.trim() || isSending}><SendIcon /></button>
-                     </form>
-                 </SectionCard>
-            </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </SectionCard>
         </div>
     );
 };
 
 export const SmartClassroom = (props: SmartClassroomProps) => {
-    const { user, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage } = props;
+    const { user, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, onAdminAskAsStudent } = props;
     const [activeTab, setActiveTab] = useState('profile');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
     const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -988,7 +1100,7 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
             case 'attendance':
                 return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
             case 'chatbot':
-                 return <ChatbotControlTab classes={classes} constraints={constraints} chatMessages={chatMessages} onUpdateConstraints={onUpdateConstraints} onAdminSendMessage={onAdminSendMessage} setFeedback={setFeedback} />;
+                 return <ChatbotControlTab classes={classes} constraints={constraints} chatMessages={chatMessages} onUpdateConstraints={onUpdateConstraints} onAdminSendMessage={onAdminSendMessage} setFeedback={setFeedback} students={students} onAdminAskAsStudent={onAdminAskAsStudent} />;
             case 'profile':
             default:
                 return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;

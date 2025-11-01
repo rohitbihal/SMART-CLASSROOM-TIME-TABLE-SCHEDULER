@@ -15,7 +15,7 @@ interface ChatboxProps {
     currentUser: User;
 }
 
-const Message = ({ msg, currentUser }: { msg: ChatMessage, currentUser: User }) => {
+const Message: React.FC<{ msg: ChatMessage, currentUser: User }> = ({ msg, currentUser }) => {
     const isUser = msg.authorId === currentUser.profileId;
     const alignment = isUser ? 'justify-end' : 'justify-start';
     const bubbleColor = isUser ? 'bg-accent-primary text-accent-text' : 'bg-bg-tertiary text-text-primary';

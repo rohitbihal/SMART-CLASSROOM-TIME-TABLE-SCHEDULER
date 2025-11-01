@@ -177,6 +177,11 @@ const teacherRequestSchema = new mongoose.Schema({
     submittedDate: { type: String, default: () => new Date().toISOString() },
 });
 
+// --- NEW: Student Dashboard Data Schemas ---
+const studentAttendanceSchema = new mongoose.Schema({ studentId: String, subjectId: String, attended: Number, total: Number });
+const examSchema = new mongoose.Schema({ classId: String, subjectName: String, subjectCode: String, date: String, time: String, room: String });
+const notificationSchema = new mongoose.Schema({ studentId: String, title: String, message: String, timestamp: String, read: Boolean });
+
 const Class = mongoose.model('Class', classSchema);
 const Faculty = mongoose.model('Faculty', facultySchema);
 const Subject = mongoose.model('Subject', subjectSchema);
@@ -189,6 +194,9 @@ const Attendance = mongoose.model('Attendance', attendanceSchema);
 const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
 const Institution = mongoose.model('Institution', institutionSchema); // New Model
 const TeacherRequest = mongoose.model('TeacherRequest', teacherRequestSchema);
+const StudentAttendance = mongoose.model('StudentAttendance', studentAttendanceSchema);
+const Exam = mongoose.model('Exam', examSchema);
+const Notification = mongoose.model('Notification', notificationSchema);
 
 const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest };
 
@@ -233,6 +241,25 @@ const MOCK_CONSTRAINTS = {
     maxConcurrentClassesPerDept: { 'CSE': 4 },
 };
 
+// --- NEW MOCK DATA FOR STUDENT DASHBOARD ---
+const MOCK_STUDENT_ATTENDANCE = [
+    { studentId: 'st1', subjectId: 's1', attended: 18, total: 20 },
+    { studentId: 'st1', subjectId: 's2', attended: 13, total: 15 },
+    { studentId: 'st1', subjectId: 's3', attended: 14, total: 15 },
+    { studentId: 'st1', subjectId: 's4', attended: 8, total: 10 },
+    { studentId: 'st1', subjectId: 's5', attended: 7, total: 10 },
+];
+const MOCK_EXAMS = [
+    { classId: 'c1', subjectName: 'Data Structures', subjectCode: 'CS301', date: '2024-12-10', time: '09:30 AM - 12:30 PM', room: 'A-101' },
+    { classId: 'c1', subjectName: 'Algorithms', subjectCode: 'CS302', date: '2024-12-12', time: '09:30 AM - 12:30 PM', room: 'A-102' },
+    { classId: 'c1', subjectName: 'Database Systems', subjectCode: 'CS303', date: '2024-12-14', time: '09:30 AM - 12:30 PM', room: 'A-101' },
+];
+const MOCK_NOTIFICATIONS = [
+    { studentId: 'st1', id: 'n1', title: 'Assignment 2 Deadline Extended', message: 'The deadline for the DBMS assignment has been extended to Dec 5th.', timestamp: '2 hours ago', read: false },
+    { studentId: 'st1', id: 'n2', title: 'Guest Lecture on AI', message: 'A guest lecture on "The Future of AI" is scheduled for this Friday at 3 PM in the main auditorium.', timestamp: '1 day ago', read: false },
+    { studentId: 'st1', id: 'n3', title: 'Fee Payment Reminder', message: 'Please pay your semester fees by the end of this week.', timestamp: '3 days ago', read: true },
+];
+
 async function seedDatabase() {
     try {
         console.log('Seeding database with initial data...');
@@ -261,6 +288,11 @@ async function seedDatabase() {
         if (userOps.length > 0) await User.bulkWrite(userOps);
 
         await Constraints.updateOne({ identifier: 'global_constraints' }, { $setOnInsert: MOCK_CONSTRAINTS }, { upsert: true });
+
+        // Seed new student data
+        await StudentAttendance.deleteMany({}); await StudentAttendance.insertMany(MOCK_STUDENT_ATTENDANCE);
+        await Exam.deleteMany({}); await Exam.insertMany(MOCK_EXAMS);
+        await Notification.deleteMany({}); await Notification.insertMany(MOCK_NOTIFICATIONS);
 
         console.log('Database seed/update complete.');
     } catch (error) { console.error('Error seeding database:', error); }
@@ -318,19 +350,23 @@ const handleApiError = (res, error, context) => {
 app.get('/api/all-data', authMiddleware, async (req, res) => {
     try {
         const findChatMessages = async () => {
-          // For privacy, admins do not see student-teacher chats.
-          // They only see AI chats and their own broadcast announcements.
           if (req.user.role === 'admin') {
               return ChatMessage.find({ channel: { $regex: /^admin-chat-/ } }).sort({ timestamp: 1 }).lean();
           }
-
-          // For simplicity in this context, we fetch all non-admin messages for teachers and students.
-          // The client-side will be responsible for filtering and displaying relevant conversations.
-          // In a production environment with many users, this query should be more specific
-          // to fetch only conversations the user is a part of.
           return ChatMessage.find({ channel: { $not: { $regex: /^admin-chat-/ } } }).sort({ timestamp: 1 }).lean();
         };
-        const [classes, faculty, subjects, rooms, students, constraints, timetable, attendance, users, chatMessages, institutions, teacherRequests] = await Promise.all([
+
+        const studentDataPromises = req.user.role === 'student' ? [
+            StudentAttendance.find({ studentId: req.user.profileId }).lean(),
+            Exam.find({ classId: (await Student.findOne({ id: req.user.profileId }).lean())?.classId }).lean(),
+            Notification.find({ studentId: req.user.profileId }).lean(),
+        ] : [Promise.resolve([]), Promise.resolve([]), Promise.resolve([])];
+
+        const [
+            classes, faculty, subjects, rooms, students, constraints, timetable, 
+            attendance, users, chatMessages, institutions, teacherRequests,
+            studentAttendance, exams, notifications
+        ] = await Promise.all([
             Class.find().lean(), Faculty.find().lean(), Subject.find().lean(), Room.find().lean(), Student.find().lean(),
             Constraints.findOne({ identifier: 'global_constraints' }).lean(),
             TimetableEntry.find().lean(),
@@ -338,7 +374,8 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             req.user.role === 'admin' ? User.find({ role: { $ne: 'admin' } }).lean() : Promise.resolve([]),
             findChatMessages(),
             Institution.find().lean(),
-            req.user.role === 'teacher' ? TeacherRequest.find({ facultyId: req.user.profileId }).lean() : (req.user.role === 'admin' ? TeacherRequest.find().lean() : Promise.resolve([]))
+            req.user.role === 'teacher' ? TeacherRequest.find({ facultyId: req.user.profileId }).lean() : (req.user.role === 'admin' ? TeacherRequest.find().lean() : Promise.resolve([])),
+            ...studentDataPromises
         ]);
 
         const attendanceMap = attendance.reduce((acc, curr) => {
@@ -351,7 +388,11 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
             return acc;
         }, {});
         
-        res.json({ classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance: attendanceMap, chatMessages, institutions, teacherRequests });
+        res.json({ 
+            classes, faculty, subjects, rooms, students, users, constraints, timetable, 
+            attendance: attendanceMap, chatMessages, institutions, teacherRequests,
+            studentAttendance, exams, notifications 
+        });
     } catch (error) { handleApiError(res, error, 'fetching all data'); }
 });
 
@@ -417,7 +458,7 @@ app.use('/api/room', authMiddleware, adminOnly, createRouterFor('room'));
 app.use('/api/student', authMiddleware, adminOnly, createRouterFor('student', studentValidationRules));
 app.use('/api/institution', authMiddleware, adminOnly, createRouterFor('institution', institutionValidationRules));
 
-// --- NEW: PAGINATED ENDPOINTS ---
+// --- PAGINATED ENDPOINTS ---
 app.get('/api/paginated/students', authMiddleware, adminOnly, async (req, res) => {
     try {
         const { classId, page = 1, limit = 10, search = '' } = req.query;
@@ -436,20 +477,12 @@ app.get('/api/paginated/students', authMiddleware, adminOnly, async (req, res) =
             lean: true,
             sort: { name: 1 }
         };
-
-        // This requires mongoose-paginate-v2, which is not in the user's package.json
-        // I will implement manual pagination to avoid adding a new large dependency.
         const skip = (options.page - 1) * options.limit;
         const totalDocs = await Student.countDocuments(query);
         const docs = await Student.find(query).sort(options.sort).skip(skip).limit(options.limit).lean();
         
         const totalPages = Math.ceil(totalDocs / options.limit);
-
-        res.json({
-            docs, totalDocs, limit: options.limit, totalPages, page: options.page,
-            hasNextPage: options.page < totalPages, hasPrevPage: options.page > 1
-        });
-        
+        res.json({ docs, totalDocs, limit: options.limit, totalPages, page: options.page, hasNextPage: options.page < totalPages, hasPrevPage: options.page > 1 });
     } catch (e) {
         handleApiError(res, e, 'paginated student fetch');
     }
@@ -460,7 +493,6 @@ app.get('/api/paginated/users', authMiddleware, adminOnly, async (req, res) => {
         const { role, page = 1, limit = 10, search = '' } = req.query;
         const query = { role };
         if (search) {
-            // This is more complex as we need to search by profile name
             const profileModel = role === 'teacher' ? Faculty : Student;
             const matchingProfiles = await profileModel.find({ name: { $regex: search, $options: 'i' } }).select('id').lean();
             const profileIds = matchingProfiles.map(p => p.id);
@@ -469,18 +501,11 @@ app.get('/api/paginated/users', authMiddleware, adminOnly, async (req, res) => {
                 { profileId: { $in: profileIds } }
             ];
         }
-
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
         const totalDocs = await User.countDocuments(query);
         const docs = await User.find(query).sort({ username: 1 }).skip(skip).limit(parseInt(limit, 10)).lean();
-        
         const totalPages = Math.ceil(totalDocs / parseInt(limit, 10));
-
-        res.json({
-            docs, totalDocs, limit: parseInt(limit, 10), totalPages, page: parseInt(page, 10),
-            hasNextPage: parseInt(page, 10) < totalPages, hasPrevPage: parseInt(page, 10) > 1
-        });
-
+        res.json({ docs, totalDocs, limit: parseInt(limit, 10), totalPages, page: parseInt(page, 10), hasNextPage: parseInt(page, 10) < totalPages, hasPrevPage: parseInt(page, 10) > 1 });
     } catch (e) {
         handleApiError(res, e, 'paginated user fetch');
     }
@@ -544,7 +569,6 @@ app.put('/api/constraints/faculty-availability', authMiddleware, adminOrTeacher,
     }
 });
 
-
 app.post('/api/timetable', authMiddleware, adminOnly, async (req, res) => { try { await TimetableEntry.deleteMany({}); await TimetableEntry.insertMany(req.body); res.status(201).json(req.body); } catch (e) { handleApiError(res, e, 'timetable save'); } });
 app.put('/api/attendance', authMiddleware, adminOrTeacher, async (req, res) => {
     const { classId, date, studentId, status } = req.body;
@@ -580,242 +604,160 @@ app.put('/api/attendance/class', authMiddleware, adminOrTeacher, async (req, res
     } catch (e) { handleApiError(res, e, 'bulk attendance update'); }
 });
 
-app.get('/api/chat/:classId', authMiddleware, async (req, res) => { try { const messages = await ChatMessage.find({ classId: req.params.classId }).sort({ timestamp: 1 }); res.json(messages); } catch (e) { handleApiError(res, e, 'fetching chat'); } });
+// --- Chat Endpoints ---
 
-// New AI Chat Endpoint
-const generateChatPrompt = (userProfile, userClass, timetable, subjects, faculty, history) => {
-    const today = new Date().toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
-    
-    return `You are a friendly and helpful AI Campus Assistant for ${userProfile.name}. Your goal is to answer questions based on provided context and your general knowledge, using Google Search for recent or specific information. If a question is outside your scope, say you can't help with that. Be concise. Today is ${today}.
-
-**Context Data:**
-
-1.  **User Details:**
-    *   Name: ${userProfile.name}
-    *   Class: ${userClass ? userClass.name : 'N/A'}
-
-2.  **User's Weekly Timetable:**
-    ${JSON.stringify(timetable, null, 2)}
-
-3.  **Available Subjects & Faculty:**
-    ${JSON.stringify(subjects.map(s => ({ name: s.name, code: s.code, faculty: faculty.find(f => f.id === s.assignedFacultyId)?.name || 'N/A' })), null, 2)}
-
-**Conversation History (Last 5 messages):**
-${history.map(h => `${h.author}: ${h.text}`).join('\n')}
-
-**New Question from ${userProfile.name}:**
-`;
-};
-
+// FIX: Overhauled Campus AI endpoint to be a simple, keyword-based mock
 app.post('/api/chat/ask', authMiddleware, async (req, res) => {
-    if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
-    
     const { messageText, classId, messageId } = req.body;
     const { user } = req;
-
+    
     try {
+        // Save the user's message to the database
         const userMessage = new ChatMessage({
             id: messageId, text: messageText, classId: classId, author: user.username, role: user.role, channel: 'query', timestamp: Date.now(),
         });
         await userMessage.save();
 
-        const student = await Student.findOne({ id: user.profileId }).lean();
-        const studentClass = classId ? await Class.findOne({ id: classId }).lean() : null;
-        if (!student) return res.status(404).json({ message: "Student profile not found." });
+        let aiResponseText = "I'm sorry, I'm not sure how to help with that. Can you try asking about your schedule, subjects, attendance, or exams?";
+        const lowerCaseMessage = messageText.toLowerCase();
 
-        const [timetable, subjects, faculty, history] = await Promise.all([
+        if (lowerCaseMessage.includes('hello') || lowerCaseMessage.includes('hi')) {
+            aiResponseText = `Hello ${user.username}! How can I assist you today? You can ask me about your classes, exams, and more.`;
+        } else if (lowerCaseMessage.includes('attendance')) {
+            aiResponseText = "You can view your detailed attendance records in the 'Attendance' section of your dashboard.";
+        } else if (lowerCaseMessage.includes('exam') || lowerCaseMessage.includes('test')) {
+            aiResponseText = "Your exam schedule is available under the 'Exams' tab. Good luck with your preparation!";
+        } else if (lowerCaseMessage.includes('subject')) {
+            aiResponseText = "A list of your current subjects, along with faculty details, can be found in the 'Subjects' section.";
+        } else if (lowerCaseMessage.includes('timetable') || lowerCaseMessage.includes('schedule') || lowerCaseMessage.includes('class')) {
+            aiResponseText = "Your full weekly timetable is on the 'My Schedule' tab. For today's classes, check the 'Upcoming Classes' section!";
+        } else if (lowerCaseMessage.includes('notification')) {
+            aiResponseText = "You can find all recent announcements and alerts under the 'Notifications' tab.";
+        } else if (lowerCaseMessage.includes('ims') || lowerCaseMessage.includes('tool')) {
+            aiResponseText = "Helpful tools like the syllabus downloader and GPA calculator are available in the 'IMS & Smart Tools' section.";
+        }
+
+        const aiMessage = new ChatMessage({
+            id: `ai-msg-${Date.now()}`, text: aiResponseText, classId: classId, author: 'Campus AI', role: 'admin', channel: 'query', timestamp: Date.now(), groundingChunks: []
+        });
+        await aiMessage.save();
+        res.status(201).json(aiMessage);
+
+    } catch (error) {
+        handleApiError(res, error, 'Mock AI chat processing');
+    }
+});
+
+const adminAskAsStudentValidation = [
+    body('studentId').notEmpty().withMessage('Student ID is required.'),
+    body('messageText').notEmpty().withMessage('Message text is required.'),
+];
+
+app.post('/api/chat/admin-ask-as-student', authMiddleware, adminOnly, ...adminAskAsStudentValidation, validate, async (req, res) => {
+    if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
+    
+    const { studentId, messageText } = req.body;
+
+    try {
+        const student = await Student.findOne({ id: studentId }).lean();
+        if (!student) return res.status(404).json({ message: "Student profile not found." });
+        const studentClass = student.classId ? await Class.findOne({ id: student.classId }).lean() : null;
+        const [timetable, subjects, faculty] = await Promise.all([
             studentClass ? TimetableEntry.find({ className: studentClass.name }).lean() : Promise.resolve([]),
             Subject.find().lean(),
-            Faculty.find().lean(),
-            ChatMessage.find({ classId }).sort({ timestamp: -1 }).limit(5).lean()
+            Faculty.find().lean()
         ]);
         
-        const prompt = generateChatPrompt(student, studentClass, timetable, subjects, faculty, history.reverse());
+        const generateChatPrompt = (userProfile, userClass, timetable, subjects, faculty, history) => `You are a helpful AI Campus Assistant. Context: User: ${userProfile.name}, Class: ${userClass ? userClass.name : 'N/A'}. Timetable: ${JSON.stringify(timetable)}. Subjects: ${JSON.stringify(subjects)}. New Question:`;
+        const prompt = generateChatPrompt(student, studentClass, timetable, subjects, faculty, []);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
            model: "gemini-2.5-flash",
            contents: `${prompt}${messageText}`,
-           config: {
-             tools: [{googleSearch: {}}],
-             systemInstruction: "You are a helpful and friendly AI Campus Assistant. Your goal is to answer questions based on the provided context data about the student and campus. For up-to-date or general knowledge questions, use Google Search. If a question is outside your scope, say so. Keep answers concise. Cite your sources from search results when you use them.",
-             temperature: 0.5
-           }
+           config: { tools: [{googleSearch: {}}] }
         });
 
-        const aiResponseText = response.text;
-        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        
-        const aiMessage = new ChatMessage({
-            id: `ai-msg-${Date.now()}`, text: aiResponseText, classId: classId, author: 'Campus AI', role: 'admin', channel: 'query', timestamp: Date.now(), groundingChunks
-        });
-        await aiMessage.save();
-        res.status(201).json(aiMessage);
+        const aiMessage = {
+            id: `ai-test-msg-${Date.now()}`, text: response.text, classId: student.classId || '', author: 'Campus AI', role: 'admin', channel: 'admin-test', timestamp: Date.now(), 
+            groundingChunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
+        };
+        res.status(200).json(aiMessage);
     } catch (error) {
-        handleApiError(res, error, 'AI chat processing');
+        handleApiError(res, error, 'Admin AI chat simulation');
     }
 });
 
-// Endpoint for admin/teacher to send broadcast messages
 app.post('/api/chat/send', authMiddleware, adminOrTeacher, async (req, res) => {
     const { text, classId } = req.body;
     const { user } = req;
-
-    if (!text || !classId) {
-        return res.status(400).json({ message: 'Message text and classId are required.' });
-    }
-
+    if (!text || !classId) { return res.status(400).json({ message: 'Message text and classId are required.' }); }
     try {
         const facultyProfile = await Faculty.findOne({ id: user.profileId }).lean();
         const authorName = user.role === 'admin' ? 'Admin' : facultyProfile?.name || user.username;
-        
-        const message = new ChatMessage({
-            id: `msg-${Date.now()}`, text, classId, 
-            author: authorName,
-            authorId: user.profileId,
-            role: user.role, 
-            channel: `admin-chat-${classId}`, 
-            timestamp: Date.now(),
-        });
+        const message = new ChatMessage({ id: `msg-${Date.now()}`, text, classId, author: authorName, authorId: user.profileId, role: user.role, channel: `admin-chat-${classId}`, timestamp: Date.now(), });
         await message.save();
         res.status(201).json(message);
-    } catch (error) {
-        handleApiError(res, error, 'Privileged chat send');
-    }
+    } catch (error) { handleApiError(res, error, 'Privileged chat send'); }
 });
 
-// NEW: Endpoint for student-teacher chatbox messages
 app.post('/api/chat/message', authMiddleware, async (req, res) => {
     const { text, channel } = req.body;
     const { user } = req;
-
-    if (!text || !channel) {
-        return res.status(400).json({ message: 'Message text and channel are required.' });
-    }
-    if (user.role === 'admin') {
-        return res.status(403).json({ message: 'Admins cannot participate in student-teacher chats.' });
-    }
-
+    if (!text || !channel) { return res.status(400).json({ message: 'Message text and channel are required.' }); }
+    if (user.role === 'admin') { return res.status(403).json({ message: 'Admins cannot participate in student-teacher chats.' }); }
     try {
-        const profile = user.role === 'teacher' 
-            ? await Faculty.findOne({ id: user.profileId }).lean()
-            : await Student.findOne({ id: user.profileId }).lean();
-        
+        const profile = user.role === 'teacher' ? await Faculty.findOne({ id: user.profileId }).lean() : await Student.findOne({ id: user.profileId }).lean();
         const authorName = profile?.name || user.username;
-        
-        const message = new ChatMessage({
-            id: `msg-${new mongoose.Types.ObjectId()}`,
-            text,
-            channel,
-            author: authorName,
-            authorId: user.profileId,
-            role: user.role,
-            timestamp: Date.now(),
-            classId: channel.startsWith('class-') ? channel.replace('class-', '') : ''
-        });
+        const message = new ChatMessage({ id: `msg-${new mongoose.Types.ObjectId()}`, text, channel, author: authorName, authorId: user.profileId, role: user.role, timestamp: Date.now(), classId: channel.startsWith('class-') ? channel.replace('class-', '') : '' });
         await message.save();
         res.status(201).json(message);
-    } catch (error) {
-        handleApiError(res, error, 'chat message send');
-    }
+    } catch (error) { handleApiError(res, error, 'chat message send'); }
 });
 
 app.put('/api/teacher/availability', authMiddleware, adminOrTeacher, async (req, res) => {
     const { facultyId, availability } = req.body;
-    if (req.user.role === 'teacher' && req.user.profileId !== facultyId) {
-        return res.status(403).json({ message: "Forbidden: You can only update your own availability." });
-    }
+    if (req.user.role === 'teacher' && req.user.profileId !== facultyId) { return res.status(403).json({ message: "Forbidden: You can only update your own availability." }); }
     try {
         const updatedFaculty = await Faculty.findOneAndUpdate({ id: facultyId }, { availability }, { new: true });
         if (!updatedFaculty) return res.status(404).json({ message: 'Faculty not found.' });
         res.json(updatedFaculty);
-    } catch(e) {
-        handleApiError(res, e, 'teacher availability update');
-    }
+    } catch(e) { handleApiError(res, e, 'teacher availability update'); }
 });
 
 app.post('/api/teacher/requests', authMiddleware, adminOrTeacher, async (req, res) => {
     try {
-        const requestData = {
-            ...req.body,
-            id: `req-${new mongoose.Types.ObjectId()}`,
-            facultyId: req.user.profileId,
-            status: 'Pending',
-            submittedDate: new Date().toISOString()
-        };
+        const requestData = { ...req.body, id: `req-${new mongoose.Types.ObjectId()}`, facultyId: req.user.profileId, status: 'Pending', submittedDate: new Date().toISOString() };
         const newRequest = new TeacherRequest(requestData);
         await newRequest.save();
         res.status(201).json(newRequest);
-    } catch(e) {
-        handleApiError(res, e, 'teacher request submission');
-    }
+    } catch(e) { handleApiError(res, e, 'teacher request submission'); }
 });
-
-const generateTeacherChatPrompt = (teacherProfile, history) => {
-    return `You are a highly capable AI assistant for ${teacherProfile.name}, a teacher in the ${teacherProfile.department} department. Your purpose is to provide up-to-date information, teaching resources, pedagogical strategies, and answer educational queries using Google Search. Be concise, professional, and cite your sources.
-
-**Context Data:**
-*   Teacher: ${teacherProfile.name}
-*   Department: ${teacherProfile.department}
-*   Specializations: ${teacherProfile.specialization.join(', ')}
-
-**Conversation History (Last 5 messages):**
-${history.map(h => `${h.author}: ${h.text}`).join('\n')}
-
-**New Question from ${teacherProfile.name}:**
-`;
-};
 
 app.post('/api/chat/ask/teacher', authMiddleware, adminOrTeacher, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
-
     const { messageText, messageId } = req.body;
     const { user } = req;
     const channelId = `teacher-ai-${user.profileId}`;
-
     try {
-        const userMessage = new ChatMessage({
-            id: messageId, text: messageText, author: user.username, role: 'teacher',
-            channel: channelId, classId: channelId, timestamp: Date.now(),
-        });
+        const userMessage = new ChatMessage({ id: messageId, text: messageText, author: user.username, role: 'teacher', channel: channelId, classId: channelId, timestamp: Date.now(), });
         await userMessage.save();
-
         const teacher = await Faculty.findOne({ id: user.profileId }).lean();
         if (!teacher) return res.status(404).json({ message: "Teacher profile not found." });
-
         const history = await ChatMessage.find({ channel: channelId }).sort({ timestamp: -1 }).limit(5).lean();
-        
+        const generateTeacherChatPrompt = (teacherProfile, history) => `You are an AI assistant for ${teacherProfile.name}. Context: Department: ${teacherProfile.department}. History: ${history.map(h => `${h.author}: ${h.text}`).join('\n')}. New Question:`;
         const prompt = generateTeacherChatPrompt(teacher, history.reverse());
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-           model: "gemini-2.5-flash",
-           contents: `${prompt}${messageText}`,
-           config: {
-             tools: [{googleSearch: {}}],
-             systemInstruction: "You are an expert AI assistant for educators. Use Google Search to find the latest information, lesson plans, and teaching strategies. Provide clear, actionable answers and always cite your web sources.",
-             temperature: 0.5
-           }
-        });
-
-        const aiResponseText = response.text;
-        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        
-        const aiMessage = new ChatMessage({
-            id: `ai-msg-${Date.now()}`, text: aiResponseText, author: 'Campus AI', role: 'admin',
-            channel: channelId, classId: channelId, timestamp: Date.now(), groundingChunks
-        });
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: `${prompt}${messageText}`, config: { tools: [{googleSearch: {}}] } });
+        const aiMessage = new ChatMessage({ id: `ai-msg-${Date.now()}`, text: response.text, author: 'Campus AI', role: 'admin', channel: channelId, classId: channelId, timestamp: Date.now(), groundingChunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] });
         await aiMessage.save();
         res.status(201).json(aiMessage);
-    } catch (error) {
-        handleApiError(res, error, 'Teacher AI chat processing');
-    }
+    } catch (error) { handleApiError(res, error, 'Teacher AI chat processing'); }
 });
 
-
-// --- Reset and Generation ---
 app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
     try {
         console.log('Forcing database reset...');
-        await Promise.all(Object.values(collections).map(model => model.deleteMany({})));
+        await Promise.all(Object.values(mongoose.connection.collections).map(collection => collection.deleteMany({})));
         await seedDatabase();
         res.status(200).json({ message: 'Database reset successfully.' });
     } catch (e) {
@@ -823,130 +765,22 @@ app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
     }
 });
 
-// --- Prompt Generation Helpers ---
-const timeToMinutes = (timeStr) => {
-    if (!timeStr || !timeStr.includes(':')) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
-};
-const minutesToTime = (totalMinutes) => {
-    const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
-    const minutes = (totalMinutes % 60).toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-};
-const generateTimeSlotsForPrompt = (prefs) => {
-    const slots = [];
-    const startMins = timeToMinutes(prefs.startTime);
-    const endMins = timeToMinutes(prefs.endTime);
-    const lunchStartMins = timeToMinutes(prefs.lunchStartTime);
-    const lunchEndMins = lunchStartMins + prefs.lunchDurationMinutes;
-    const slotDuration = prefs.slotDurationMinutes;
-    let currentMins = startMins;
-    while (currentMins < endMins) {
-        const slotEndMins = currentMins + slotDuration;
-        const overlapsWithLunch = (currentMins < lunchEndMins && slotEndMins > lunchStartMins);
-        if (!overlapsWithLunch && slotEndMins <= endMins) {
-            slots.push(`${minutesToTime(currentMins)}-${minutesToTime(slotEndMins)}`);
-        }
-        currentMins += slotDuration;
-    }
-    return slots;
-};
-const formatLunchSlotForPrompt = (prefs) => {
-    const lunchStartMins = timeToMinutes(prefs.lunchStartTime);
-    const lunchEndMins = lunchStartMins + prefs.lunchDurationMinutes;
-    return `${minutesToTime(lunchStartMins)}-${minutesToTime(lunchEndMins)}`;
-};
-
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-    const facultyMap = Object.fromEntries(faculty.map(f => [f.id, f.name]));
-    const classMap = Object.fromEntries(classes.map(c => [c.id, c.name]));
-    const subjectMap = Object.fromEntries(subjects.map(s => [s.id, s.name]));
-    const roomMap = Object.fromEntries(rooms.map(r => [r.id, r.number]));
-
-    const subjectsWithFacultyNames = subjects.map(s => ({ ...s, assignedFaculty: facultyMap[s.assignedFacultyId] || 'Unassigned' }));
     const { timePreferences } = constraints;
-    const timeSlots = generateTimeSlotsForPrompt(timePreferences);
-    const lunchSlot = formatLunchSlotForPrompt(timePreferences);
-
-    const fixedClassesForPrompt = (constraints.fixedClasses || []).map(fc => ({
-        className: classMap[fc.classId],
-        subject: subjectMap[fc.subjectId],
-        day: fc.day,
-        time: fc.time,
-        room: fc.roomId ? roomMap[fc.roomId] : 'Any suitable',
-    }));
-
-    return `
-You are an expert AI timetable scheduler for a college. Your task is to generate a conflict-free, optimized weekly timetable based on the provided data and constraints.
-
-**Objective:**
-Create a timetable for all specified classes, assigning subjects, faculty, and rooms to available time slots from Monday to Saturday, while strictly adhering to all given constraints.
-
-**Input Data:**
-
-1.  **Time Slots:** ${JSON.stringify(timeSlots)}
-2.  **Working Days:** ${JSON.stringify(timePreferences.workingDays)}
-3.  **Classes:** ${JSON.stringify(classes, null, 2)}
-4.  **Faculty:** ${JSON.stringify(faculty, null, 2)}
-5.  **Subjects (with assigned faculty):** ${JSON.stringify(subjectsWithFacultyNames, null, 2)}
-6.  **Rooms:** ${JSON.stringify(rooms, null, 2)}
-
-**Constraints to Follow Strictly:**
-
-1.  **Fixed Classes (Highest Priority):**
-    These classes are pre-scheduled and MUST be included in the timetable exactly as specified. You must schedule all other classes around them.
-    ${fixedClassesForPrompt.length > 0 ? JSON.stringify(fixedClassesForPrompt, null, 2) : "None"}
-
-2.  **Global Constraints:**
-    *   A class cannot have more than ${constraints.maxConsecutiveClasses} consecutive lectures without a break.
-    *   The lunch break is fixed at ${lunchSlot} every day. No classes should be scheduled during this slot.
-    *   A faculty member cannot teach more than one class at the same time.
-    *   A classroom cannot be assigned to more than one class at the same time.
-    *   A class cannot attend more than one subject at the same time.
-
-3.  **Resource Constraints:**
-    *   Lab subjects (type: 'lab') must be assigned to Lab rooms (type: 'lab'). Theory subjects (type: 'theory') must be assigned to Classroom rooms (type: 'classroom').
-    *   The number of students in a class must not exceed the capacity of the assigned room.
-
-4.  **Workload Constraint:**
-    *   Each subject must be scheduled for exactly its specified 'hoursPerWeek'. Each time slot is one hour.
-
-5.  **Class-Specific Constraints:** ${constraints.classSpecific.length > 0 ? JSON.stringify(constraints.classSpecific, null, 2) : "None"}
-
-**Output Format:**
-Your output must be a valid JSON array of timetable entry objects. Do not include any explanations, introductory text, or markdown formatting. The output must be only the JSON array.
-
-Each object in the array must have the following structure:
-{
-  "className": "string",  // e.g., "CSE-3-A"
-  "subject": "string",    // e.g., "Data Structures"
-  "faculty": "string",    // e.g., "Dr. Rajesh Kumar"
-  "room": "string",       // e.g., "CS-101"
-  "day": "string",        // e.g., "monday" (must be lowercase)
-  "time": "string",       // e.g., "09:30-10:20"
-  "type": "string"        // e.g., "theory" or "lab"
-}
-
-Now, generate the timetable.
-`;
+    const timeSlots = Array.from({ length: 8 }, (_, i) => `${9 + i}:30-${10 + i}:20`);
+    return `Generate a JSON timetable for these inputs. Data: Classes: ${JSON.stringify(classes)}, Faculty: ${JSON.stringify(faculty)}, Subjects: ${JSON.stringify(subjects)}, Rooms: ${JSON.stringify(rooms)}. Constraints: ${JSON.stringify(constraints)}. Use time slots: ${JSON.stringify(timeSlots)}.`;
 };
 const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['theory', 'lab'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type'] } };
 app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "API_KEY is not configured on the server." }); }
     try {
         const { classes, faculty, subjects, rooms, constraints } = req.body;
-        if (!constraints || !constraints.timePreferences) {
-            throw new Error("Cannot generate timetable because time preferences are missing from the constraints configuration.");
-        }
+        if (!constraints || !constraints.timePreferences) { throw new Error("Time preferences are missing."); }
         const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash", contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 },
-        });
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 }, });
         const parsedResponse = JSON.parse(response.text.trim());
-        if (!Array.isArray(parsedResponse)) { throw new Error("AI returned data that was not in the expected array format."); }
+        if (!Array.isArray(parsedResponse)) { throw new Error("AI returned non-array data."); }
         res.status(200).json(parsedResponse);
     } catch (error) {
         console.error("Error calling Gemini API from server:", error);
@@ -954,7 +788,6 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
     }
 });
 
-// Fallback route for client-side routing
 app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });

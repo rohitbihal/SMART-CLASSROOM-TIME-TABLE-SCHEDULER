@@ -50,10 +50,15 @@ const ClassForm = ({ initialData, onSave, blocks }: { initialData: Class | null;
     const formId = initialData?.id || 'new-class';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Branch" htmlFor={`${formId}-branch`}><TextInput id={`${formId}-branch`} name="branch" value={data.branch} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Year" htmlFor={`${formId}-year`}><TextInput type="number" id={`${formId}-year`} name="year" value={data.year} onChange={handleChange} required min={1} /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Section" htmlFor={`${formId}-section`}><TextInput id={`${formId}-section`} name="section" value={data.section} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Student Count" htmlFor={`${formId}-studentCount`}><TextInput type="number" id={`${formId}-studentCount`} name="studentCount" value={data.studentCount} onChange={handleChange} required min={1} /></FormField>
             <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
                 <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
@@ -72,10 +77,15 @@ const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onS
     const formId = initialData?.id || 'new-faculty';
     return (
         <form onSubmit={handleSave} className="space-y-4">
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Email" htmlFor={`${formId}-email`}><TextInput type="email" id={`${formId}-email`} name="email" value={data.email} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Contact Number (Optional)" htmlFor={`${formId}-contactNumber`}><TextInput type="tel" id={`${formId}-contactNumber`} name="contactNumber" value={data.contactNumber} onChange={handleChange} /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Department" htmlFor={`${formId}-department`}><TextInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Specializations (comma-separated)" htmlFor={`${formId}-specialization`}><TextInput id={`${formId}-specialization`} name="specialization" value={data.specialization} onChange={handleChange} /></FormField>
             <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
@@ -88,8 +98,11 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
     const formId = initialData?.id || 'new-subject';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Code" htmlFor={`${formId}-code`}><TextInput id={`${formId}-code`} name="code" value={data.code} onChange={handleChange} required /></FormField>
+            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Department" htmlFor={`${formId}-department`}>
                 <SelectInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required>
                     <option value="" disabled>Select Department...</option>
@@ -102,7 +115,9 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
                     <option value="lab">Lab</option>
                 </SelectInput>
             </FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Hours/Week" htmlFor={`${formId}-hoursPerWeek`}><TextInput type="number" id={`${formId}-hoursPerWeek`} name="hoursPerWeek" value={data.hoursPerWeek} onChange={handleChange} required min={1} /></FormField>
+            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Assigned Faculty" htmlFor={`${formId}-assignedFacultyId`}>
                 <SelectInput id={`${formId}-assignedFacultyId`} name="assignedFacultyId" value={data.assignedFacultyId} onChange={handleChange} required>
                     <option value="" disabled>Select...</option>
@@ -119,6 +134,7 @@ const RoomForm = ({ initialData, onSave, blocks }: { initialData: Room | null; o
     const formId = initialData?.id || 'new-room';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Number" htmlFor={`${formId}-number`}><TextInput id={`${formId}-number`} name="number" value={data.number} onChange={handleChange} required /></FormField>
             <FormField label="Type" htmlFor={`${formId}-type`}>
                 <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
@@ -126,7 +142,9 @@ const RoomForm = ({ initialData, onSave, blocks }: { initialData: Room | null; o
                     <option value="lab">Lab</option>
                 </SelectInput>
             </FormField>
+            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Capacity" htmlFor={`${formId}-capacity`}><TextInput type="number" id={`${formId}-capacity`} name="capacity" value={data.capacity} onChange={handleChange} required min={1} /></FormField>
+            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
                 <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
                     <option value="">No Block</option>
@@ -174,6 +192,7 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
             title={`Import Data`}
         >
             <div className="space-y-4">
+                {/* FIX: Wrapped SelectInput inside FormField */}
                 <FormField label="Select Data Type to Import" htmlFor="import-entity-type">
                      <SelectInput id="import-entity-type" value={entityType} onChange={(e) => setEntityType(e.target.value as EntityType)}>
                         <option value="class">Classes</option>
@@ -257,6 +276,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
     return (
         <>
             <ErrorDisplay message={pageError} />
+            {/* FIX: Wrapped form inside SectionCard */}
             <SectionCard title="Institution Details" actions={
                 <div className="flex items-center gap-2">
                     <button onClick={() => openImportModal()} className="action-btn-secondary"><UploadIcon />Universal Import</button>
@@ -264,18 +284,22 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
             }>
                 <form onSubmit={handleSaveInstitution}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                        {/* FIX: Wrapped SelectInput inside FormField */}
                         <FormField label="Select Institute" htmlFor="inst-select">
                             <SelectInput id="inst-select" value={selectedInstitutionId} onChange={e => setSelectedInstitutionId(e.target.value)}>
                                 <option value="new">+ Create New Institute</option>
                                 {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name} ({inst.academicYear})</option>)}
                             </SelectInput>
                         </FormField>
+                        {/* FIX: Wrapped TextInput inside FormField */}
                         <FormField label="Institution Name" htmlFor="inst-name">
                             <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={institutionFormState.name || ''} onChange={handleInstituteFormChange} required />
                         </FormField>
+                        {/* FIX: Wrapped TextInput inside FormField */}
                         <FormField label="Academic Year" htmlFor="inst-acad-year">
                             <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={institutionFormState.academicYear || ''} onChange={handleInstituteFormChange} required />
                         </FormField>
+                        {/* FIX: Wrapped SelectInput inside FormField */}
                         <FormField label="Semester" htmlFor="inst-semester">
                             <SelectInput id="inst-semester" name="semester" value={institutionFormState.semester || 'Odd'} onChange={handleInstituteFormChange}>
                                 <option value="Odd">Odd Semester (Aug-Dec)</option>
@@ -283,6 +307,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                             </SelectInput>
                         </FormField>
                         <div className="md:col-span-2">
+                            {/* FIX: Wrapped TextInput inside FormField */}
                             <FormField label="Campus Blocks (comma-separated)" htmlFor="inst-blocks">
                                 <TextInput id="inst-blocks" name="blocks" placeholder="e.g., A-Block, B-Block, Science Wing" value={(institutionFormState.blocks || []).join(', ')} onChange={handleInstituteFormChange} />
                             </FormField>
@@ -297,6 +322,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                 </form>
             </SectionCard>
             <div className="my-4">
+                 {/* FIX: Wrapped SelectInput inside FormField */}
                 <FormField label="Filter by Block/Campus" htmlFor="block-filter">
                     <SelectInput id="block-filter" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}>
                          <option value="all">All Blocks</option>
@@ -305,6 +331,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                 </FormField>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 {/* FIX: Wrapped content inside SectionCard */}
                 <SectionCard title="Classes & Sections" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('class')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'class')} className="action-btn-primary"><AddIcon />Add Class</button></div>}>
                     <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." label="Search Classes" id="search-class" />
                     <div className="max-h-80 overflow-y-auto">
@@ -320,6 +347,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                         )} headerPrefix={<HeaderCheckbox type="class" items={filtered.class} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                     </div>
                 </SectionCard>
+                 {/* FIX: Wrapped content inside SectionCard */}
                 <SectionCard title="Faculty" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('faculty')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'faculty')} className="action-btn-primary"><AddIcon />Add Faculty</button></div>}>
                     <SearchInput value={search.faculty} onChange={v => handleSearch('faculty', v)} placeholder="Search faculty..." label="Search Faculty" id="search-faculty" />
                     <div className="max-h-80 overflow-y-auto">
@@ -334,6 +362,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                         )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                     </div>
                 </SectionCard>
+                 {/* FIX: Wrapped content inside SectionCard */}
                 <SectionCard title="Subjects" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('subject')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'subject')} className="action-btn-primary"><AddIcon />Add Subject</button></div>}>
                     <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." label="Search Subjects" id="search-subject" />
                     <div className="max-h-80 overflow-y-auto">
@@ -351,6 +380,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                         )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                     </div>
                 </SectionCard>
+                 {/* FIX: Wrapped content inside SectionCard */}
                 <SectionCard title="Rooms" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('room')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'room')} className="action-btn-primary"><AddIcon />Add Room</button></div>}>
                     <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
                     <div className="max-h-80 overflow-y-auto">
@@ -401,6 +431,7 @@ const TimePreferencesVisual = ({ prefs, onChange }: { prefs: TimePreferences, on
     const lunchWidth = durationToPercent(prefs.lunchDurationMinutes);
 
     return (
+        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Institutional Time Preferences">
             <div className="space-y-6">
                 <div>
@@ -427,11 +458,11 @@ const TimePreferencesVisual = ({ prefs, onChange }: { prefs: TimePreferences, on
                         <span>7 AM</span><span>10 AM</span><span>1 PM</span><span>4 PM</span><span>7 PM</span><span>9 PM</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-                        <div><label htmlFor="startTime" className="block text-sm font-medium mb-1">Start Time</label><TextInput type="time" id="startTime" name="startTime" value={prefs.startTime} onChange={handleInputChange} className="p-2" /></div>
-                        <div><label htmlFor="endTime" className="block text-sm font-medium mb-1">End Time</label><TextInput type="time" id="endTime" name="endTime" value={prefs.endTime} onChange={handleInputChange} className="p-2" /></div>
-                        <div><label htmlFor="slotDurationMinutes" className="block text-sm font-medium mb-1">Slot Duration (minutes)</label><TextInput type="number" id="slotDurationMinutes" name="slotDurationMinutes" value={prefs.slotDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></div>
-                        <div><label htmlFor="lunchStartTime" className="block text-sm font-medium mb-1">Lunch Start</label><TextInput type="time" id="lunchStartTime" name="lunchStartTime" value={prefs.lunchStartTime} onChange={handleInputChange} className="p-2" /></div>
-                        <div><label htmlFor="lunchDurationMinutes" className="block text-sm font-medium mb-1">Lunch Duration (minutes)</label><TextInput type="number" id="lunchDurationMinutes" name="lunchDurationMinutes" value={prefs.lunchDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></div>
+                        <FormField label="Start Time" htmlFor="startTime"><TextInput type="time" id="startTime" name="startTime" value={prefs.startTime} onChange={handleInputChange} className="p-2" /></FormField>
+                        <FormField label="End Time" htmlFor="endTime"><TextInput type="time" id="endTime" name="endTime" value={prefs.endTime} onChange={handleInputChange} className="p-2" /></FormField>
+                        <FormField label="Slot Duration (minutes)" htmlFor="slotDurationMinutes"><TextInput type="number" id="slotDurationMinutes" name="slotDurationMinutes" value={prefs.slotDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></FormField>
+                        <FormField label="Lunch Start" htmlFor="lunchStartTime"><TextInput type="time" id="lunchStartTime" name="lunchStartTime" value={prefs.lunchStartTime} onChange={handleInputChange} className="p-2" /></FormField>
+                        <FormField label="Lunch Duration (minutes)" htmlFor="lunchDurationMinutes"><TextInput type="number" id="lunchDurationMinutes" name="lunchDurationMinutes" value={prefs.lunchDurationMinutes} onChange={handleInputChange} className="p-2" min="15" step="5" /></FormField>
                     </div>
                 </div>
             </div>
@@ -514,15 +545,19 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
 
     return (
         <div>
+            {/* FIX: Wrapped content inside Modal */}
             <Modal
                 isOpen={isUnavailabilityModalOpen}
                 onClose={() => setIsUnavailabilityModalOpen(false)}
                 title={`Weekly Unavailability for ${faculty.find(f => f.id === selectedFacultyId)?.name || '...'}`}
                 size="4xl"
             >
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Click on a time slot to toggle its availability. Red slots are unavailable.</p>
-                <WeeklyUnavailabilityGrid />
+                <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Click on a time slot to toggle its availability. Red slots are unavailable.</p>
+                    <WeeklyUnavailabilityGrid />
+                </div>
             </Modal>
+            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Time Preferences for" htmlFor="faculty-pref-select">
                 <SelectInput id="faculty-pref-select" name="faculty-pref-select" value={selectedFacultyId} onChange={e => setSelectedFacultyId(e.target.value)}>
                     <option value="">Select a faculty member...</option>
@@ -531,6 +566,7 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
             </FormField>
             {selectedFacultyId && (
                 <div className="space-y-6 pt-4 border-t dark:border-slate-700 mt-4">
+                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Availability">
                          <div className="mb-4">
                              <button onClick={() => setIsUnavailabilityModalOpen(true)} className="bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 font-semibold py-2 px-4 rounded-md">Set Weekly Unavailability</button>
@@ -540,6 +576,7 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                             {DAYS.map(day => <button key={day} onClick={() => handleDayToggle(day)} className={`px-3 py-1 text-sm font-semibold rounded-full capitalize ${currentPref.preferredDays?.includes(day) ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`}>{day.substring(0,3)}</button>)}
                          </div>
                     </SectionCard>
+                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Scheduling Rules (Soft Constraints)">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -575,6 +612,7 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                             </div>
                         </div>
                     </SectionCard>
+                     {/* FIX: Wrapped content inside SectionCard */}
                      <SectionCard title="Course-Specific Preferences">
                         <p>Feature coming soon.</p>
                      </SectionCard>
@@ -602,12 +640,14 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
 
     return (
         <div className="space-y-6">
+            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Room & Resource Constraints">
                 <label className="flex items-center gap-3">
                     <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
                     <span>Prioritize keeping consecutive classes for the same section in the same room.</span>
                 </label>
             </SectionCard>
+            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Student Section Constraints">
                 <div className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -620,6 +660,7 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
                     </div>
                 </div>
             </SectionCard>
+            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Advanced & Logistical Constraints">
                  <div className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -667,24 +708,27 @@ const FixedClassesContent = ({ constraints, onConstraintsChange, classes, subjec
     };
     
     return (
+        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Fixed Class Scheduling">
-            <p className="text-text-secondary text-sm mb-4">Define classes that must occur at a specific time. The AI will treat these as absolute, non-negotiable constraints.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4 border dark:border-slate-700 rounded-lg">
-                <SelectInput value={newFixedClass.classId} onChange={e => setNewFixedClass({...newFixedClass, classId: e.target.value})}><option value="">Select Class</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</SelectInput>
-                <SelectInput value={newFixedClass.subjectId} onChange={e => setNewFixedClass({...newFixedClass, subjectId: e.target.value})}><option value="">Select Subject</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput>
-                <SelectInput value={newFixedClass.day} onChange={e => setNewFixedClass({...newFixedClass, day: e.target.value})}><option value="">Select Day</option>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput>
-                <SelectInput value={newFixedClass.time} onChange={e => setNewFixedClass({...newFixedClass, time: e.target.value})}><option value="">Select Time</option>{TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}</SelectInput>
-                <button onClick={handleAdd} className="btn-primary flex items-center justify-center gap-2"><AddIcon/> Add Pin</button>
-            </div>
-            <div className="mt-4">
-                <h4 className="font-semibold mb-2">Pinned Classes:</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {(constraints.fixedClasses || []).length > 0 ? (constraints.fixedClasses || []).map(fc => (
-                        <div key={fc.id} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
-                            <p className="text-sm font-medium"><strong>{classMap.get(fc.classId)}</strong> - {subjectMap.get(fc.subjectId)} on <span className="capitalize">{fc.day}</span> at {fc.time}</p>
-                            <button onClick={() => handleDelete(fc.id)} className="text-red-500"><DeleteIcon/></button>
-                        </div>
-                    )) : <p className="text-text-secondary text-sm text-center p-4">No classes have been pinned.</p>}
+            <div>
+                <p className="text-text-secondary text-sm mb-4">Define classes that must occur at a specific time. The AI will treat these as absolute, non-negotiable constraints.</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4 border dark:border-slate-700 rounded-lg">
+                    <SelectInput value={newFixedClass.classId} onChange={e => setNewFixedClass({...newFixedClass, classId: e.target.value})}><option value="">Select Class</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</SelectInput>
+                    <SelectInput value={newFixedClass.subjectId} onChange={e => setNewFixedClass({...newFixedClass, subjectId: e.target.value})}><option value="">Select Subject</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput>
+                    <SelectInput value={newFixedClass.day} onChange={e => setNewFixedClass({...newFixedClass, day: e.target.value})}><option value="">Select Day</option>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput>
+                    <SelectInput value={newFixedClass.time} onChange={e => setNewFixedClass({...newFixedClass, time: e.target.value})}><option value="">Select Time</option>{TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}</SelectInput>
+                    <button onClick={handleAdd} className="btn-primary flex items-center justify-center gap-2"><AddIcon/> Add Pin</button>
+                </div>
+                <div className="mt-4">
+                    <h4 className="font-semibold mb-2">Pinned Classes:</h4>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {(constraints.fixedClasses || []).length > 0 ? (constraints.fixedClasses || []).map(fc => (
+                            <div key={fc.id} className="flex justify-between items-center p-3 bg-gray-100 dark:bg-slate-900/50 rounded-lg">
+                                <p className="text-sm font-medium"><strong>{classMap.get(fc.classId)}</strong> - {subjectMap.get(fc.subjectId)} on <span className="capitalize">{fc.day}</span> at {fc.time}</p>
+                                <button onClick={() => handleDelete(fc.id)} className="text-red-500"><DeleteIcon/></button>
+                            </div>
+                        )) : <p className="text-text-secondary text-sm text-center p-4">No classes have been pinned.</p>}
+                    </div>
                 </div>
             </div>
         </SectionCard>
@@ -750,6 +794,7 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
 
     return (
         <div className="space-y-6">
+            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Generate Timetable" actions={
                 <button onClick={onGenerate} disabled={isLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
                     {isLoading ? <><LoadingIcon className="h-5 w-5" /> Generating...</> : <><GenerateIcon /> Generate Timetable</>}
@@ -759,6 +804,7 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
             </SectionCard>
             <ErrorDisplay message={error} />
             {generationResult && (
+                // FIX: Wrapped content inside SectionCard
                 <SectionCard title="Generated Timetable Preview" actions={
                     <div className="flex gap-2">
                          <button onClick={downloadAsExcel} className="action-btn-secondary"><DownloadIcon />Download as Excel</button>
@@ -830,6 +876,7 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
              <div className="lg:col-span-3">
+                 {/* FIX: Wrapped content inside SectionCard */}
                  <SectionCard title="Timetable Summary">
                      <div className="flex justify-around text-center">
                          <div><p className="text-3xl font-bold text-indigo-500">{timetable.length}</p><p className="text-text-secondary">Total Periods Scheduled</p></div>
@@ -838,6 +885,7 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
                      </div>
                  </SectionCard>
              </div>
+             {/* FIX: Wrapped content inside SectionCard */}
              <SectionCard title="Faculty Workload" className="lg:col-span-2">
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                     {facultyWorkload.map(f => (
@@ -848,6 +896,7 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
                     ))}
                 </div>
              </SectionCard>
+             {/* FIX: Wrapped content inside SectionCard */}
              <SectionCard title="Room Utilization">
                  <div className="space-y-4 max-h-96 overflow-y-auto">
                      {roomUtilization.map(r => (
@@ -876,35 +925,38 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
     }, [timetable]);
 
     return (
+        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Room Availability">
-            <div className="flex gap-4 mb-4">
-                <FormField label="Select Day" htmlFor="day-select"><SelectInput id="day-select" value={selectedDay} onChange={e => setSelectedDay(e.target.value)}>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput></FormField>
-                <FormField label="Filter by Block" htmlFor="block-select"><SelectInput id="block-select" value={selectedBlock} onChange={e => setSelectedBlock(e.target.value)}><option value="all">All Blocks</option>{blocks.map(b=><option key={b} value={b}>{b}</option>)}</SelectInput></FormField>
-            </div>
-            <div className="overflow-x-auto max-h-[60vh]">
-                <table className="w-full text-xs border-collapse">
-                    <thead>
-                        <tr>
-                            <th className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 z-10">Room</th>
-                            {TIME_SLOTS.map(time => <th key={time} className="p-2 border dark:border-slate-700">{time}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredRooms.map(room => (
-                            <tr key={room.id}>
-                                <td className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 font-semibold z-10">{room.number}</td>
-                                {TIME_SLOTS.map(time => {
-                                    const bookedClass = scheduleMap.get(`${room.number}-${selectedDay}-${time}`);
-                                    return (
-                                        <td key={time} className={`p-2 border dark:border-slate-700 text-center ${bookedClass ? 'bg-red-200 dark:bg-red-900/50' : 'bg-green-200 dark:bg-green-900/50'}`}>
-                                            {bookedClass || 'Free'}
-                                        </td>
-                                    );
-                                })}
+            <div>
+                <div className="flex gap-4 mb-4">
+                    <FormField label="Select Day" htmlFor="day-select"><SelectInput id="day-select" value={selectedDay} onChange={e => setSelectedDay(e.target.value)}>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput></FormField>
+                    <FormField label="Filter by Block" htmlFor="block-select"><SelectInput id="block-select" value={selectedBlock} onChange={e => setSelectedBlock(e.target.value)}><option value="all">All Blocks</option>{blocks.map(b=><option key={b} value={b}>{b}</option>)}</SelectInput></FormField>
+                </div>
+                <div className="overflow-x-auto max-h-[60vh]">
+                    <table className="w-full text-xs border-collapse">
+                        <thead>
+                            <tr>
+                                <th className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 z-10">Room</th>
+                                {TIME_SLOTS.map(time => <th key={time} className="p-2 border dark:border-slate-700">{time}</th>)}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredRooms.map(room => (
+                                <tr key={room.id}>
+                                    <td className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 font-semibold z-10">{room.number}</td>
+                                    {TIME_SLOTS.map(time => {
+                                        const bookedClass = scheduleMap.get(`${room.number}-${selectedDay}-${time}`);
+                                        return (
+                                            <td key={time} className={`p-2 border dark:border-slate-700 text-center ${bookedClass ? 'bg-red-200 dark:bg-red-900/50' : 'bg-green-200 dark:bg-green-900/50'}`}>
+                                                {bookedClass || 'Free'}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </SectionCard>
     );
@@ -1042,6 +1094,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
                 {renderContent()}
             </main>
             {modal && FormComponent && (
+                // FIX: Wrapped FormComponent inside Modal
                 <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError}>
                     <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={activeBlocks} />
                 </Modal>

@@ -5,9 +5,19 @@ import {
 import { ChatInterface } from '../chat/ChatInterface';
 import { TimetableGrid } from './TimetableGrid';
 import { PlaceholderContent } from './PlaceholderContent';
-import { User, Class, ChatMessage } from '../../types';
+import { User, Class } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { Chatbox, Conversation } from '../chat/Chatbox';
+
+// Import new student feature components
+import { ImsAndSmartToolsPage } from '../student/ImsAndSmartToolsPage';
+import { SubjectsPage } from '../student/SubjectsPage';
+import { UpcomingClassesPage } from '../student/UpcomingClassesPage';
+import { NotificationsPage } from '../student/NotificationsPage';
+import { ExamsPage } from '../student/ExamsPage';
+import { AttendancePage } from '../student/AttendancePage';
+import { ExtrasPage } from '../student/ExtrasPage';
+
 
 const Header = () => {
     const { user, logout, theme, toggleTheme, students, classes } = useAppContext();
@@ -87,8 +97,6 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
     const handleSendMessageWrapper = async (text: string, messageId: string) => {
         if (!classProfile) return;
         setIsChatLoading(true);
-        // This should be updated to a specific chat API call
-        // For now, it calls the context function which adds the user message
         await handleSendMessage(text, messageId, classProfile.id); 
         setIsChatLoading(false);
     };
@@ -97,8 +105,7 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
         { key: 'schedule', label: 'My Schedule', icon: <SchedulerIcon className='h-5 w-5' /> },
         { key: 'chat', label: 'Campus AI', icon: <ChatIcon className='h-5 w-5' /> },
         { key: 'chatbox', label: 'Chatbox', icon: <UsersIcon className='h-5 w-5' /> },
-        { key: 'ims', label: 'IMS', icon: <IMSIcon className='h-5 w-5' /> },
-        { key: 'smart-tools', label: 'Smart Tools', icon: <SmartToolsIcon className='h-5 w-5' /> },
+        { key: 'ims-tools', label: 'IMS & Smart Tools', icon: <IMSIcon className='h-5 w-5' /> },
         { key: 'subjects', label: 'Subjects', icon: <BookOpenIcon className='h-5 w-5' /> },
         { key: 'upcoming', label: 'Upcoming Classes', icon: <SchedulerIcon className='h-5 w-5' />},
         { key: 'notifications', label: 'Notifications', icon: <NotificationsIcon className='h-5 w-5' /> },
@@ -117,6 +124,13 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
                 classProfile={classProfile} 
             />;
             case 'chatbox': return <StudentChatbox />;
+            case 'ims-tools': return <ImsAndSmartToolsPage />;
+            case 'subjects': return <SubjectsPage />;
+            case 'upcoming': return <UpcomingClassesPage />;
+            case 'notifications': return <NotificationsPage />;
+            case 'exams': return <ExamsPage />;
+            case 'attendance': return <AttendancePage />;
+            case 'extras': return <ExtrasPage />;
             default: return <PlaceholderContent
                 title="Coming Soon"
                 message={`The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`}
