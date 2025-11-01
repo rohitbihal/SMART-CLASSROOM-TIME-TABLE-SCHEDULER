@@ -262,11 +262,10 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
     );
 };
 
-const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal, selectedInstitutionId, setSelectedInstitutionId, institutionFormState, setInstitutionFormState, activeBlocks }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; selectedInstitutionId: string | 'new'; setSelectedInstitutionId: (id: string | 'new') => void; institutionFormState: Partial<Institution>; setInstitutionFormState: (state: Partial<Institution>) => void; activeBlocks: string[]; }) => {
+const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onBulkDelete, pageError, openImportModal, selectedInstitutionId, setSelectedInstitutionId, institutionFormState, setInstitutionFormState, activeBlocks }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; selectedInstitutionId: string | 'new'; setSelectedInstitutionId: (id: string | 'new') => void; institutionFormState: Partial<Institution>; setInstitutionFormState: (state: Partial<Institution>) => void; activeBlocks: string[]; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
     const isCreatingNew = selectedInstitutionId === 'new';
     
-    // NEW: State for equipment filter
     const [equipmentFilter, setEquipmentFilter] = useState<Partial<Record<EquipmentKey, boolean>>>({});
     const equipmentKeys: EquipmentKey[] = ['projector', 'smartBoard', 'ac', 'computerSystems', 'audioSystem', 'whiteboard'];
 
@@ -312,7 +311,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
       subject: filter(subjects, search.subject), 
       room: filter(rooms, search.room)
         .filter(r => blockFilter === 'all' || !r.block || r.block === blockFilter)
-        .filter(r => { // NEW: Equipment filter logic
+        .filter(r => {
             return Object.entries(equipmentFilter).every(([key, required]) => {
                 if (!required) return true;
                 if (key === 'computerSystems') return r.equipment.computerSystems.available;
@@ -333,6 +332,23 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
             {equipment.whiteboard && <span title="Whiteboard"><WhiteboardIcon className="h-4 w-4" /></span>}
         </div>
     );
+
+    const renderSectionActions = (type: Exclude<EntityType, 'institution'>, singular: string) => {
+        const selectionCount = selectedItems[type].length;
+        if (selectionCount > 0) {
+            return (
+                <button onClick={() => onBulkDelete(type)} className="btn-danger flex items-center gap-1">
+                    <DeleteIcon /> Delete Selected ({selectionCount})
+                </button>
+            );
+        }
+        return (
+            <div className="flex items-center gap-2">
+                <button onClick={() => openImportModal(type)} className="action-btn-secondary"><UploadIcon/></button>
+                <button onClick={() => openModal('add', type)} className="action-btn-primary"><AddIcon />Add {singular}</button>
+            </div>
+        );
+    };
 
     return (
         <>
@@ -385,7 +401,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                 </FormField>
             </div>
             <div className="grid grid-cols-1 gap-6">
-                <SectionCard title="Faculty" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('faculty')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'faculty')} className="action-btn-primary"><AddIcon />Add Faculty</button></div>}>
+                <SectionCard title="Faculty" actions={renderSectionActions('faculty', 'Faculty')}>
                     <SearchInput value={search.faculty} onChange={v => handleSearch('faculty', v)} placeholder="Search faculty..." label="Search Faculty" id="search-faculty" />
                     <DataTable headers={["Name", "Emp ID", "Designation", "Department", "Workload", "Actions"]} data={filtered.faculty} renderRow={(f: Faculty) => (
                         <tr key={f.id} className="border-b dark:border-slate-700">
@@ -399,7 +415,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                         </tr>
                     )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
-                <SectionCard title="Subjects" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('subject')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'subject')} className="action-btn-primary"><AddIcon />Add Subject</button></div>}>
+                <SectionCard title="Subjects" actions={renderSectionActions('subject', 'Subject')}>
                     <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." label="Search Subjects" id="search-subject" />
                     <DataTable headers={["Name", "Code", "Dept", "Sem", "Type", "Credits", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
                         <tr key={s.id} className="border-b dark:border-slate-700">
@@ -415,7 +431,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                         </tr>
                     )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
-                <SectionCard title="Rooms" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('room')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'room')} className="action-btn-primary"><AddIcon />Add Room</button></div>}>
+                <SectionCard title="Rooms" actions={renderSectionActions('room', 'Room')}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
                         <div>
@@ -442,7 +458,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                         </tr>
                     )} headerPrefix={<HeaderCheckbox type="room" items={filtered.room} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
-                 <SectionCard title="Classes & Sections" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('class')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'class')} className="action-btn-primary"><AddIcon />Add Class</button></div>}>
+                 <SectionCard title="Classes & Sections" actions={renderSectionActions('class', 'Class')}>
                     <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." label="Search Classes" id="search-class" />
                     <DataTable headers={["Name", "Branch", "Block", "Students", "Actions"]} data={filtered.class} renderRow={(c: Class) => (
                         <tr key={c.id} className="border-b dark:border-slate-700">
@@ -922,6 +938,17 @@ const ConstraintsTab = (props: TimetableSchedulerProps) => {
     );
 };
 const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: TimetableEntry[] | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
+    if (!constraints) {
+        return (
+            <SectionCard title="Generate Timetable">
+                <div className="flex items-center justify-center p-8 text-text-secondary">
+                    <LoadingIcon />
+                    <span className="ml-2">Loading constraints...</span>
+                </div>
+            </SectionCard>
+        );
+    }
+    
     const [viewType, setViewType] = useState<'regular' | 'fixed'>('regular');
 
     const downloadAsExcel = (type: 'regular' | 'fixed' | 'all') => {
@@ -1050,7 +1077,8 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
             const room = rooms.find(r => r.number === entry.room);
             if (room) {
                 for (const [key, value] of Object.entries(room.equipment)) {
-                    const isAvailable = key === 'computerSystems' ? (value as { available: boolean }).available : value;
+                    // FIX: Corrected the type assertion for `computerSystems` to include `count`, ensuring full type safety.
+                    const isAvailable = key === 'computerSystems' ? (value as { available: boolean; count: number }).available : value;
                     if (isAvailable) {
                         equipmentHours[key] = (equipmentHours[key] || 0) + 1;
                     }
@@ -1161,12 +1189,22 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
         </SectionCard>
     );
 };
-const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; }) => (
-    <div className="space-y-6">
-        <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} />
-        <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
-    </div>
-);
+const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; }) => {
+    if (!constraints) {
+        return (
+            <div className="flex items-center justify-center p-8 text-text-secondary">
+                <LoadingIcon />
+                <span className="ml-2">Loading data for analytics...</span>
+            </div>
+        );
+    }
+    return (
+        <div className="space-y-6">
+            <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} />
+            <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
+        </div>
+    );
+};
 
 export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const { classes, faculty, subjects, rooms, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable, institutions, timetable } = props;
@@ -1229,6 +1267,20 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         });
     };
 
+    const handleBulkDelete = async (type: Exclude<EntityType, 'institution'>) => {
+        const itemsToDelete = selectedItems[type];
+        if (itemsToDelete.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${itemsToDelete.length} selected ${type}(s)? This cannot be undone.`)) return;
+        
+        setPageError(null);
+        try {
+            await Promise.all(itemsToDelete.map(id => onDeleteEntity(type, id)));
+            setSelectedItems(prev => ({ ...prev, [type]: [] }));
+        } catch (error) {
+             setPageError(error instanceof Error ? error.message : "An unknown error occurred during bulk deletion.");
+        }
+    };
+
     const handleGenerate = useCallback(async () => {
         setIsGenerating(true);
         setGenerationError(null);
@@ -1243,7 +1295,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         }
     }, [classes, faculty, subjects, rooms, constraints, token]);
 
-    const handleSaveTimetable = async () => {
+    const handleSaveTimetable = useCallback(async () => {
         if (!generatedTimetable) return;
         try {
             await onSaveTimetable(generatedTimetable);
@@ -1251,7 +1303,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         } catch (error) {
             setGenerationError(error instanceof Error ? error.message : "Failed to save the timetable.");
         }
-    };
+    }, [generatedTimetable, onSaveTimetable]);
     
     const tabs = [
         { key: 'setup', label: 'Setup', icon: <SetupIcon /> },
@@ -1261,11 +1313,24 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     ];
     
     const renderContent = () => {
+        const loadingIndicator = (
+            <div className="flex items-center justify-center p-8 text-text-secondary">
+                <LoadingIcon />
+                <span className="ml-2">Loading Constraints...</span>
+            </div>
+        );
+
         switch (activeTab) {
-            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onInitiateBulkDelete={() => {}} pageError={pageError} openImportModal={openImportModal} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
-            case 'constraints': return <ConstraintsTab {...props} />;
-            case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
-            case 'view': return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} />;
+            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onBulkDelete={handleBulkDelete} pageError={pageError} openImportModal={openImportModal} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
+            case 'constraints': 
+                if (!constraints) return loadingIndicator;
+                return <ConstraintsTab {...props} />;
+            case 'generate': 
+                if (!constraints) return loadingIndicator;
+                return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
+            case 'view': 
+                if (!constraints) return loadingIndicator;
+                return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} />;
             default: return null;
         }
     };

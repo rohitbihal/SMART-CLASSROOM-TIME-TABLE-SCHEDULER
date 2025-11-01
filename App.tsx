@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -27,15 +22,17 @@ const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage'
 const RequestsPage = lazy(() => import('./features/teacher/RequestsPage').then(module => ({ default: module.RequestsPage })));
 const NotificationsPageTeacher = lazy(() => import('./features/teacher/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage').then(module => ({ default: module.TeacherChatPage })));
-const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage'));
+// FIX: Corrected lazy import to handle default export correctly.
+const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage').then(m => ({ default: m.default })));
 const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid').then(module => ({ default: module.TimetableGrid })));
 // FIX: Changed lazy import to use default export from QueryPage to resolve module loading issue.
 const QueryPage = lazy(() => import('./features/query/QueryPage'));
 const NotificationsCenterPage = lazy(() => import('./features/notifications/NotificationsCenterPage').then(module => ({ default: module.NotificationsCenterPage })));
 // --- NEW: Import fully implemented module pages ---
-const IMSPage = lazy(() => import('./features/ims/IMSPage'));
-const CalendarPage = lazy(() => import('./features/calendar/CalendarPage'));
-const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage'));
+// FIX: Corrected lazy imports to handle default exports correctly, resolving app load failure.
+const IMSPage = lazy(() => import('./features/ims/IMSPage').then(m => ({ default: m.default })));
+const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.default })));
+const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage').then(m => ({ default: m.default })));
 
 
 // --- SHARED UI COMPONENTS (MOVED TO components/common.tsx) ---
