@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon } from '../../components/Icons';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment } from '../../types';
+import { QueryTab } from './QueryTab';
+import { NotificationsTab } from './NotificationsTab';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
@@ -25,13 +27,13 @@ interface TimetableSchedulerProps {
     onSaveTimetable: (timetable: TimetableEntry[]) => Promise<void>;
 }
 
-const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: string[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (
+const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: (string|React.ReactNode)[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (
     <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
             <thead className="bg-gray-100 dark:bg-slate-900/50 text-gray-500 uppercase text-xs">
                 <tr>
                     {headerPrefix}
-                    {headers.map(h => <th key={h} className="px-6 py-3">{h}</th>)}
+                    {headers.map((h, i) => <th key={i} className="px-6 py-3">{h}</th>)}
                 </tr>
             </thead>
             <tbody className="text-gray-700 dark:text-gray-300">
@@ -50,15 +52,10 @@ const ClassForm = ({ initialData, onSave, blocks }: { initialData: Class | null;
     const formId = initialData?.id || 'new-class';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Branch" htmlFor={`${formId}-branch`}><TextInput id={`${formId}-branch`} name="branch" value={data.branch} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Year" htmlFor={`${formId}-year`}><TextInput type="number" id={`${formId}-year`} name="year" value={data.year} onChange={handleChange} required min={1} /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Section" htmlFor={`${formId}-section`}><TextInput id={`${formId}-section`} name="section" value={data.section} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Student Count" htmlFor={`${formId}-studentCount`}><TextInput type="number" id={`${formId}-studentCount`} name="studentCount" value={data.studentCount} onChange={handleChange} required min={1} /></FormField>
             <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
                 <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
@@ -71,86 +68,123 @@ const ClassForm = ({ initialData, onSave, blocks }: { initialData: Class | null;
     );
 };
 const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onSave: (data: any) => Promise<void>; }) => {
-    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', '), email: initialData.email || '', contactNumber: initialData.contactNumber || '' } : { id: '', name: '', department: '', specialization: '', email: '', contactNumber: '' });
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setData({ ...data, [e.target.name]: e.target.value });
-    const handleSave = (e: React.FormEvent) => { e.preventDefault(); onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean) }); };
+    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', ') } : { id: '', name: '', employeeId: '', designation: 'Assistant Professor', contact: '', email: '', department: '', specialization: '', maxWorkload: 40 });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.value });
+    const handleSave = (e: React.FormEvent) => { e.preventDefault(); onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean), maxWorkload: Number(data.maxWorkload) }); };
     const formId = initialData?.id || 'new-faculty';
+    const designationOptions: Faculty['designation'][] = ['Professor', 'Associate Professor', 'Assistant Professor', 'Research Team', 'Lecturer', 'Visiting Faculty'];
     return (
         <form onSubmit={handleSave} className="space-y-4">
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Email" htmlFor={`${formId}-email`}><TextInput type="email" id={`${formId}-email`} name="email" value={data.email} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Contact Number (Optional)" htmlFor={`${formId}-contactNumber`}><TextInput type="tel" id={`${formId}-contactNumber`} name="contactNumber" value={data.contactNumber} onChange={handleChange} /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Department" htmlFor={`${formId}-department`}><TextInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Specializations (comma-separated)" htmlFor={`${formId}-specialization`}><TextInput id={`${formId}-specialization`} name="specialization" value={data.specialization} onChange={handleChange} /></FormField>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+                <FormField label="Email" htmlFor={`${formId}-email`}><TextInput type="email" id={`${formId}-email`} name="email" value={data.email} onChange={handleChange} required /></FormField>
+                <FormField label="Employee ID" htmlFor={`${formId}-employeeId`}><TextInput id={`${formId}-employeeId`} name="employeeId" value={data.employeeId} onChange={handleChange} required /></FormField>
+                <FormField label="Contact" htmlFor={`${formId}-contact`}><TextInput type="tel" id={`${formId}-contact`} name="contact" value={data.contact} onChange={handleChange} /></FormField>
+                <FormField label="Designation" htmlFor={`${formId}-designation`}>
+                    <SelectInput id={`${formId}-designation`} name="designation" value={data.designation} onChange={handleChange}>
+                        {designationOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                    </SelectInput>
+                </FormField>
+                <FormField label="Department" htmlFor={`${formId}-department`}><TextInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required /></FormField>
+                <FormField label="Max Workload (Lectures/Week)" htmlFor={`${formId}-maxWorkload`}><TextInput type="number" id={`${formId}-maxWorkload`} name="maxWorkload" value={data.maxWorkload} onChange={handleChange} required /></FormField>
+                <div className="md:col-span-2">
+                    <FormField label="Specializations (comma-separated)" htmlFor={`${formId}-specialization`}><TextInput id={`${formId}-specialization`} name="specialization" value={data.specialization} onChange={handleChange} /></FormField>
+                </div>
+            </div>
             <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
 };
 const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | null; onSave: (data: any) => Promise<void>; faculty: Faculty[]; }) => {
-    const [data, setData] = useState(initialData || { id: '', name: '', code: '', department: '', type: 'theory', hoursPerWeek: 3, assignedFacultyId: '' });
+    const [data, setData] = useState(initialData || { id: '', name: '', code: '', department: '', semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: '' });
     const departments = useMemo(() => [...new Set(faculty.map(f => f.department))], [faculty]);
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-subject';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Code" htmlFor={`${formId}-code`}><TextInput id={`${formId}-code`} name="code" value={data.code} onChange={handleChange} required /></FormField>
-            {/* FIX: Wrapped SelectInput inside FormField */}
-            <FormField label="Department" htmlFor={`${formId}-department`}>
-                <SelectInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required>
-                    <option value="" disabled>Select Department...</option>
-                    {departments.map(dep => <option key={dep} value={dep}>{dep}</option>)}
-                </SelectInput>
-            </FormField>
-            <FormField label="Type" htmlFor={`${formId}-type`}>
-                <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
-                    <option value="theory">Theory</option>
-                    <option value="lab">Lab</option>
-                </SelectInput>
-            </FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Hours/Week" htmlFor={`${formId}-hoursPerWeek`}><TextInput type="number" id={`${formId}-hoursPerWeek`} name="hoursPerWeek" value={data.hoursPerWeek} onChange={handleChange} required min={1} /></FormField>
-            {/* FIX: Wrapped SelectInput inside FormField */}
-            <FormField label="Assigned Faculty" htmlFor={`${formId}-assignedFacultyId`}>
-                <SelectInput id={`${formId}-assignedFacultyId`} name="assignedFacultyId" value={data.assignedFacultyId} onChange={handleChange} required>
-                    <option value="" disabled>Select...</option>
-                    {faculty.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </SelectInput>
-            </FormField>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
+                <FormField label="Code" htmlFor={`${formId}-code`}><TextInput id={`${formId}-code`} name="code" value={data.code} onChange={handleChange} required /></FormField>
+                <FormField label="Department" htmlFor={`${formId}-department`}>
+                    <SelectInput id={`${formId}-department`} name="department" value={data.department} onChange={handleChange} required>
+                        <option value="" disabled>Select Department...</option>
+                        {departments.map(dep => <option key={dep} value={dep}>{dep}</option>)}
+                    </SelectInput>
+                </FormField>
+                 <FormField label="Type" htmlFor={`${formId}-type`}>
+                    <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
+                        <option value="Theory">Theory</option>
+                        <option value="Lab">Lab</option>
+                        <option value="Tutorial">Tutorial</option>
+                    </SelectInput>
+                </FormField>
+                <FormField label="Semester" htmlFor={`${formId}-semester`}><TextInput type="number" id={`${formId}-semester`} name="semester" value={data.semester} onChange={handleChange} required min={1} /></FormField>
+                <FormField label="Credits" htmlFor={`${formId}-credits`}><TextInput type="number" id={`${formId}-credits`} name="credits" value={data.credits} onChange={handleChange} required min={1} /></FormField>
+                <FormField label="Hours/Week" htmlFor={`${formId}-hoursPerWeek`}><TextInput type="number" id={`${formId}-hoursPerWeek`} name="hoursPerWeek" value={data.hoursPerWeek} onChange={handleChange} required min={1} /></FormField>
+                <FormField label="Assigned Faculty" htmlFor={`${formId}-assignedFacultyId`}>
+                    <SelectInput id={`${formId}-assignedFacultyId`} name="assignedFacultyId" value={data.assignedFacultyId} onChange={handleChange} required>
+                        <option value="" disabled>Select...</option>
+                        {faculty.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </SelectInput>
+                </FormField>
+            </div>
             <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
 };
 const RoomForm = ({ initialData, onSave, blocks }: { initialData: Room | null; onSave: (data: any) => Promise<void>; blocks: string[]; }) => {
-    const [data, setData] = useState(initialData || { id: '', number: '', type: 'classroom', capacity: 0, block: '' });
+    const [data, setData] = useState(initialData || { id: '', number: '', building: '', type: 'Classroom', capacity: 0, block: '', equipment: { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: false } });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
+    const handleEquipmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, checked, value, type } = e.target;
+        if (name === 'computerSystems.available') {
+            setData(prev => ({ ...prev, equipment: { ...prev.equipment, computerSystems: { ...prev.equipment.computerSystems, available: checked } } }));
+        } else if (name === 'computerSystems.count') {
+            setData(prev => ({ ...prev, equipment: { ...prev.equipment, computerSystems: { ...prev.equipment.computerSystems, count: parseInt(value) || 0 } } }));
+        } else {
+            setData(prev => ({...prev, equipment: {...prev.equipment, [name]: checked } }));
+        }
+    }
     const formId = initialData?.id || 'new-room';
     return (
         <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Number" htmlFor={`${formId}-number`}><TextInput id={`${formId}-number`} name="number" value={data.number} onChange={handleChange} required /></FormField>
-            <FormField label="Type" htmlFor={`${formId}-type`}>
-                <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
-                    <option value="classroom">Classroom</option>
-                    <option value="lab">Lab</option>
-                </SelectInput>
-            </FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
-            <FormField label="Capacity" htmlFor={`${formId}-capacity`}><TextInput type="number" id={`${formId}-capacity`} name="capacity" value={data.capacity} onChange={handleChange} required min={1} /></FormField>
-            {/* FIX: Wrapped SelectInput inside FormField */}
-            <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
-                <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
-                    <option value="">No Block</option>
-                    {(blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
-                </SelectInput>
-            </FormField>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField label="Number" htmlFor={`${formId}-number`}><TextInput id={`${formId}-number`} name="number" value={data.number} onChange={handleChange} required /></FormField>
+                <FormField label="Building" htmlFor={`${formId}-building`}><TextInput id={`${formId}-building`} name="building" value={data.building} onChange={handleChange} required /></FormField>
+                <FormField label="Type" htmlFor={`${formId}-type`}>
+                    <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
+                        <option value="Classroom">Classroom</option>
+                        <option value="Laboratory">Laboratory</option>
+                        <option value="Tutorial Room">Tutorial Room</option>
+                        <option value="Seminar Hall">Seminar Hall</option>
+                    </SelectInput>
+                </FormField>
+                <FormField label="Capacity" htmlFor={`${formId}-capacity`}><TextInput type="number" id={`${formId}-capacity`} name="capacity" value={data.capacity} onChange={handleChange} required min={1} /></FormField>
+                <FormField label="Block/Campus" htmlFor={`${formId}-block`}>
+                    <SelectInput id={`${formId}-block`} name="block" value={data.block || ''} onChange={handleChange}>
+                        <option value="">No Block</option>
+                        {(blocks || []).map(b => <option key={b} value={b}>{b}</option>)}
+                    </SelectInput>
+                </FormField>
+            </div>
+            <div className="mt-4 pt-4 border-t border-border-primary">
+                <h3 className="font-semibold mb-2">Equipment Availability</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {Object.keys(data.equipment).filter(k => k !== 'computerSystems').map(key => (
+                        <label key={key} className="flex items-center gap-2">
+                            <input type="checkbox" name={key} checked={(data.equipment as any)[key]} onChange={handleEquipmentChange} />
+                            <span className="capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                        </label>
+                    ))}
+                    <div className="col-span-full flex items-center gap-4">
+                         <label className="flex items-center gap-2">
+                            <input type="checkbox" name="computerSystems.available" checked={data.equipment.computerSystems.available} onChange={handleEquipmentChange} />
+                            <span>Computer Systems</span>
+                        </label>
+                        {data.equipment.computerSystems.available && <TextInput type="number" name="computerSystems.count" value={data.equipment.computerSystems.count} onChange={handleEquipmentChange} className="w-24" placeholder="Count" />}
+                    </div>
+                </div>
+            </div>
             <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save</button>
         </form>
     );
@@ -192,7 +226,6 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
             title={`Import Data`}
         >
             <div className="space-y-4">
-                {/* FIX: Wrapped SelectInput inside FormField */}
                 <FormField label="Select Data Type to Import" htmlFor="import-entity-type">
                      <SelectInput id="import-entity-type" value={entityType} onChange={(e) => setEntityType(e.target.value as EntityType)}>
                         <option value="class">Classes</option>
@@ -273,10 +306,26 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
     };
     const facultyMap = useMemo(() => Object.fromEntries(faculty.map(f => [f.id, f.name])), [faculty]);
     
+    const EquipmentDisplay = ({ equipment }: { equipment: Equipment }) => (
+        <div className="flex gap-2 text-gray-500">
+            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
+            {equipment.projector && <span title="Projector"><ProjectorIcon className="h-4 w-4" /></span>}
+            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
+            {equipment.smartBoard && <span title="Smart Board"><SmartBoardIcon className="h-4 w-4" /></span>}
+            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
+            {equipment.ac && <span title="AC"><AcIcon className="h-4 w-4" /></span>}
+            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
+            {equipment.computerSystems.available && <span title={`Computers: ${equipment.computerSystems.count}`}><ComputerIcon className="h-4 w-4" /></span>}
+            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
+            {equipment.audioSystem && <span title="Audio System"><AudioIcon className="h-4 w-4" /></span>}
+            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
+            {equipment.whiteboard && <span title="Whiteboard"><WhiteboardIcon className="h-4 w-4" /></span>}
+        </div>
+    );
+
     return (
         <>
             <ErrorDisplay message={pageError} />
-            {/* FIX: Wrapped form inside SectionCard */}
             <SectionCard title="Institution Details" actions={
                 <div className="flex items-center gap-2">
                     <button onClick={() => openImportModal()} className="action-btn-secondary"><UploadIcon />Universal Import</button>
@@ -284,22 +333,18 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
             }>
                 <form onSubmit={handleSaveInstitution}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                        {/* FIX: Wrapped SelectInput inside FormField */}
                         <FormField label="Select Institute" htmlFor="inst-select">
                             <SelectInput id="inst-select" value={selectedInstitutionId} onChange={e => setSelectedInstitutionId(e.target.value)}>
                                 <option value="new">+ Create New Institute</option>
                                 {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name} ({inst.academicYear})</option>)}
                             </SelectInput>
                         </FormField>
-                        {/* FIX: Wrapped TextInput inside FormField */}
                         <FormField label="Institution Name" htmlFor="inst-name">
                             <TextInput id="inst-name" name="name" placeholder="Enter college/university name" value={institutionFormState.name || ''} onChange={handleInstituteFormChange} required />
                         </FormField>
-                        {/* FIX: Wrapped TextInput inside FormField */}
                         <FormField label="Academic Year" htmlFor="inst-acad-year">
                             <TextInput id="inst-acad-year" name="academicYear" placeholder="e.g., 2024-2025" value={institutionFormState.academicYear || ''} onChange={handleInstituteFormChange} required />
                         </FormField>
-                        {/* FIX: Wrapped SelectInput inside FormField */}
                         <FormField label="Semester" htmlFor="inst-semester">
                             <SelectInput id="inst-semester" name="semester" value={institutionFormState.semester || 'Odd'} onChange={handleInstituteFormChange}>
                                 <option value="Odd">Odd Semester (Aug-Dec)</option>
@@ -307,7 +352,6 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                             </SelectInput>
                         </FormField>
                         <div className="md:col-span-2">
-                            {/* FIX: Wrapped TextInput inside FormField */}
                             <FormField label="Campus Blocks (comma-separated)" htmlFor="inst-blocks">
                                 <TextInput id="inst-blocks" name="blocks" placeholder="e.g., A-Block, B-Block, Science Wing" value={(institutionFormState.blocks || []).join(', ')} onChange={handleInstituteFormChange} />
                             </FormField>
@@ -322,7 +366,6 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                 </form>
             </SectionCard>
             <div className="my-4">
-                 {/* FIX: Wrapped SelectInput inside FormField */}
                 <FormField label="Filter by Block/Campus" htmlFor="block-filter">
                     <SelectInput id="block-filter" value={blockFilter} onChange={e => setBlockFilter(e.target.value)}>
                          <option value="all">All Blocks</option>
@@ -330,71 +373,63 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                     </SelectInput>
                 </FormField>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 {/* FIX: Wrapped content inside SectionCard */}
-                <SectionCard title="Classes & Sections" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('class')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'class')} className="action-btn-primary"><AddIcon />Add Class</button></div>}>
-                    <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." label="Search Classes" id="search-class" />
-                    <div className="max-h-80 overflow-y-auto">
-                        <DataTable headers={["Name", "Branch", "Block", "Students", "Actions"]} data={filtered.class} renderRow={(c: Class) => (
-                            <tr key={c.id} className="border-b dark:border-slate-700">
-                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.class.includes(c.id)} onChange={() => onToggleSelect('class', c.id)} /></td>
-                                <td className="px-6 py-3 font-medium">{c.name}</td>
-                                <td className="px-6 py-3">{c.branch}</td>
-                                <td className="px-6 py-3">{c.block || 'N/A'}</td>
-                                <td className="px-6 py-3">{c.studentCount}</td>
-                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'class', c)}><EditIcon /></button><button onClick={() => handleDelete('class', c.id)}><DeleteIcon /></button></td>
-                            </tr>
-                        )} headerPrefix={<HeaderCheckbox type="class" items={filtered.class} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
-                    </div>
-                </SectionCard>
-                 {/* FIX: Wrapped content inside SectionCard */}
+            <div className="grid grid-cols-1 gap-6">
                 <SectionCard title="Faculty" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('faculty')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'faculty')} className="action-btn-primary"><AddIcon />Add Faculty</button></div>}>
                     <SearchInput value={search.faculty} onChange={v => handleSearch('faculty', v)} placeholder="Search faculty..." label="Search Faculty" id="search-faculty" />
-                    <div className="max-h-80 overflow-y-auto">
-                        <DataTable headers={["Name", "Department", "Specialization", "Actions"]} data={filtered.faculty} renderRow={(f: Faculty) => (
-                            <tr key={f.id} className="border-b dark:border-slate-700">
-                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.faculty.includes(f.id)} onChange={() => onToggleSelect('faculty', f.id)} /></td>
-                                <td className="px-6 py-3 font-medium">{f.name}</td>
-                                <td className="px-6 py-3">{f.department}</td>
-                                <td className="px-6 py-3">{f.specialization.join(', ')}</td>
-                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'faculty', f)}><EditIcon /></button><button onClick={() => handleDelete('faculty', f.id)}><DeleteIcon /></button></td>
-                            </tr>
-                        )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
-                    </div>
+                    <DataTable headers={["Name", "Emp ID", "Designation", "Department", "Workload", "Actions"]} data={filtered.faculty} renderRow={(f: Faculty) => (
+                        <tr key={f.id} className="border-b dark:border-slate-700">
+                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.faculty.includes(f.id)} onChange={() => onToggleSelect('faculty', f.id)} /></td>
+                            <td className="px-6 py-3 font-medium">{f.name}</td>
+                            <td className="px-6 py-3">{f.employeeId}</td>
+                            <td className="px-6 py-3">{f.designation}</td>
+                            <td className="px-6 py-3">{f.department}</td>
+                            <td className="px-6 py-3">{f.maxWorkload} hrs/wk</td>
+                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'faculty', f)}><EditIcon /></button><button onClick={() => handleDelete('faculty', f.id)}><DeleteIcon /></button></td>
+                        </tr>
+                    )} headerPrefix={<HeaderCheckbox type="faculty" items={filtered.faculty} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
-                 {/* FIX: Wrapped content inside SectionCard */}
                 <SectionCard title="Subjects" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('subject')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'subject')} className="action-btn-primary"><AddIcon />Add Subject</button></div>}>
                     <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." label="Search Subjects" id="search-subject" />
-                    <div className="max-h-80 overflow-y-auto">
-                        <DataTable headers={["Name", "Code", "Department", "Type", "Hrs/Wk", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
-                            <tr key={s.id} className="border-b dark:border-slate-700">
-                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.subject.includes(s.id)} onChange={() => onToggleSelect('subject', s.id)} /></td>
-                                <td className="px-6 py-3 font-medium">{s.name}</td>
-                                <td className="px-6 py-3">{s.code}</td>
-                                <td className="px-6 py-3">{s.department}</td>
-                                <td className="px-6 py-3">{s.type}</td>
-                                <td className="px-6 py-3">{s.hoursPerWeek}</td>
-                                <td className="px-6 py-3">{facultyMap[s.assignedFacultyId] || 'N/A'}</td>
-                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'subject', s)}><EditIcon /></button><button onClick={() => handleDelete('subject', s.id)}><DeleteIcon /></button></td>
-                            </tr>
-                        )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
-                    </div>
+                    <DataTable headers={["Name", "Code", "Dept", "Sem", "Type", "Credits", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
+                        <tr key={s.id} className="border-b dark:border-slate-700">
+                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.subject.includes(s.id)} onChange={() => onToggleSelect('subject', s.id)} /></td>
+                            <td className="px-6 py-3 font-medium">{s.name}</td>
+                            <td className="px-6 py-3">{s.code}</td>
+                            <td className="px-6 py-3">{s.department}</td>
+                            <td className="px-6 py-3">{s.semester}</td>
+                            <td className="px-6 py-3">{s.type}</td>
+                            <td className="px-6 py-3">{s.credits}</td>
+                            <td className="px-6 py-3">{facultyMap[s.assignedFacultyId] || 'N/A'}</td>
+                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'subject', s)}><EditIcon /></button><button onClick={() => handleDelete('subject', s.id)}><DeleteIcon /></button></td>
+                        </tr>
+                    )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
-                 {/* FIX: Wrapped content inside SectionCard */}
                 <SectionCard title="Rooms" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('room')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'room')} className="action-btn-primary"><AddIcon />Add Room</button></div>}>
                     <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
-                    <div className="max-h-80 overflow-y-auto">
-                        <DataTable headers={["Number", "Type", "Capacity", "Block", "Actions"]} data={filtered.room} renderRow={(r: Room) => (
-                            <tr key={r.id} className="border-b dark:border-slate-700">
-                                <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.room.includes(r.id)} onChange={() => onToggleSelect('room', r.id)} /></td>
-                                <td className="px-6 py-3 font-medium">{r.number}</td>
-                                <td className="px-6 py-3">{r.type}</td>
-                                <td className="px-6 py-3">{r.capacity}</td>
-                                <td className="px-6 py-3">{r.block || 'N/A'}</td>
-                                <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'room', r)}><EditIcon /></button><button onClick={() => handleDelete('room', r.id)}><DeleteIcon /></button></td>
-                            </tr>
-                        )} headerPrefix={<HeaderCheckbox type="room" items={filtered.room} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
-                    </div>
+                    <DataTable headers={["Number", "Building", "Capacity", "Type", "Equipment", "Actions"]} data={filtered.room} renderRow={(r: Room) => (
+                        <tr key={r.id} className="border-b dark:border-slate-700">
+                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.room.includes(r.id)} onChange={() => onToggleSelect('room', r.id)} /></td>
+                            <td className="px-6 py-3 font-medium">{r.number}</td>
+                            <td className="px-6 py-3">{r.building}</td>
+                            <td className="px-6 py-3">{r.capacity}</td>
+                            <td className="px-6 py-3">{r.type}</td>
+                            <td className="px-6 py-3"><EquipmentDisplay equipment={r.equipment} /></td>
+                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'room', r)}><EditIcon /></button><button onClick={() => handleDelete('room', r.id)}><DeleteIcon /></button></td>
+                        </tr>
+                    )} headerPrefix={<HeaderCheckbox type="room" items={filtered.room} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
+                </SectionCard>
+                 <SectionCard title="Classes & Sections" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('class')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'class')} className="action-btn-primary"><AddIcon />Add Class</button></div>}>
+                    <SearchInput value={search.class} onChange={v => handleSearch('class', v)} placeholder="Search classes..." label="Search Classes" id="search-class" />
+                    <DataTable headers={["Name", "Branch", "Block", "Students", "Actions"]} data={filtered.class} renderRow={(c: Class) => (
+                        <tr key={c.id} className="border-b dark:border-slate-700">
+                            <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.class.includes(c.id)} onChange={() => onToggleSelect('class', c.id)} /></td>
+                            <td className="px-6 py-3 font-medium">{c.name}</td>
+                            <td className="px-6 py-3">{c.branch}</td>
+                            <td className="px-6 py-3">{c.block || 'N/A'}</td>
+                            <td className="px-6 py-3">{c.studentCount}</td>
+                            <td className="px-6 py-3 flex gap-2"><button onClick={() => openModal('edit', 'class', c)}><EditIcon /></button><button onClick={() => handleDelete('class', c.id)}><DeleteIcon /></button></td>
+                        </tr>
+                    )} headerPrefix={<HeaderCheckbox type="class" items={filtered.class} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
             </div>
         </>
@@ -431,7 +466,6 @@ const TimePreferencesVisual = ({ prefs, onChange }: { prefs: TimePreferences, on
     const lunchWidth = durationToPercent(prefs.lunchDurationMinutes);
 
     return (
-        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Institutional Time Preferences">
             <div className="space-y-6">
                 <div>
@@ -545,7 +579,6 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
 
     return (
         <div>
-            {/* FIX: Wrapped content inside Modal */}
             <Modal
                 isOpen={isUnavailabilityModalOpen}
                 onClose={() => setIsUnavailabilityModalOpen(false)}
@@ -557,7 +590,6 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                     <WeeklyUnavailabilityGrid />
                 </div>
             </Modal>
-            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Time Preferences for" htmlFor="faculty-pref-select">
                 <SelectInput id="faculty-pref-select" name="faculty-pref-select" value={selectedFacultyId} onChange={e => setSelectedFacultyId(e.target.value)}>
                     <option value="">Select a faculty member...</option>
@@ -566,7 +598,6 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
             </FormField>
             {selectedFacultyId && (
                 <div className="space-y-6 pt-4 border-t dark:border-slate-700 mt-4">
-                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Availability">
                          <div className="mb-4">
                              <button onClick={() => setIsUnavailabilityModalOpen(true)} className="bg-gray-200 dark:bg-slate-700 hover:bg-gray-300 dark:hover:bg-slate-600 font-semibold py-2 px-4 rounded-md">Set Weekly Unavailability</button>
@@ -576,7 +607,6 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                             {DAYS.map(day => <button key={day} onClick={() => handleDayToggle(day)} className={`px-3 py-1 text-sm font-semibold rounded-full capitalize ${currentPref.preferredDays?.includes(day) ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700'}`}>{day.substring(0,3)}</button>)}
                          </div>
                     </SectionCard>
-                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Scheduling Rules (Soft Constraints)">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
@@ -612,7 +642,6 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                             </div>
                         </div>
                     </SectionCard>
-                     {/* FIX: Wrapped content inside SectionCard */}
                      <SectionCard title="Course-Specific Preferences">
                         <p>Feature coming soon.</p>
                      </SectionCard>
@@ -640,14 +669,12 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
 
     return (
         <div className="space-y-6">
-            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Room & Resource Constraints">
                 <label className="flex items-center gap-3">
                     <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
                     <span>Prioritize keeping consecutive classes for the same section in the same room.</span>
                 </label>
             </SectionCard>
-            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Student Section Constraints">
                 <div className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -660,7 +687,6 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
                     </div>
                 </div>
             </SectionCard>
-            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Advanced & Logistical Constraints">
                  <div className="space-y-4">
                     <label className="flex items-center gap-3">
@@ -708,7 +734,6 @@ const FixedClassesContent = ({ constraints, onConstraintsChange, classes, subjec
     };
     
     return (
-        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Fixed Class Scheduling">
             <div>
                 <p className="text-text-secondary text-sm mb-4">Define classes that must occur at a specific time. The AI will treat these as absolute, non-negotiable constraints.</p>
@@ -764,6 +789,7 @@ const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classe
     );
 };
 const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: TimetableEntry[] | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
+    const [viewType, setViewType] = useState<'regular' | 'fixed'>('regular');
 
     const downloadAsExcel = () => {
         if (!generationResult) return;
@@ -792,9 +818,12 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
         return '12:50-01:35'; // Fallback
     }, [constraints]);
 
+    const displayedTimetable = useMemo(() => {
+        return generationResult?.filter(entry => entry.classType === viewType) || [];
+    }, [generationResult, viewType]);
+
     return (
         <div className="space-y-6">
-            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard title="Generate Timetable" actions={
                 <button onClick={onGenerate} disabled={isLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
                     {isLoading ? <><LoadingIcon className="h-5 w-5" /> Generating...</> : <><GenerateIcon /> Generate Timetable</>}
@@ -804,7 +833,6 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
             </SectionCard>
             <ErrorDisplay message={error} />
             {generationResult && (
-                // FIX: Wrapped content inside SectionCard
                 <SectionCard title="Generated Timetable Preview" actions={
                     <div className="flex gap-2">
                          <button onClick={downloadAsExcel} className="action-btn-secondary"><DownloadIcon />Download as Excel</button>
@@ -812,6 +840,10 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
                          <button onClick={onClear} className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md"><DeleteIcon />Clear</button>
                     </div>
                 }>
+                    <div className="bg-bg-primary p-2 rounded-lg flex gap-2 mb-4">
+                        <button onClick={() => setViewType('regular')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'regular' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Regular Classes</button>
+                        <button onClick={() => setViewType('fixed')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'fixed' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Fixed Classes (Labs/Tutorials)</button>
+                    </div>
                     <div className="overflow-x-auto max-h-[80vh]">
                         <table className="w-full text-sm">
                              <thead>
@@ -827,8 +859,8 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
                                         {DAYS.map(day => (
                                             <td key={day} className={`p-1 border dark:border-slate-600 align-top ${time === lunchSlot ? 'bg-gray-100 dark:bg-slate-900/50' : ''}`}>
                                                 {time === lunchSlot ? <div className="text-center font-semibold p-2">Lunch</div> :
-                                                    generationResult.filter(e => e.day === day && e.time === time).map((entry, idx) => (
-                                                        <div key={idx} className="p-2 rounded-lg bg-indigo-500 text-white text-xs mb-1">
+                                                    displayedTimetable.filter(e => e.day === day && e.time === time).map((entry, idx) => (
+                                                        <div key={idx} className={`p-2 rounded-lg text-xs mb-1 ${entry.classType === 'fixed' ? 'timetable-cell-fixed' : 'timetable-cell-regular'}`}>
                                                             <p className="font-bold">{entry.className}</p>
                                                             <p>{entry.subject}</p>
                                                             <p className="opacity-80">{entry.faculty}</p>
@@ -876,7 +908,6 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
              <div className="lg:col-span-3">
-                 {/* FIX: Wrapped content inside SectionCard */}
                  <SectionCard title="Timetable Summary">
                      <div className="flex justify-around text-center">
                          <div><p className="text-3xl font-bold text-indigo-500">{timetable.length}</p><p className="text-text-secondary">Total Periods Scheduled</p></div>
@@ -885,7 +916,6 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
                      </div>
                  </SectionCard>
              </div>
-             {/* FIX: Wrapped content inside SectionCard */}
              <SectionCard title="Faculty Workload" className="lg:col-span-2">
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                     {facultyWorkload.map(f => (
@@ -896,7 +926,6 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
                     ))}
                 </div>
              </SectionCard>
-             {/* FIX: Wrapped content inside SectionCard */}
              <SectionCard title="Room Utilization">
                  <div className="space-y-4 max-h-96 overflow-y-auto">
                      {roomUtilization.map(r => (
@@ -925,7 +954,6 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
     }, [timetable]);
 
     return (
-        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Room Availability">
             <div>
                 <div className="flex gap-4 mb-4">
@@ -979,7 +1007,6 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [], institution: [] });
     const [importModalState, setImportModalState] = useState<{ isOpen: boolean; type?: EntityType }>({ isOpen: false });
 
-    // Refactored State: Moved institution management state up to the main component
     const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | 'new'>('');
     const [institutionFormState, setInstitutionFormState] = useState<Partial<Institution>>({});
     const activeBlocks = useMemo(() => institutionFormState.blocks || [], [institutionFormState]);
@@ -1059,6 +1086,8 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         { key: 'constraints', label: 'Constraints', icon: <ConstraintsIcon /> },
         { key: 'generate', label: 'Generate', icon: <GenerateIcon /> },
         { key: 'view', label: 'View & Analytics', icon: <ViewIcon /> },
+        { key: 'query', label: 'Query Management', icon: <QueryIcon /> },
+        { key: 'notifications', label: 'Notification Center', icon: <NotificationBellIcon /> },
     ];
     
     const renderContent = () => {
@@ -1067,12 +1096,15 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
             case 'constraints': return <ConstraintsTab {...props} />;
             case 'generate': return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
             case 'view': return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} />;
+            case 'query': return <QueryTab />;
+            case 'notifications': return <NotificationsTab />;
             default: return null;
         }
     };
     
     const forms: { [key in Exclude<EntityType, 'institution'>]: React.FC<any> } = { class: ClassForm, faculty: FacultyForm, subject: SubjectForm, room: RoomForm };
     const FormComponent = modal ? forms[modal.type] : null;
+    const modalSize = modal?.type === 'faculty' || modal?.type === 'room' || modal?.type === 'subject' ? '4xl' : '2xl';
 
     return (
         <div className="min-h-screen p-4 sm:p-6 lg:p-8">
@@ -1094,8 +1126,7 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
                 {renderContent()}
             </main>
             {modal && FormComponent && (
-                // FIX: Wrapped FormComponent inside Modal
-                <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError}>
+                <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError} size={modalSize}>
                     <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={activeBlocks} />
                 </Modal>
             )}

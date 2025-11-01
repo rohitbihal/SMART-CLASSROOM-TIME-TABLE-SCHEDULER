@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest, Exam, Notification, StudentAttendance } from '../types';
+import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, Exam, StudentDashboardNotification, StudentAttendance, AppNotification } from '../types';
 import * as api from '../services/api';
 import { logger } from '../services/logger';
 
@@ -26,12 +26,15 @@ interface AppContextType {
     timetable: TimetableEntry[];
     attendance: Attendance;
     chatMessages: ChatMessage[];
-    teacherRequests: TeacherRequest[];
+    teacherRequests: TeacherQuery[];
     
     // NEW: Student-specific data
     studentAttendance: StudentAttendance[];
     exams: Exam[];
-    notifications: Notification[];
+    notifications: StudentDashboardNotification[];
+    
+    // NEW: Admin-sent notifications
+    appNotifications: AppNotification[];
 
     // Data Handlers
     handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => Promise<any>;
@@ -39,7 +42,7 @@ interface AppContextType {
     handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
     handleUpdateFacultyAvailability: (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => Promise<void>;
     handleUpdateTeacherAvailability: (facultyId: string, availability: { [day: string]: string[] }) => Promise<void>;
-    handleSubmitTeacherRequest: (requestData: Omit<TeacherRequest, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => Promise<void>;
+    handleSubmitTeacherRequest: (requestData: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => Promise<void>;
     handleSaveTimetable: (newTimetable: TimetableEntry[]) => Promise<void>;
     handleSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
@@ -72,12 +75,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
     const [attendance, setAttendance] = useState<Attendance>({});
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-    const [teacherRequests, setTeacherRequests] = useState<TeacherRequest[]>([]);
+    const [teacherRequests, setTeacherRequests] = useState<TeacherQuery[]>([]);
     
     // NEW: State for student-specific data
     const [studentAttendance, setStudentAttendance] = useState<StudentAttendance[]>([]);
     const [exams, setExams] = useState<Exam[]>([]);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<StudentDashboardNotification[]>([]);
+    const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
+
 
     const fetchData = useCallback(async () => {
         if (!token) { setAppState('ready'); return; }
@@ -157,7 +162,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setFaculty(prev => prev.map(f => f.id === facultyId ? updatedFaculty : f));
     }, []);
     
-    const handleSubmitTeacherRequest = useCallback(async (requestData: Omit<TeacherRequest, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => {
+    const handleSubmitTeacherRequest = useCallback(async (requestData: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => {
         const newRequest = await api.submitTeacherRequest(requestData);
         setTeacherRequests(prev => [...prev, newRequest]);
     }, []);
@@ -279,17 +284,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         return faculty.find(f => f.id === profileId);
     }, [faculty]);
 
-    const value = useMemo(() => ({
+    const value: AppContextType = useMemo(() => ({
         user, token, appState, theme, login, logout, toggleTheme,
         classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
-        studentAttendance, exams, notifications,
+        studentAttendance, exams, notifications, appNotifications,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
         handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage,
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
-        studentAttendance, exams, notifications,
+        studentAttendance, exams, notifications, appNotifications,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, login, logout, toggleTheme
     ]);
 
     return (

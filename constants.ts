@@ -12,13 +12,20 @@ export const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'sa
 
 
 export const MOCK_STUDENT_TIMETABLE: TimetableEntry[] = [
-    { day: 'monday', time: '09:30-10:20', subject: 'Data Structures', faculty: 'Dr. Rajesh Kumar', room: 'CS-101', type: 'theory', className: 'CSE-3-A'},
-    { day: 'monday', time: '11:10-12:00', subject: 'Algorithms', faculty: 'Dr. Rajesh Kumar', room: 'CS-101', type: 'theory', className: 'CSE-3-A'},
-    { day: 'monday', time: '01:35-02:20', subject: 'Data Structures Lab', faculty: 'Dr. Rajesh Kumar', room: 'CS-Lab-1', type: 'lab', className: 'CSE-3-A'},
-    { day: 'tuesday', time: '09:30-10:20', subject: 'Algorithms', faculty: 'Dr. Rajesh Kumar', room: 'CS-101', type: 'theory', className: 'CSE-3-A'},
+    // FIX: Changed type to 'Theory' to match type definition.
+    { day: 'monday', time: '09:30-10:20', subject: 'Data Structures', faculty: 'Dr. Rajesh Kumar', room: 'CS-101', type: 'Theory', className: 'CSE-3-A', classType: 'regular'},
+    // FIX: Changed type to 'Theory' to match type definition.
+    { day: 'monday', time: '11:10-12:00', subject: 'Algorithms', faculty: 'Dr. Rajesh Kumar', room: 'CS-101', type: 'Theory', className: 'CSE-3-A', classType: 'regular'},
+    // FIX: Changed type to 'Lab' to match type definition.
+    { day: 'monday', time: '01:35-02:20', subject: 'Data Structures Lab', faculty: 'Dr. Rajesh Kumar', room: 'CS-Lab-1', type: 'Lab', className: 'CSE-3-A', classType: 'fixed'},
+    // FIX: Changed type to 'Theory' to match type definition.
+    { day: 'tuesday', time: '09:30-10:20', subject: 'Algorithms', faculty: 'Dr. Rajesh Kumar', room: 'CS-101', type: 'Theory', className: 'CSE-3-A', classType: 'regular'},
 ];
 export const MOCK_TEACHER_TIMETABLE: TimetableEntry[] = [
-    { day: 'monday', time: '09:30-10:20', subject: 'Data Structures', className: 'CSE-3-A', room: 'CS-101', type: 'theory', faculty: 'Dr. Rajesh Kumar' },
-    { day: 'monday', time: '10:20-11:10', subject: 'Data Structures', className: 'CSE-3-B', room: 'CS-102', type: 'theory', faculty: 'Dr. Rajesh Kumar' },
-    { day: 'monday', time: '11:10-12:00', subject: 'Algorithms', className: 'CSE-3-A', room: 'CS-101', type: 'theory', faculty: 'Dr. Rajesh Kumar' },
+    // FIX: Changed type to 'Theory' to match type definition.
+    { day: 'monday', time: '09:30-10:20', subject: 'Data Structures', className: 'CSE-3-A', room: 'CS-101', type: 'Theory', faculty: 'Dr. Rajesh Kumar', classType: 'regular' },
+    // FIX: Changed type to 'Theory' to match type definition.
+    { day: 'monday', time: '10:20-11:10', subject: 'Data Structures', className: 'CSE-3-B', room: 'CS-102', type: 'Theory', faculty: 'Dr. Rajesh Kumar', classType: 'regular' },
+    // FIX: Changed type to 'Theory' to match type definition.
+    { day: 'monday', time: '11:10-12:00', subject: 'Algorithms', className: 'CSE-3-A', room: 'CS-101', type: 'Theory', faculty: 'Dr. Rajesh Kumar', classType: 'regular' },
 ];

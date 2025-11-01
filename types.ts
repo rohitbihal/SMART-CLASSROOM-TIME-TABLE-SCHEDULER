@@ -22,13 +22,16 @@ export interface Class {
 export interface Faculty {
   id:string;
   name: string;
+  employeeId: string; // NEW
+  designation: 'Professor' | 'Associate Professor' | 'Assistant Professor' | 'Research Team' | 'Lecturer' | 'Visiting Faculty'; // NEW
+  contact: string; // RENAMED from contactNumber
+  email: string;
   department: string;
   specialization: string[];
-  email: string;
-  adminId?: string;
-  contactNumber?: string;
-  accessLevel?: 'Super Admin' | 'Timetable Manager' | 'User Management';
+  maxWorkload: number; // NEW (lectures per week)
   availability?: { [day: string]: string[] };
+  adminId?: string;
+  accessLevel?: 'Super Admin' | 'Timetable Manager' | 'User Management';
 }
 
 export interface Subject {
@@ -36,16 +39,29 @@ export interface Subject {
   name: string;
   code: string;
   department: string;
-  type?: 'theory' | 'lab';
+  semester: number; // NEW
+  credits: number; // NEW
+  type: 'Theory' | 'Lab' | 'Tutorial'; // UPDATED
   hoursPerWeek: number;
   assignedFacultyId: string;
 }
 
+// NEW: Equipment type for rooms
+export interface Equipment {
+    projector: boolean;
+    smartBoard: boolean;
+    ac: boolean;
+    computerSystems: { available: boolean; count: number };
+    audioSystem: boolean;
+    whiteboard: boolean;
+}
 export interface Room {
   id: string;
   number: string;
-  type: 'classroom' | 'lab';
+  building: string; // NEW
+  type: 'Classroom' | 'Laboratory' | 'Tutorial Room' | 'Seminar Hall'; // UPDATED
   capacity: number;
+  equipment: Equipment; // NEW
   block?: string;
 }
 
@@ -65,7 +81,8 @@ export interface TimetableEntry {
   room: string;
   day: string;
   time: string;
-  type: 'theory' | 'lab';
+  classType: 'regular' | 'fixed'; // NEW
+  type: 'Theory' | 'Lab' | 'Tutorial'; // UPDATED to match Subject
 }
 
 export interface ChatMessage {
@@ -123,7 +140,7 @@ export interface FacultyPreference {
 }
 
 export interface RoomResourceConstraint {
-  subjectRoomTypeRules?: { subjectId: string; roomType: 'classroom' | 'lab' }[];
+  subjectRoomTypeRules?: { subjectId: string; roomType: 'Classroom' | 'Laboratory' }[]; // Updated
   prioritizeSameRoomForConsecutive?: boolean;
   resourceRequirements?: { subjectId: string, resource: string }[];
 }
@@ -175,16 +192,16 @@ export interface Constraints {
     advancedConstraints?: AdvancedConstraint;
 }
 
-// Teacher Request Type for new feature
-export interface TeacherRequest {
+// UPDATED: Renamed from TeacherRequest to be more general for the new Query system.
+export interface TeacherQuery {
   id: string;
   facultyId: string;
-  requestType: 'Schedule Change' | 'Leave Request' | 'Resource Request' | 'Other';
+  queryType: 'Schedule Change' | 'Leave Request' | 'Resource Request' | 'Other';
   subject?: string;
   currentSchedule?: string;
   requestedChange: string;
   reason: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Under Review';
   submittedDate: string;
 }
 
@@ -213,12 +230,28 @@ export interface Exam {
   room: string;
 }
 
-export interface Notification {
+// RENAMED: to avoid conflict with new AppNotification type
+export interface StudentDashboardNotification {
   id: string;
   title: string;
   message: string;
   timestamp: string;
   read: boolean;
+}
+
+// NEW: Admin-sent notifications
+export interface AppNotification {
+    id: string;
+    title: string;
+    message: string;
+    recipients: {
+        type: 'Students' | 'Teachers' | 'Both' | 'Specific';
+        ids?: string[];
+    };
+    deliveryMethod: ('Email' | 'SMS' | 'In-App')[];
+    notificationType: 'Meeting' | 'Event' | 'Schedule Change' | 'Exam' | 'Holiday' | 'Emergency' | 'General';
+    sentDate: string;
+    status: 'Sent' | 'Delivered' | 'Read' | 'Failed';
 }
 
 export interface StudentAttendance {

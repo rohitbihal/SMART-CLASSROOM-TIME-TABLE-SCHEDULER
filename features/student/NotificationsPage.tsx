@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { SectionCard } from '../../App';
 import { useAppContext } from '../../context/AppContext';
-import { Notification } from '../../types';
+import { StudentDashboardNotification } from '../../types';
 import { NotificationsIcon } from '../../components/Icons';
 
 export const NotificationsPage = () => {
     const { notifications: initialNotifications } = useAppContext();
-    const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+    const [notifications, setNotifications] = useState<StudentDashboardNotification[]>(initialNotifications);
 
     const handleMarkAsRead = (id: string) => {
         setNotifications(prev => 

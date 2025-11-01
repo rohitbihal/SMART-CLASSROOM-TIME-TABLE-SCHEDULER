@@ -372,7 +372,8 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const selectAllUsersCheckboxRef = useRef<HTMLInputElement>(null);
 
-    const profileMap = useMemo(() => { const map = new Map<string, { name: string, contactNumber?: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name, contactNumber: f.contactNumber })); students.forEach(s => map.set(s.id, { name: s.name, contactNumber: s.contactNumber })); return map; }, [faculty, students]);
+    // FIX: Changed 'contactNumber' to 'contact' for faculty profiles to match type definition.
+    const profileMap = useMemo(() => { const map = new Map<string, { name: string, contactNumber?: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name, contactNumber: f.contact })); students.forEach(s => map.set(s.id, { name: s.name, contactNumber: s.contactNumber })); return map; }, [faculty, students]);
     const filteredUsers = useMemo(() => users.filter(u => u.role === userType && (u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))), [users, searchTerm, profileMap, userType]);
     
     const allUserIdsInView = useMemo(() => filteredUsers.map(u => u._id!).filter(Boolean), [filteredUsers]);
@@ -565,6 +566,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     const userProfile = useMemo((): Faculty | Student | null => {
         if (!user.profileId) return null;
         if (user.role === 'admin') {
+            // FIX: Corrected the fallback admin profile to match the Faculty type definition.
             return faculty.find(f => f.id === user.profileId) || {
                 id: user.profileId,
                 name: user.username.split('@')[0],
@@ -573,7 +575,10 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 specialization: [],
                 accessLevel: 'Super Admin',
                 adminId: `ADM-${user.profileId.substring(0, 4)}`,
-                contactNumber: '',
+                employeeId: `ADM-${user.profileId.substring(0, 4)}`,
+                designation: 'Professor',
+                contact: '',
+                maxWorkload: 40,
             };
         }
         if (user.role === 'teacher') return faculty.find(f => f.id === user.profileId) || null;
@@ -590,7 +595,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 name: userProfile.name,
                 specialization: 'specialization' in userProfile ? userProfile.specialization.join(', ') : '',
                 adminId: 'adminId' in userProfile ? userProfile.adminId || '' : '',
-                contactNumber: 'contactNumber' in userProfile ? userProfile.contactNumber || '' : '',
+                contactNumber: 'contact' in userProfile ? userProfile.contact || '' : ('contactNumber' in userProfile ? userProfile.contactNumber || '' : ''),
                 accessLevel: 'accessLevel' in userProfile ? userProfile.accessLevel : 'Super Admin',
             });
         }
@@ -618,7 +623,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 const profilePayload = {
                     ...userProfile,
                     name: profileData.name,
-                    contactNumber: profileData.contactNumber,
+                    contact: profileData.contactNumber, // Use 'contact'
                     ...(user.role !== 'student' && { specialization: profileData.specialization.split(',').map(s => s.trim()) }),
                     ...(user.role === 'admin' && { adminId: profileData.adminId, accessLevel: profileData.accessLevel })
                 };
@@ -693,7 +698,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ProfileField label="Full Name" value={userProfile.name} />
                         <ProfileField label="Username/Email" value={user.username} />
-                        {'contactNumber' in userProfile && <ProfileField label="Contact Number" value={userProfile.contactNumber} />}
+                        {'contact' in userProfile && <ProfileField label="Contact Number" value={userProfile.contact} />}
                         {'department' in userProfile && <ProfileField label="Department" value={userProfile.department} />}
                         {user.role === 'admin' && 'adminId' in userProfile && <ProfileField label="Admin ID" value={userProfile.adminId} />}
                         {user.role === 'admin' && 'accessLevel' in userProfile && <ProfileField label="Access Level" value={userProfile.accessLevel} />}

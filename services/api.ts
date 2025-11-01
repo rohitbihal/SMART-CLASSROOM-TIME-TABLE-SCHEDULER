@@ -1,4 +1,4 @@
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest, StudentAttendance, Exam, Notification, SmartTool } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -58,8 +58,8 @@ type AllData = {
     classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[];
     students: Student[]; users: User[]; constraints: Constraints | null;
     timetable: TimetableEntry[]; attendance: Attendance; chatMessages: ChatMessage[];
-    institutions: Institution[]; teacherRequests: TeacherRequest[];
-    studentAttendance: StudentAttendance[]; exams: Exam[]; notifications: Notification[];
+    institutions: Institution[]; teacherRequests: TeacherQuery[];
+    studentAttendance: StudentAttendance[]; exams: Exam[]; notifications: StudentDashboardNotification[];
 };
 export const fetchAllData = async (): Promise<AllData> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/all-data`);
@@ -193,7 +193,7 @@ export const updateTeacherAvailability = async (facultyId: string, availability:
     return response.json();
 };
 
-export const submitTeacherRequest = async (requestData: Omit<TeacherRequest, 'id' | 'facultyId' | 'status' | 'submittedDate'>): Promise<TeacherRequest> => {
+export const submitTeacherRequest = async (requestData: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'>): Promise<TeacherQuery> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/teacher/requests`, {
         method: 'POST',
         body: JSON.stringify(requestData)

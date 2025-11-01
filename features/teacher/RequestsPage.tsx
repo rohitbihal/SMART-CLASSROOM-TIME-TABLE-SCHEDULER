@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { SectionCard, FormField, SelectInput, TextInput } from '../../App';
 import { useAppContext } from '../../context/AppContext';
 import { SendIcon } from '../../components/Icons';
-import { TeacherRequest } from '../../types';
+import { TeacherQuery } from '../../types';
 
 export const RequestsPage = () => {
     const { user, subjects, teacherRequests, handleSubmitTeacherRequest } = useAppContext();
 
-    const initialState: Omit<TeacherRequest, 'id' | 'facultyId' | 'status' | 'submittedDate'> = {
-        requestType: 'Schedule Change',
+    const initialState: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'> = {
+        queryType: 'Schedule Change',
         subject: '',
         currentSchedule: '',
         requestedChange: '',
@@ -55,8 +55,8 @@ export const RequestsPage = () => {
             <SectionCard title="Submit Request">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <FormField label="Request Type" htmlFor="requestType">
-                            <SelectInput id="requestType" name="requestType" value={formState.requestType} onChange={handleChange}>
+                        <FormField label="Request Type" htmlFor="queryType">
+                            <SelectInput id="queryType" name="queryType" value={formState.queryType} onChange={handleChange}>
                                 <option>Schedule Change</option>
                                 <option>Leave Request</option>
                                 <option>Resource Request</option>
@@ -103,7 +103,7 @@ export const RequestsPage = () => {
                             {teacherRequests.length > 0 ? teacherRequests.map(req => (
                                 <tr key={req.id} className="border-b border-border-primary">
                                     <td className="p-3 whitespace-nowrap">{new Date(req.submittedDate).toLocaleDateString()}</td>
-                                    <td className="p-3">{req.requestType}</td>
+                                    <td className="p-3">{req.queryType}</td>
                                     <td className="p-3">{req.requestedChange}</td>
                                     <td className="p-3">
                                         <span className={`px-2 py-1 text-xs font-bold rounded-full ${getStatusChipColor(req.status)}`}>

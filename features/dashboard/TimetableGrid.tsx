@@ -22,7 +22,7 @@ const TimetableCell: React.FC<{ entry: TimetableEntry | undefined; time: string;
     return (
         <td key={day} className="p-1.5 border border-border-primary align-top h-24">
             {entry && (
-                <div className="p-2.5 rounded-lg text-white bg-blue-600 dark:bg-blue-500 h-full flex flex-col justify-center">
+                <div className={`p-2.5 rounded-lg h-full flex flex-col justify-center ${entry.classType === 'fixed' ? 'timetable-cell-fixed' : 'timetable-cell-regular'}`}>
                     <div className="font-bold text-sm">{entry.subject}</div>
                     <div className="text-xs opacity-80 mt-1">{role === 'student' ? entry.faculty : entry.className}</div>
                     <div className="text-xs opacity-80">Room: {entry.room}</div>

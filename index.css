@@ -105,4 +105,12 @@
   .tab-item-inactive {
     @apply border-transparent text-text-secondary hover:text-text-primary hover:border-border-primary;
   }
+  
+  /* NEW: Pastel colors for timetable */
+  .timetable-cell-regular {
+    @apply bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200;
+  }
+  .timetable-cell-fixed {
+    @apply bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200;
+  }
 }
