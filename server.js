@@ -672,64 +672,17 @@ app.put('/api/attendance/class', authMiddleware, adminOrTeacher, async (req, res
 
 // --- Chat Endpoints ---
 
-// FIX: Overhauled Campus AI endpoint to be a simple, keyword-based mock
-app.post('/api/chat/ask', authMiddleware, async (req, res) => {
-    const { messageText, classId, messageId } = req.body;
-    const { user } = req;
-    
-    try {
-        // Save the user's message to the database
-        const userMessage = new ChatMessage({
-            id: messageId, text: messageText, classId: classId, author: user.username, role: user.role, channel: 'query', timestamp: Date.now(),
-        });
-        await userMessage.save();
-
-        let aiResponseText = "I'm sorry, I'm not sure how to help with that. Can you try asking about your schedule, subjects, attendance, or exams?";
-        const lowerCaseMessage = messageText.toLowerCase();
-
-        if (lowerCaseMessage.includes('hello') || lowerCaseMessage.includes('hi')) {
-            aiResponseText = `Hello ${user.username}! How can I assist you today? You can ask me about your classes, exams, and more.`;
-        } else if (lowerCaseMessage.includes('attendance')) {
-            aiResponseText = "You can view your detailed attendance records in the 'Attendance' section of your dashboard.";
-        } else if (lowerCaseMessage.includes('exam') || lowerCaseMessage.includes('test')) {
-            aiResponseText = "Your exam schedule is available under the 'Exams' tab. Good luck with your preparation!";
-        } else if (lowerCaseMessage.includes('subject')) {
-            aiResponseText = "A list of your current subjects, along with faculty details, can be found in the 'Subjects' section.";
-        } else if (lowerCaseMessage.includes('timetable') || lowerCaseMessage.includes('schedule') || lowerCaseMessage.includes('class')) {
-            aiResponseText = "Your full weekly timetable is on the 'My Schedule' tab. For today's classes, check the 'Upcoming Classes' section!";
-        } else if (lowerCaseMessage.includes('notification')) {
-            aiResponseText = "You can find all recent announcements and alerts under the 'Notifications' tab.";
-        } else if (lowerCaseMessage.includes('ims') || lowerCaseMessage.includes('tool')) {
-            aiResponseText = "Helpful tools like the syllabus downloader and GPA calculator are available in the 'IMS & Smart Tools' section.";
-        }
-
-        const aiMessage = new ChatMessage({
-            id: `ai-msg-${Date.now()}`, text: aiResponseText, classId: classId, author: 'Campus AI', role: 'admin', channel: 'query', timestamp: Date.now(), groundingChunks: []
-        });
-        await aiMessage.save();
-        res.status(201).json(aiMessage);
-
-    } catch (error) {
-        handleApiError(res, error, 'Mock AI chat processing');
-    }
-});
-
-const adminAskAsStudentValidation = [
-    body('studentId').notEmpty().withMessage('Student ID is required.'),
-    body('messageText').notEmpty().withMessage('Message text is required.'),
-];
-
 // FIX: Added the missing 'generateChatPrompt' function that was causing a ReferenceError.
+// UPDATED: Modified prompt to be less restrictive and allow use of general knowledge/search.
 const generateChatPrompt = (userProfile, userClass, timetable, subjects, faculty, history) => {
     const relevantTimetable = timetable.map(t => `${t.day} at ${t.time}: ${t.subject} with ${t.faculty} in ${t.room}`).join('; ');
     const subjectList = subjects.map(s => `${s.name} (${s.code})`).join(', ');
 
-    let context = `CONTEXT: You are a helpful AI Campus Assistant for a university. You are answering a question from student:
+    let context = `CONTEXT: You are a helpful AI Campus Assistant for a university. Your primary goal is to answer student questions based on the context provided about their schedule, subjects, and class. If the information isn't in the context, you can use your general knowledge or the provided search results to answer. You are answering a question from student:
 - Name: ${userProfile.name}
 - Class: ${userClass ? userClass.name : 'Not currently enrolled.'}
 - Timetable: ${relevantTimetable || 'Not available.'}
-- Subjects in their department: ${subjectList || 'Not available.'}
-Based ONLY on the context provided, answer the student's question. If the information isn't in the context, say that you don't have that information.`;
+- Subjects in their department: ${subjectList || 'Not available.'}`;
 
     if (history && history.length > 0) {
         context += '\n\nPREVIOUS CONVERSATION:\n' + history.map(h => `${h.author}: ${h.text}`).join('\n');
@@ -737,6 +690,84 @@ Based ONLY on the context provided, answer the student's question. If the inform
 
     return `${context}\n\nSTUDENT'S QUESTION: `;
 };
+
+// FIX: Replaced keyword-based mock with a full Gemini implementation for the student chatbot.
+app.post('/api/chat/ask', authMiddleware, async (req, res) => {
+    if (!process.env.API_KEY) {
+        return res.status(500).json({ message: "AI features are not configured on the server." });
+    }
+    
+    const { messageText, classId, messageId } = req.body;
+    const { user } = req;
+    
+    try {
+        // Save the user's message to the database
+        const userMessage = new ChatMessage({
+            id: messageId,
+            text: messageText,
+            classId: classId,
+            author: user.username,
+            authorId: user.profileId,
+            role: user.role,
+            channel: 'query',
+            timestamp: Date.now(),
+        });
+        await userMessage.save();
+
+        // Fetch context for the prompt
+        const studentProfile = await Student.findOne({ id: user.profileId }).lean();
+        if (!studentProfile) {
+             const aiMessage = new ChatMessage({
+                id: `ai-msg-${Date.now()}`, text: "I'm sorry, I couldn't find your student profile to provide personalized information.", classId: classId, author: 'Campus AI', role: 'admin', channel: 'query', timestamp: Date.now(),
+            });
+            await aiMessage.save();
+            return res.status(201).json(aiMessage);
+        }
+        
+        const studentClass = studentProfile.classId ? await Class.findOne({ id: studentProfile.classId }).lean() : null;
+
+        const [timetable, subjects, faculty, history] = await Promise.all([
+            studentClass ? TimetableEntry.find({ className: studentClass.name }).lean() : Promise.resolve([]),
+            studentClass ? Subject.find({ department: studentClass.branch }).lean() : Promise.resolve([]),
+            Faculty.find().lean(),
+            ChatMessage.find({ channel: 'query', authorId: user.profileId }).sort({ timestamp: -1 }).limit(10).lean()
+        ]);
+        
+        // Construct the prompt
+        const prompt = generateChatPrompt(studentProfile, studentClass, timetable, subjects, faculty, history.reverse());
+        
+        // Call Gemini API
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+           model: "gemini-2.5-flash",
+           contents: `${prompt}${messageText}`,
+           config: { tools: [{googleSearch: {}}] } // Adding grounding for better responses
+        });
+
+        // Save AI response and send to client
+        const aiMessage = new ChatMessage({
+            id: `ai-msg-${Date.now()}`,
+            text: response.text,
+            classId: classId,
+            author: 'Campus AI',
+            role: 'admin',
+            channel: 'query',
+            timestamp: Date.now(),
+            groundingChunks: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
+        });
+        await aiMessage.save();
+
+        res.status(201).json(aiMessage);
+
+    } catch (error) {
+        handleApiError(res, error, 'AI chat processing');
+    }
+});
+
+const adminAskAsStudentValidation = [
+    body('studentId').notEmpty().withMessage('Student ID is required.'),
+    body('messageText').notEmpty().withMessage('Message text is required.'),
+];
 
 app.post('/api/chat/admin-ask-as-student', authMiddleware, adminOnly, ...adminAskAsStudentValidation, validate, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
@@ -755,11 +786,7 @@ app.post('/api/chat/admin-ask-as-student', authMiddleware, adminOnly, ...adminAs
         
         const prompt = generateChatPrompt(student, studentClass, timetable, subjects, faculty, []);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-           model: "gemini-2.5-flash",
-           contents: `${prompt}${messageText}`,
-           config: { tools: [{googleSearch: {}}] }
-        });
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: `${prompt}${messageText}`, config: { tools: [{googleSearch: {}}] } });
 
         const aiMessage = {
             id: `ai-test-msg-${Date.now()}`, text: response.text, classId: student.classId || '', author: 'Campus AI', role: 'admin', channel: 'admin-test', timestamp: Date.now(), 

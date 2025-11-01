@@ -1,18 +1,23 @@
 
 
 
+
+
+
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react';
-import { HashRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
 import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon, StudentIcon, HomeIcon, AttendanceIcon, IMSIcon, SmartToolsIcon, AvailabilityIcon, RequestsIcon, NotificationsIcon, ChatIcon, UsersIcon, CalendarIcon, MeetingIcon, QueryIcon, NotificationBellIcon, AnalyticsIcon } from './components/Icons';
 import { User } from './types';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay, FeedbackBanner } from './components/common';
+import { SmartClassroomLayout, StudentManagementTab, UserManagementTab, AttendanceManagementTab, ChatbotControlTab, MyProfileTab } from './features/classroom/SmartClassroom';
+
 
 // --- START: LAZY LOADED COMPONENTS FOR PERFORMANCE ---
 const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then(module => ({ default: module.Dashboard })));
 const TimetableScheduler = lazy(() => import('./features/scheduler/TimetableScheduler').then(module => ({ default: module.TimetableScheduler })));
-const SmartClassroom = lazy(() => import('./features/classroom/SmartClassroom').then(module => ({ default: module.SmartClassroom })));
+const SmartClassroom = lazy(() => import('./features/classroom/SmartClassroom').then(module => ({ default: module.SmartClassroomLayout })));
 const ModuleSelectionPage = lazy(() => import('./features/dashboard/ModuleSelectionPage').then(module => ({ default: module.ModuleSelectionPage })));
 const TeacherDashboardLayout = lazy(() => import('./features/teacher/TeacherDashboardLayout').then(module => ({ default: module.TeacherDashboardLayout })));
 const TeacherAttendancePage = lazy(() => import('./features/teacher/TeacherAttendancePage').then(module => ({ default: module.TeacherAttendancePage })));
@@ -22,15 +27,15 @@ const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage'
 const RequestsPage = lazy(() => import('./features/teacher/RequestsPage').then(module => ({ default: module.RequestsPage })));
 const NotificationsPageTeacher = lazy(() => import('./features/teacher/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage').then(module => ({ default: module.TeacherChatPage })));
-const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage').then(module => ({ default: module.TeacherChatboxPage })));
+const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage'));
 const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid').then(module => ({ default: module.TimetableGrid })));
 // FIX: Changed lazy import to use default export from QueryPage to resolve module loading issue.
 const QueryPage = lazy(() => import('./features/query/QueryPage'));
 const NotificationsCenterPage = lazy(() => import('./features/notifications/NotificationsCenterPage').then(module => ({ default: module.NotificationsCenterPage })));
 // --- NEW: Import fully implemented module pages ---
-const IMSPage = lazy(() => import('./features/ims/IMSPage').then(module => ({ default: module.IMSPage })));
-const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(module => ({ default: module.CalendarPage })));
-const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage').then(module => ({ default: module.MeetingsPage })));
+const IMSPage = lazy(() => import('./features/ims/IMSPage'));
+const CalendarPage = lazy(() => import('./features/calendar/CalendarPage'));
+const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage'));
 
 
 // --- SHARED UI COMPONENTS (MOVED TO components/common.tsx) ---
@@ -69,11 +74,6 @@ const Sidebar = React.memo(() => {
         { to: '/', icon: <HomeIcon className="h-5 w-5" />, label: 'Dashboard' },
         { to: '/scheduler', icon: <SchedulerIcon className="h-5 w-5" />, label: 'Timetable Scheduler' },
         { to: '/smart-classroom', icon: <StudentIcon className="h-5 w-5" />, label: 'Smart Classroom' },
-        { to: '/ims', icon: <AnalyticsIcon className="h-5 w-5" />, label: 'IMS' },
-        { to: '/calendar', icon: <CalendarIcon className="h-5 w-5" />, label: 'Calendar' },
-        { to: '/meetings', icon: <MeetingIcon className="h-5 w-5" />, label: 'Meetings' },
-        { to: '/query-management', icon: <QueryIcon className="h-5 w-5" />, label: 'Query Management' },
-        { to: '/notification-center', icon: <NotificationBellIcon className="h-5 w-5" />, label: 'Notification Center' },
     ];
 
     const teacherNavLinks = [
@@ -130,7 +130,8 @@ const AuthenticatedApp = () => {
         user, appState, classes, faculty, subjects, rooms, students, users, institutions,
         constraints, timetable, attendance, token, chatMessages, handleSaveEntity, handleDeleteEntity, 
         handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance, 
-        handleSaveUser, handleDeleteUser, handleResetData, handleAdminSendMessage, handleAdminAskAsStudent 
+        handleSaveUser, handleDeleteUser, handleResetData, handleAdminSendMessage, handleAdminAskAsStudent,
+        handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint 
     } = useAppContext();
 
     useEffect(() => {
@@ -172,30 +173,44 @@ const AuthenticatedApp = () => {
                                 onResetData={handleResetData}
                                 token={token || ''}
                                 onSaveTimetable={handleSaveTimetable}
+                                onAddCustomConstraint={handleAddCustomConstraint}
+                                onUpdateCustomConstraint={handleUpdateCustomConstraint}
+                                onDeleteCustomConstraint={handleDeleteCustomConstraint}
                             />} />
-                            <Route path="/smart-classroom" element={<SmartClassroom 
-                                user={user}
-                                classes={classes}
-                                faculty={faculty}
-                                students={students}
-                                users={users}
-                                attendance={attendance}
-                                constraints={constraints}
-                                chatMessages={chatMessages}
-                                onSaveEntity={handleSaveEntity}
-                                onDeleteEntity={handleDeleteEntity}
-                                onSaveUser={handleSaveUser}
-                                onDeleteUser={handleDeleteUser}
-                                onSaveClassAttendance={handleSaveClassAttendance}
-                                onUpdateConstraints={handleUpdateConstraints}
-                                onAdminSendMessage={handleAdminSendMessage}
-                                onAdminAskAsStudent={handleAdminAskAsStudent}
-                            />} />
-                             <Route path="/ims" element={<IMSPage />} />
-                             <Route path="/calendar" element={<CalendarPage />} />
-                             <Route path="/meetings" element={<MeetingsPage />} />
-                             <Route path="/query-management" element={<QueryPage />} />
-                             <Route path="/notification-center" element={<NotificationsCenterPage />} />
+                            <Route path="/smart-classroom" element={
+                                <SmartClassroomLayout 
+                                    user={user}
+                                    classes={classes}
+                                    faculty={faculty}
+                                    students={students}
+                                    users={users}
+                                    attendance={attendance}
+                                    constraints={constraints}
+                                    chatMessages={chatMessages}
+                                    onSaveEntity={handleSaveEntity}
+                                    onDeleteEntity={handleDeleteEntity}
+                                    onSaveUser={handleSaveUser}
+                                    onDeleteUser={handleDeleteUser}
+                                    onSaveClassAttendance={handleSaveClassAttendance}
+                                    onUpdateConstraints={handleUpdateConstraints}
+                                    onAdminSendMessage={handleAdminSendMessage}
+                                    onAdminAskAsStudent={handleAdminAskAsStudent}
+                                >
+                                    <Outlet />
+                                </SmartClassroomLayout>
+                            }>
+                                <Route index element={<Navigate to="students" replace />} />
+                                <Route path="students" element={<StudentManagementTab />} />
+                                <Route path="users" element={<UserManagementTab />} />
+                                <Route path="attendance" element={<AttendanceManagementTab />} />
+                                <Route path="chat" element={<ChatbotControlTab />} />
+                                <Route path="profile" element={<MyProfileTab />} />
+                                <Route path="ims" element={<IMSPage />} />
+                                <Route path="calendar" element={<CalendarPage />} />
+                                <Route path="meetings" element={<MeetingsPage />} />
+                                <Route path="query-management" element={<QueryPage />} />
+                                <Route path="notification-center" element={<NotificationsCenterPage />} />
+                            </Route>
                             <Route path="/" element={<ModuleSelectionPage user={user} />} />
                         </>
                     )}

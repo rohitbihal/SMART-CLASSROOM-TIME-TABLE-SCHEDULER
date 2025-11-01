@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon } from '../../components/Icons';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
@@ -25,6 +25,9 @@ interface TimetableSchedulerProps {
     onResetData: () => Promise<void>;
     token: string;
     onSaveTimetable: (timetable: TimetableEntry[]) => Promise<void>;
+    onAddCustomConstraint: (constraint: Omit<CustomConstraint, 'id'>) => Promise<void>;
+    onUpdateCustomConstraint: (constraint: CustomConstraint) => Promise<void>;
+    onDeleteCustomConstraint: (constraintId: string) => Promise<void>;
 }
 
 const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: (string|React.ReactNode)[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (
@@ -781,7 +784,114 @@ const FixedClassesContent = ({ constraints, onConstraintsChange, classes, subjec
     );
 };
 
-const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classes, rooms }: { constraints: Constraints | null; setConstraints: (c: Constraints) => void; faculty: Faculty[], subjects: Subject[], classes: Class[], rooms: Room[] }) => {
+const CustomConstraintsContent = ({ constraints, onAdd, onUpdate, onDelete }: { 
+    constraints: Constraints; 
+    onAdd: (c: Omit<CustomConstraint, 'id'>) => void;
+    onUpdate: (c: CustomConstraint) => void;
+    onDelete: (id: string) => void;
+}) => {
+    const [modalState, setModalState] = useState<{ mode: 'add' | 'edit', data: CustomConstraint | Partial<Omit<CustomConstraint, 'id'>> | null } | null>(null);
+
+    const handleSave = (constraintData: CustomConstraint | Omit<CustomConstraint, 'id'>) => {
+        if ('id' in constraintData) {
+            onUpdate(constraintData as CustomConstraint);
+        } else {
+            onAdd(constraintData as Omit<CustomConstraint, 'id'>);
+        }
+        setModalState(null);
+    };
+
+    const CustomConstraintForm = ({ initialData, onSave }: { initialData: CustomConstraint | Partial<Omit<CustomConstraint, 'id'>>; onSave: (data: any) => void; }) => {
+        const [data, setData] = useState(initialData || { name: '', type: 'Soft', description: '', appliedTo: 'Class', priority: 'Medium', isActive: true });
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setData({ ...data, [e.target.name]: e.target.value });
+        const formId = ('id' in data && data.id) || 'new-constraint';
+
+        return (
+            <form onSubmit={(e) => { e.preventDefault(); onSave(data); }} className="space-y-4">
+                <FormField label="Constraint Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required placeholder="e.g., No Friday Afternoon Labs" /></FormField>
+                <FormField label="Description" htmlFor={`${formId}-desc`}><textarea id={`${formId}-desc`} name="description" value={data.description} onChange={handleChange} className="input-base" rows={3} required placeholder="Describe the rule in natural language for the AI to understand." /></FormField>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField label="Type" htmlFor={`${formId}-type`}>
+                        <SelectInput id={`${formId}-type`} name="type" value={data.type} onChange={handleChange}>
+                            <option value="Hard">Hard (Must be followed)</option>
+                            <option value="Soft">Soft (Try to follow)</option>
+                        </SelectInput>
+                    </FormField>
+                    <FormField label="Applied To" htmlFor={`${formId}-appliedTo`}>
+                        <SelectInput id={`${formId}-appliedTo`} name="appliedTo" value={data.appliedTo} onChange={handleChange}>
+                            <option value="Faculty">Faculty</option>
+                            <option value="Room">Room</option>
+                            <option value="Class">Class</option>
+                            <option value="Time Slot">Time Slot</option>
+                        </SelectInput>
+                    </FormField>
+                    <FormField label="Priority" htmlFor={`${formId}-priority`}>
+                        <SelectInput id={`${formId}-priority`} name="priority" value={data.priority} onChange={handleChange}>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </SelectInput>
+                    </FormField>
+                </div>
+                <button type="submit" className="w-full mt-4 btn-primary flex items-center justify-center gap-2"><SaveIcon />Save Constraint</button>
+            </form>
+        );
+    };
+
+    return (
+        <>
+            {modalState && (
+                <Modal isOpen={!!modalState} onClose={() => setModalState(null)} title={modalState.mode === 'add' ? 'Add Custom Constraint' : 'Edit Custom Constraint'}>
+                    <CustomConstraintForm initialData={modalState.data!} onSave={handleSave} />
+                </Modal>
+            )}
+            <SectionCard title="Custom Scheduling Rules" actions={
+                <button onClick={() => setModalState({ mode: 'add', data: { name: '', type: 'Soft', description: '', appliedTo: 'Class', priority: 'Medium', isActive: true } })} className="action-btn-primary"><AddIcon />Add Rule</button>
+            }>
+                <p className="text-text-secondary text-sm mb-4">Define custom hard or soft constraints for the AI. For example: "No classes for Section A after 3 PM on Fridays" (Soft) or "Dr. Smith must not have a class in the first period" (Hard).</p>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="text-left bg-bg-tertiary">
+                                <th className="p-3">Name</th>
+                                <th className="p-3">Type</th>
+                                <th className="p-3">Applied To</th>
+                                <th className="p-3">Priority</th>
+                                <th className="p-3">Active</th>
+                                <th className="p-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(constraints.customConstraints || []).length > 0 ? (constraints.customConstraints || []).map(c => (
+                                <tr key={c.id} className="border-b border-border-primary">
+                                    <td className="p-3 font-semibold" title={c.description}>{c.name}</td>
+                                    <td className="p-3"><span className={`font-bold ${c.type === 'Hard' ? 'text-red-500' : 'text-yellow-500'}`}>{c.type}</span></td>
+                                    <td className="p-3">{c.appliedTo}</td>
+                                    <td className="p-3">{c.priority}</td>
+                                    <td className="p-3">
+                                        <button onClick={() => onUpdate({ ...c, isActive: !c.isActive })}>
+                                            {c.isActive ? <ToggleOnIcon className="h-6 w-6 text-green-500" /> : <ToggleOffIcon className="h-6 w-6 text-text-secondary" />}
+                                        </button>
+                                    </td>
+                                    <td className="p-3 flex gap-2">
+                                        <button onClick={() => setModalState({ mode: 'edit', data: c })}><EditIcon /></button>
+                                        <button onClick={() => onDelete(c.id)}><DeleteIcon /></button>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr><td colSpan={6} className="text-center p-8 text-text-secondary">No custom rules defined yet.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </SectionCard>
+        </>
+    );
+};
+
+
+const ConstraintsTab = (props: TimetableSchedulerProps) => {
+    const { constraints, setConstraints, faculty, subjects, classes, rooms, onAddCustomConstraint, onUpdateCustomConstraint, onDeleteCustomConstraint } = props;
     const [activeSubTab, setActiveSubTab] = useState('time');
     
     if (!constraints) return <LoadingIcon />;
@@ -790,6 +900,7 @@ const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classe
         { key: 'time', label: 'Time & Day', icon: <ConstraintsIcon /> },
         { key: 'fixed', label: 'Fixed Classes', icon: <PinIcon /> },
         { key: 'faculty', label: 'Faculty Preferences', icon: <AvailabilityIcon /> },
+        { key: 'custom', label: 'Custom Rules', icon: <ShieldIcon /> },
         { key: 'additional', label: 'Additional Rules', icon: <AnalyticsIcon /> }
     ];
     
@@ -804,6 +915,7 @@ const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classe
             {activeSubTab === 'time' && <TimePreferencesVisual prefs={constraints.timePreferences} onChange={(newPrefs) => setConstraints({ ...constraints, timePreferences: newPrefs })} />}
             {activeSubTab === 'fixed' && <FixedClassesContent constraints={constraints} onConstraintsChange={setConstraints} classes={classes} subjects={subjects} rooms={rooms} />}
             {activeSubTab === 'faculty' && <FacultyPreferencesContent constraints={constraints} onConstraintsChange={setConstraints} faculty={faculty} subjects={subjects} />}
+            {activeSubTab === 'custom' && <CustomConstraintsContent constraints={constraints} onAdd={onAddCustomConstraint} onUpdate={onUpdateCustomConstraint} onDelete={onDeleteCustomConstraint} />}
             {activeSubTab === 'additional' && <AdditionalConstraintsContent constraints={constraints} onConstraintsChange={setConstraints} classes={classes} faculty={faculty} subjects={subjects} />}
 
         </div>

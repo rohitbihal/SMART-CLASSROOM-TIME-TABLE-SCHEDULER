@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { NavLink, Outlet, useOutletContext, useLocation } from 'react-router-dom';
 import {
-    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon, ClockIcon, ChatIcon, SendIcon, AIIcon, SaveIcon
+    SearchIcon, StudentIcon, UsersIcon, AddIcon, EditIcon, DeleteIcon, ProfileIcon, AttendanceIcon, UploadIcon, KeyIcon, ShieldIcon, TeacherIcon, ClockIcon, ChatIcon, SendIcon, AIIcon, SaveIcon, IMSIcon, CalendarIcon, MeetingIcon, QueryIcon, NotificationBellIcon
 } from '../../components/Icons';
 import { SectionCard, Modal, FeedbackBanner, FormField, TextInput, SelectInput } from '../../components/common';
 import { User, Class, Student, Faculty, Attendance, AttendanceStatus, AttendanceRecord, Constraints, ChatMessage } from '../../types';
 
-interface SmartClassroomProps {
+export interface SmartClassroomProps {
     user: User;
     classes: Class[]; faculty: Faculty[]; students: Student[]; users: User[];
     attendance: Attendance;
@@ -108,7 +109,10 @@ const StudentImportModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () 
     );
 };
 
-const StudentManagementTab = ({ classes, students, onSaveEntity, onDeleteEntity, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'students' | 'onSaveEntity' | 'onDeleteEntity'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+export const StudentManagementTab = () => {
+    const { classes, students, onSaveEntity, onDeleteEntity } = useOutletContext<SmartClassroomProps>();
+    const { setFeedback } = useOutletContext<ReturnType<typeof useSmartClassroomLayout>>();
+    
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [editingStudent, setEditingStudent] = useState<Student | { new: true } | null>(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -360,7 +364,10 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
     );
 };
 
-const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser, setFeedback }: Pick<SmartClassroomProps, 'users' | 'faculty' | 'students' | 'onSaveUser' | 'onDeleteUser'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+export const UserManagementTab = () => {
+    const { users, faculty, students, onSaveUser, onDeleteUser } = useOutletContext<SmartClassroomProps>();
+    const { setFeedback } = useOutletContext<ReturnType<typeof useSmartClassroomLayout>>();
+
     const [userType, setUserType] = useState<'teacher' | 'student'>('teacher');
     const [editingUser, setEditingUser] = useState<Partial<User> | null>(null);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -557,7 +564,10 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     );
 };
 
-const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFeedback }: Pick<SmartClassroomProps, 'user' | 'faculty' | 'students' | 'onSaveEntity' | 'onSaveUser'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+export const MyProfileTab = () => {
+    const { user, faculty, students, onSaveEntity, onSaveUser } = useOutletContext<SmartClassroomProps>();
+    const { setFeedback } = useOutletContext<ReturnType<typeof useSmartClassroomLayout>>();
+
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
@@ -709,7 +719,10 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
     );
 };
 
-const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAttendance, setFeedback }: Pick<SmartClassroomProps, 'classes' | 'students' | 'attendance' | 'onSaveClassAttendance'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+export const AttendanceManagementTab = () => {
+    const { classes, students, attendance, onSaveClassAttendance } = useOutletContext<SmartClassroomProps>();
+    const { setFeedback } = useOutletContext<ReturnType<typeof useSmartClassroomLayout>>();
+
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [currentRecords, setCurrentRecords] = useState<AttendanceRecord>({});
@@ -799,7 +812,10 @@ const AttendanceManagementTab = ({ classes, students, attendance, onSaveClassAtt
     );
 };
 
-const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, setFeedback, students, onAdminAskAsStudent }: Pick<SmartClassroomProps, 'classes' | 'constraints' | 'chatMessages' | 'onUpdateConstraints' | 'onAdminSendMessage' | 'students' | 'onAdminAskAsStudent'> & { setFeedback: (feedback: { type: 'success' | 'error', message: string } | null) => void; }) => {
+export const ChatbotControlTab = () => {
+    const { classes, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, students, onAdminAskAsStudent } = useOutletContext<SmartClassroomProps>();
+    const { setFeedback } = useOutletContext<ReturnType<typeof useSmartClassroomLayout>>();
+    
     const [chatWindow, setChatWindow] = useState(constraints?.chatWindow || { start: '09:00', end: '17:00' });
     const [isChatEnabled, setIsChatEnabled] = useState(constraints?.isChatboxEnabled ?? true);
     const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
@@ -982,11 +998,7 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
     );
 };
 
-// --- FIX: Add the missing SmartClassroom component and export it. ---
-export const SmartClassroom = (props: SmartClassroomProps) => {
-    const { user, classes, faculty, students, users, attendance, constraints, chatMessages, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance, onUpdateConstraints, onAdminSendMessage, onAdminAskAsStudent } = props;
-
-    const [activeTab, setActiveTab] = useState('students');
+const useSmartClassroomLayout = () => {
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
     useEffect(() => {
@@ -995,32 +1007,28 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
             return () => clearTimeout(timer);
         }
     }, [feedback]);
+    
+    return { feedback, setFeedback };
+};
 
+
+export const SmartClassroomLayout = (props: SmartClassroomProps & { children: React.ReactNode }) => {
+    const { feedback, setFeedback } = useSmartClassroomLayout();
+    const location = useLocation();
+    
     const tabs = [
-        { key: 'students', label: 'Student Management', icon: <StudentIcon className="h-5 w-5" /> },
-        { key: 'users', label: 'User Accounts', icon: <UsersIcon className="h-5 w-5" /> },
-        { key: 'attendance', label: 'Attendance', icon: <AttendanceIcon className="h-5 w-5" /> },
-        { key: 'chat', label: 'Chatbot Control', icon: <ChatIcon className="h-5 w-5" /> },
-        { key: 'profile', label: 'My Profile', icon: <ProfileIcon className="h-5 w-5" /> },
+        { key: 'students', label: 'Students', icon: <StudentIcon className="h-5 w-5" />, path: '/smart-classroom/students' },
+        { key: 'users', label: 'Users', icon: <UsersIcon className="h-5 w-5" />, path: '/smart-classroom/users' },
+        { key: 'attendance', label: 'Attendance', icon: <AttendanceIcon className="h-5 w-5" />, path: '/smart-classroom/attendance' },
+        { key: 'chat', label: 'Chat Control', icon: <ChatIcon className="h-5 w-5" />, path: '/smart-classroom/chat' },
+        { key: 'ims', label: 'IMS', icon: <IMSIcon className="h-5 w-5" />, path: '/smart-classroom/ims'},
+        { key: 'calendar', label: 'Calendar', icon: <CalendarIcon className="h-5 w-5" />, path: '/smart-classroom/calendar' },
+        { key: 'meetings', label: 'Meetings', icon: <MeetingIcon className="h-5 w-5" />, path: '/smart-classroom/meetings' },
+        { key: 'query-management', label: 'Queries', icon: <QueryIcon className="h-5 w-5" />, path: '/smart-classroom/query-management'},
+        { key: 'notification-center', label: 'Notifications', icon: <NotificationBellIcon className="h-5 w-5" />, path: '/smart-classroom/notification-center'},
+        { key: 'profile', label: 'My Profile', icon: <ProfileIcon className="h-5 w-5" />, path: '/smart-classroom/profile' },
     ];
-
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'students':
-                return <StudentManagementTab classes={classes} students={students} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} setFeedback={setFeedback} />;
-            case 'users':
-                return <UserManagementTab users={users} faculty={faculty} students={students} onSaveUser={onSaveUser} onDeleteUser={onDeleteUser} setFeedback={setFeedback} />;
-            case 'attendance':
-                return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
-            case 'chat':
-                return <ChatbotControlTab classes={classes} constraints={constraints} chatMessages={chatMessages} onUpdateConstraints={onUpdateConstraints} onAdminSendMessage={onAdminSendMessage} setFeedback={setFeedback} students={students} onAdminAskAsStudent={onAdminAskAsStudent} />;
-            case 'profile':
-                return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;
-            default:
-                return null;
-        }
-    };
-
+    
     return (
         <div className="min-h-screen">
             <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
@@ -1030,15 +1038,17 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                     <p className="text-gray-500 dark:text-gray-400 mt-1">Manage students, users, attendance, and classroom settings.</p>
                 </div>
             </header>
-            <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8">
+            <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8 overflow-x-auto">
                 {tabs.map(tab => (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>
+                    <NavLink key={tab.key} to={tab.path}
+                        className={({ isActive }) => `flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors whitespace-nowrap ${isActive ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}
+                    >
                         {tab.icon}{tab.label}
-                    </button>
+                    </NavLink>
                 ))}
             </nav>
             <main className="space-y-6">
-                {renderContent()}
+                 <Outlet context={{...props, feedback, setFeedback}} />
             </main>
         </div>
     );
