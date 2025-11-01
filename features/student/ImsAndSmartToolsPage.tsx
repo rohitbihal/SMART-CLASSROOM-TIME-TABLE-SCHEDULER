@@ -28,7 +28,6 @@ export const ImsAndSmartToolsPage = () => {
                 <ToolCard 
                     title="GPA Calculator" 
                     description="Calculate your current and projected GPA." 
-                    // FIX: Use CalculatorIcon instead of the placeholder BookOpenIcon.
                     icon={<CalculatorIcon className="h-8 w-8 text-green-500" />}
                     onClick={() => handleToolClick('GPA Calculator')}
                 />

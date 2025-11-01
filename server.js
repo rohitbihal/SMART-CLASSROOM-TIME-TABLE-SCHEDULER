@@ -179,8 +179,8 @@ const teacherRequestSchema = new mongoose.Schema({
 
 // --- NEW: Student Dashboard Data Schemas ---
 const studentAttendanceSchema = new mongoose.Schema({ studentId: String, subjectId: String, attended: Number, total: Number });
-const examSchema = new mongoose.Schema({ classId: String, subjectName: String, subjectCode: String, date: String, time: String, room: String });
-const notificationSchema = new mongoose.Schema({ studentId: String, title: String, message: String, timestamp: String, read: Boolean });
+const examSchema = new mongoose.Schema({ id: {type: String, unique: true}, classId: String, subjectName: String, subjectCode: String, date: String, time: String, room: String });
+const notificationSchema = new mongoose.Schema({ id: {type: String, unique: true}, studentId: String, title: String, message: String, timestamp: String, read: Boolean });
 
 const Class = mongoose.model('Class', classSchema);
 const Faculty = mongoose.model('Faculty', facultySchema);
@@ -250,9 +250,9 @@ const MOCK_STUDENT_ATTENDANCE = [
     { studentId: 'st1', subjectId: 's5', attended: 7, total: 10 },
 ];
 const MOCK_EXAMS = [
-    { classId: 'c1', subjectName: 'Data Structures', subjectCode: 'CS301', date: '2024-12-10', time: '09:30 AM - 12:30 PM', room: 'A-101' },
-    { classId: 'c1', subjectName: 'Algorithms', subjectCode: 'CS302', date: '2024-12-12', time: '09:30 AM - 12:30 PM', room: 'A-102' },
-    { classId: 'c1', subjectName: 'Database Systems', subjectCode: 'CS303', date: '2024-12-14', time: '09:30 AM - 12:30 PM', room: 'A-101' },
+    { id: 'e1', classId: 'c1', subjectName: 'Data Structures', subjectCode: 'CS301', date: '2024-12-10', time: '09:30 AM - 12:30 PM', room: 'A-101' },
+    { id: 'e2', classId: 'c1', subjectName: 'Algorithms', subjectCode: 'CS302', date: '2024-12-12', time: '09:30 AM - 12:30 PM', room: 'A-102' },
+    { id: 'e3', classId: 'c1', subjectName: 'Database Systems', subjectCode: 'CS303', date: '2024-12-14', time: '09:30 AM - 12:30 PM', room: 'A-101' },
 ];
 const MOCK_NOTIFICATIONS = [
     { studentId: 'st1', id: 'n1', title: 'Assignment 2 Deadline Extended', message: 'The deadline for the DBMS assignment has been extended to Dec 5th.', timestamp: '2 hours ago', read: false },
@@ -289,10 +289,12 @@ async function seedDatabase() {
 
         await Constraints.updateOne({ identifier: 'global_constraints' }, { $setOnInsert: MOCK_CONSTRAINTS }, { upsert: true });
 
-        // Seed new student data
-        await StudentAttendance.deleteMany({}); await StudentAttendance.insertMany(MOCK_STUDENT_ATTENDANCE);
-        await Exam.deleteMany({}); await Exam.insertMany(MOCK_EXAMS);
-        await Notification.deleteMany({}); await Notification.insertMany(MOCK_NOTIFICATIONS);
+        // Seed new student data if collections are empty
+        if (await StudentAttendance.countDocuments() === 0) await StudentAttendance.insertMany(MOCK_STUDENT_ATTENDANCE);
+        const examOps = MOCK_EXAMS.map(doc => ({ updateOne: { filter: { id: doc.id }, update: { $setOnInsert: doc }, upsert: true } }));
+        if (examOps.length > 0) await Exam.bulkWrite(examOps);
+        const notificationOps = MOCK_NOTIFICATIONS.map(doc => ({ updateOne: { filter: { id: doc.id }, update: { $setOnInsert: doc }, upsert: true } }));
+        if (notificationOps.length > 0) await Notification.bulkWrite(notificationOps);
 
         console.log('Database seed/update complete.');
     } catch (error) { console.error('Error seeding database:', error); }
@@ -349,18 +351,24 @@ const handleApiError = (res, error, context) => {
 // --- Main Data Endpoints ---
 app.get('/api/all-data', authMiddleware, async (req, res) => {
     try {
-        const findChatMessages = async () => {
+        const findChatMessages = () => {
           if (req.user.role === 'admin') {
               return ChatMessage.find({ channel: { $regex: /^admin-chat-/ } }).sort({ timestamp: 1 }).lean();
           }
           return ChatMessage.find({ channel: { $not: { $regex: /^admin-chat-/ } } }).sort({ timestamp: 1 }).lean();
         };
 
-        const studentDataPromises = req.user.role === 'student' ? [
-            StudentAttendance.find({ studentId: req.user.profileId }).lean(),
-            Exam.find({ classId: (await Student.findOne({ id: req.user.profileId }).lean())?.classId }).lean(),
-            Notification.find({ studentId: req.user.profileId }).lean(),
-        ] : [Promise.resolve([]), Promise.resolve([]), Promise.resolve([])];
+        // FIX: Safely fetch student-specific data
+        let studentDataPromises = [Promise.resolve([]), Promise.resolve([]), Promise.resolve([])];
+        if (req.user.role === 'student') {
+            const student = await Student.findOne({ id: req.user.profileId }).lean();
+            const studentClassId = student ? student.classId : null;
+            studentDataPromises = [
+                StudentAttendance.find({ studentId: req.user.profileId }).lean(),
+                studentClassId ? Exam.find({ classId: studentClassId }).lean() : Promise.resolve([]),
+                Notification.find({ studentId: req.user.profileId }).lean(),
+            ];
+        }
 
         const [
             classes, faculty, subjects, rooms, students, constraints, timetable, 
