@@ -2,6 +2,7 @@ import React from 'react';
 import { SectionCard } from '../../App';
 import { UploadIcon, AnalyticsIcon, GradebookIcon } from '../../components/Icons';
 
+// FIX: Defined missing style constants to prevent runtime ReferenceError.
 const IMS_BUTTON_STYLE = "flex flex-col items-center justify-center p-8 rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-2xl";
 const ICON_STYLE = "h-10 w-10 mb-4";
 const TEXT_STYLE = "text-xl font-bold";

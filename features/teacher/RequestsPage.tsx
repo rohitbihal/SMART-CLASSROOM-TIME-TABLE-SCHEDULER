@@ -7,7 +7,7 @@ import { TeacherQuery } from '../../types';
 export const RequestsPage = () => {
     const { user, subjects, teacherRequests, handleSubmitTeacherRequest } = useAppContext();
 
-    // FIX: Changed queryType to a valid value and added missing priority field to match the TeacherQuery type.
+    // FIX: Added missing 'priority' field to initialState to align with the TeacherQuery type.
     const initialState: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'> = {
         queryType: 'Timing Adjustment',
         subject: '',

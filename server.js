@@ -81,9 +81,9 @@ const saltRounds = 10;
 
 // --- Mongoose Schemas ---
 const classSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, branch: String, year: Number, section: String, studentCount: Number, block: String });
-const facultySchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, department: String, specialization: [String], email: { type: String, required: true, unique: true }, adminId: { type: String, unique: true, sparse: true }, contactNumber: String, accessLevel: String, availability: mongoose.Schema.Types.Mixed });
-const subjectSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, code: {type: String, required: true, unique: true}, department: String, type: String, hoursPerWeek: Number, assignedFacultyId: String });
-const roomSchema = new mongoose.Schema({ id: {type: String, unique: true}, number: {type: String, required: true, unique: true}, type: String, capacity: Number, block: String });
+const facultySchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, employeeId: String, designation: String, department: String, specialization: [String], email: { type: String, required: true, unique: true }, adminId: { type: String, unique: true, sparse: true }, contactNumber: String, accessLevel: String, availability: mongoose.Schema.Types.Mixed, maxWorkload: Number });
+const subjectSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, code: {type: String, required: true, unique: true}, department: String, semester: Number, credits: Number, type: String, hoursPerWeek: Number, assignedFacultyId: String });
+const roomSchema = new mongoose.Schema({ id: {type: String, unique: true}, number: {type: String, required: true, unique: true}, building: String, type: String, capacity: Number, block: String, equipment: mongoose.Schema.Types.Mixed });
 const studentSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, email: {type: String, unique: true, sparse: true}, classId: String, roll: String, contactNumber: String });
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true },
@@ -165,16 +165,18 @@ const chatMessageSchema = new mongoose.Schema({
     groundingChunks: { type: mongoose.Schema.Types.Mixed, default: [] }
 });
 
+// FIX: Aligned schema with frontend 'TeacherQuery' type for consistency
 const teacherRequestSchema = new mongoose.Schema({
     id: { type: String, unique: true, required: true },
     facultyId: { type: String, required: true },
-    requestType: String,
+    queryType: String,
     subject: String,
     currentSchedule: String,
     requestedChange: String,
     reason: String,
     status: { type: String, default: 'Pending' },
     submittedDate: { type: String, default: () => new Date().toISOString() },
+    priority: { type: String, default: 'Normal' },
 });
 
 // --- NEW: Student Dashboard Data Schemas ---
@@ -201,11 +203,25 @@ const Notification = mongoose.model('Notification', notificationSchema);
 const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest };
 
 const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
-const MOCK_FACULTY = [ { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210' }, { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211' } ];
-// FIX: Corrected casing of 'type' property to match frontend TypeScript definitions.
-const MOCK_SUBJECTS = [ { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f1' }, { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1' }, { id: 's3', name: 'Database Systems', code: 'CS303', department: 'CSE', type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2' }, { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1' }, { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f2' } ];
-// FIX: Corrected casing of 'type' property to match frontend TypeScript definitions.
-const MOCK_ROOMS = [ { id: 'r1', number: 'CS-101', type: 'Classroom', capacity: 65, block: 'A-Block' }, { id: 'r2', number: 'CS-102', type: 'Classroom', capacity: 65, block: 'B-Block' }, { id: 'r3', number: 'CS-Lab-1', type: 'Laboratory', capacity: 60, block: 'A-Block' } ];
+// FIX: Added missing fields to MOCK_FACULTY to match the Faculty type and schema.
+const MOCK_FACULTY = [
+    { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210', maxWorkload: 18 },
+    { id: 'f2', name: 'Prof. Sunita Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211', maxWorkload: 20 }
+];
+// FIX: Added missing fields to MOCK_SUBJECTS to match the Subject type and schema.
+const MOCK_SUBJECTS = [
+    { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f1' },
+    { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1' },
+    { id: 's3', name: 'Database Systems', code: 'CS303', department: 'CSE', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2' },
+    { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', semester: 3, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1' },
+    { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', semester: 3, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f2' }
+];
+// FIX: Added missing fields to MOCK_ROOMS to match the Room type and schema.
+const MOCK_ROOMS = [
+    { id: 'r1', number: 'CS-101', building: 'Academic Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+    { id: 'r2', number: 'CS-102', building: 'Academic Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+    { id: 'r3', number: 'CS-Lab-1', building: 'Academic Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 30 }, audioSystem: false, whiteboard: true } }
+];
 const MOCK_STUDENTS = [ { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu', contactNumber: '8765432109' }, { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02', email: 'bob.singh@university.edu', contactNumber: '8765432108' }, { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01', contactNumber: '8765432107' }, { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02', email: 'diana.p@university.edu', contactNumber: '8765432106' } ];
 const MOCK_USERS = [ { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' }, { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' }, { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' } ];
 const MOCK_INSTITUTIONS = [
@@ -663,6 +679,25 @@ const adminAskAsStudentValidation = [
     body('messageText').notEmpty().withMessage('Message text is required.'),
 ];
 
+// FIX: Added the missing 'generateChatPrompt' function that was causing a ReferenceError.
+const generateChatPrompt = (userProfile, userClass, timetable, subjects, faculty, history) => {
+    const relevantTimetable = timetable.map(t => `${t.day} at ${t.time}: ${t.subject} with ${t.faculty} in ${t.room}`).join('; ');
+    const subjectList = subjects.map(s => `${s.name} (${s.code})`).join(', ');
+
+    let context = `CONTEXT: You are a helpful AI Campus Assistant for a university. You are answering a question from student:
+- Name: ${userProfile.name}
+- Class: ${userClass ? userClass.name : 'Not currently enrolled.'}
+- Timetable: ${relevantTimetable || 'Not available.'}
+- Subjects in their department: ${subjectList || 'Not available.'}
+Based ONLY on the context provided, answer the student's question. If the information isn't in the context, say that you don't have that information.`;
+
+    if (history && history.length > 0) {
+        context += '\n\nPREVIOUS CONVERSATION:\n' + history.map(h => `${h.author}: ${h.text}`).join('\n');
+    }
+
+    return `${context}\n\nSTUDENT'S QUESTION: `;
+};
+
 app.post('/api/chat/admin-ask-as-student', authMiddleware, adminOnly, ...adminAskAsStudentValidation, validate, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
     
@@ -678,7 +713,6 @@ app.post('/api/chat/admin-ask-as-student', authMiddleware, adminOnly, ...adminAs
             Faculty.find().lean()
         ]);
         
-        const generateChatPrompt = (userProfile, userClass, timetable, subjects, faculty, history) => `You are a helpful AI Campus Assistant. Context: User: ${userProfile.name}, Class: ${userClass ? userClass.name : 'N/A'}. Timetable: ${JSON.stringify(timetable)}. Subjects: ${JSON.stringify(subjects)}. New Question:`;
         const prompt = generateChatPrompt(student, studentClass, timetable, subjects, faculty, []);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
