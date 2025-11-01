@@ -7,12 +7,14 @@ import { TeacherQuery } from '../../types';
 export const RequestsPage = () => {
     const { user, subjects, teacherRequests, handleSubmitTeacherRequest } = useAppContext();
 
+    // FIX: Changed queryType to a valid value and added missing priority field to match the TeacherQuery type.
     const initialState: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'> = {
-        queryType: 'Schedule Change',
+        queryType: 'Timing Adjustment',
         subject: '',
         currentSchedule: '',
         requestedChange: '',
         reason: '',
+        priority: 'Normal',
     };
     const [formState, setFormState] = useState(initialState);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,11 +58,15 @@ export const RequestsPage = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <FormField label="Request Type" htmlFor="queryType">
+                            {/* FIX: Updated select options to match TeacherQuery type definition. */}
                             <SelectInput id="queryType" name="queryType" value={formState.queryType} onChange={handleChange}>
-                                <option>Schedule Change</option>
-                                <option>Leave Request</option>
-                                <option>Resource Request</option>
-                                <option>Other</option>
+                                <option value="Classroom Allotment">Classroom Allotment</option>
+                                <option value="Classroom Change">Classroom Change</option>
+                                <option value="Timing Adjustment">Timing Adjustment</option>
+                                <option value="Workload Review">Workload Review</option>
+                                <option value="Leave Request">Leave Request</option>
+                                <option value="Swap Lecture">Swap Lecture</option>
+                                <option value="Other">Other</option>
                             </SelectInput>
                         </FormField>
                         <FormField label="Subject/Class" htmlFor="subject">

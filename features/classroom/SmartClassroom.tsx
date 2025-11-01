@@ -372,8 +372,7 @@ const UserManagementTab = ({ users, faculty, students, onSaveUser, onDeleteUser,
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const selectAllUsersCheckboxRef = useRef<HTMLInputElement>(null);
 
-    // FIX: Changed 'contactNumber' to 'contact' for faculty profiles to match type definition.
-    const profileMap = useMemo(() => { const map = new Map<string, { name: string, contactNumber?: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name, contactNumber: f.contact })); students.forEach(s => map.set(s.id, { name: s.name, contactNumber: s.contactNumber })); return map; }, [faculty, students]);
+    const profileMap = useMemo(() => { const map = new Map<string, { name: string, contactNumber?: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name, contactNumber: f.contactNumber })); students.forEach(s => map.set(s.id, { name: s.name, contactNumber: s.contactNumber })); return map; }, [faculty, students]);
     const filteredUsers = useMemo(() => users.filter(u => u.role === userType && (u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))), [users, searchTerm, profileMap, userType]);
     
     const allUserIdsInView = useMemo(() => filteredUsers.map(u => u._id!).filter(Boolean), [filteredUsers]);
@@ -577,7 +576,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 adminId: `ADM-${user.profileId.substring(0, 4)}`,
                 employeeId: `ADM-${user.profileId.substring(0, 4)}`,
                 designation: 'Professor',
-                contact: '',
+                contactNumber: '',
                 maxWorkload: 40,
             };
         }
@@ -595,7 +594,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 name: userProfile.name,
                 specialization: 'specialization' in userProfile ? userProfile.specialization.join(', ') : '',
                 adminId: 'adminId' in userProfile ? userProfile.adminId || '' : '',
-                contactNumber: 'contact' in userProfile ? userProfile.contact || '' : ('contactNumber' in userProfile ? userProfile.contactNumber || '' : ''),
+                contactNumber: 'contactNumber' in userProfile ? userProfile.contactNumber || '' : '',
                 accessLevel: 'accessLevel' in userProfile ? userProfile.accessLevel : 'Super Admin',
             });
         }
@@ -623,7 +622,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                 const profilePayload = {
                     ...userProfile,
                     name: profileData.name,
-                    contact: profileData.contactNumber, // Use 'contact'
+                    contactNumber: profileData.contactNumber,
                     ...(user.role !== 'student' && { specialization: profileData.specialization.split(',').map(s => s.trim()) }),
                     ...(user.role === 'admin' && { adminId: profileData.adminId, accessLevel: profileData.accessLevel })
                 };
@@ -698,7 +697,7 @@ const MyProfileTab = ({ user, faculty, students, onSaveEntity, onSaveUser, setFe
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <ProfileField label="Full Name" value={userProfile.name} />
                         <ProfileField label="Username/Email" value={user.username} />
-                        {'contact' in userProfile && <ProfileField label="Contact Number" value={userProfile.contact} />}
+                        {'contactNumber' in userProfile && <ProfileField label="Contact Number" value={userProfile.contactNumber} />}
                         {'department' in userProfile && <ProfileField label="Department" value={userProfile.department} />}
                         {user.role === 'admin' && 'adminId' in userProfile && <ProfileField label="Admin ID" value={userProfile.adminId} />}
                         {user.role === 'admin' && 'accessLevel' in userProfile && <ProfileField label="Access Level" value={userProfile.accessLevel} />}
@@ -916,185 +915,94 @@ const ChatbotControlTab = ({ classes, constraints, chatMessages, onUpdateConstra
                                     <label htmlFor="chatbox-toggle" className="flex items-center cursor-pointer">
                                         <div className="relative">
                                             <input type="checkbox" id="chatbox-toggle" className="sr-only" checked={isChatEnabled} onChange={() => setIsChatEnabled(!isChatEnabled)} />
-                                            <div className={`block w-14 h-8 rounded-full ${isChatEnabled ? 'bg-accent-primary' : 'bg-gray-400'}`}></div>
-                                            <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isChatEnabled ? 'transform translate-x-6' : ''}`}></div>
+                                            <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
+                                            <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
                                         </div>
                                     </label>
                                 </div>
                             </div>
-                            <div className="mt-4 pt-4 border-t border-border-primary flex justify-end">
-                                <button onClick={handleSaveSettings} className="btn-primary w-full flex items-center justify-center gap-2" disabled={isSaving}>
-                                    {isSaving ? 'Saving...' : <><SaveIcon className="h-5 w-5"/>Save All Settings</>}
-                                </button>
+                            <div className="flex justify-end mt-6">
+                                <button onClick={handleSaveSettings} className="btn-primary w-32" disabled={isSaving}>{isSaving ? "Saving..." : "Save Settings"}</button>
                             </div>
                         </div>
                     </SectionCard>
                 </div>
                 <div className="lg:col-span-2">
-                     {/* FIX: Wrapped content inside SectionCard */}
-                     <SectionCard title={`Admin Broadcast: ${selectedClassName || 'Select a Class'}`} className="flex flex-col h-[75vh]">
+                    {/* FIX: Wrapped content inside SectionCard */}
+                    <SectionCard title="Admin Announcements">
                         <div>
-                            <div className="flex-1">
-                                 {/* FIX: Wrapped SelectInput inside FormField */}
-                                 <FormField label="Select Class to Broadcast to" htmlFor="broadcast-class-select">
-                                    <SelectInput id="broadcast-class-select" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)}>
+                            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                                <div className="flex-1">
+                                    <label htmlFor="chat-class" className="block text-sm font-medium mb-1">Send to Class</label>
+                                    <SelectInput id="chat-class" value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} disabled={isSending}>
                                         {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </SelectInput>
-                                 </FormField>
+                                </div>
                             </div>
-                             <div ref={chatContainerRef} className="flex-grow p-4 space-y-6 overflow-y-auto bg-gray-50 dark:bg-slate-900/50 rounded-lg my-4">
-                                {filteredMessages.length > 0 ? filteredMessages.map(msg => {
-                                     const isAdmin = msg.role === 'admin';
-                                     const bubbleColor = isAdmin ? 'bg-green-600 text-white' : 'bg-bg-tertiary text-text-primary';
-                                     
-                                     return (
-                                         <div key={msg.id} className="flex items-end gap-3 w-full justify-start">
-                                            <div className="h-10 w-10 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/50 text-green-600"><ShieldIcon className="h-5 w-5" /></div>
-                                            <div className="flex flex-col gap-1 max-w-[80%]">
-                                                <p className="text-xs text-text-secondary text-left">{msg.author}</p>
-                                                <div className={`rounded-2xl p-3.5 ${bubbleColor}`}><p className="text-sm leading-relaxed">{msg.text}</p></div>
-                                            </div>
-                                         </div>
-                                     );
-                                 }) : <p className="text-center text-text-secondary">No messages in this chat yet. Send a broadcast message to all members of the selected class.</p>}
-                             </div>
-                             <form onSubmit={handleSendMessage} className="mt-4 pt-4 border-t border-border-primary flex items-center gap-3">
-                                 <TextInput value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Broadcast to ${selectedClassName || ''}...`} disabled={!selectedClassId || isSending} />
-                                 <button type="submit" className="btn-primary p-3" disabled={!selectedClassId || !newMessage.trim() || isSending}><SendIcon /></button>
-                             </form>
-                        </div>
-                     </SectionCard>
-                </div>
-            </div>
-
-            {/* FIX: Wrapped content inside SectionCard */}
-            <SectionCard title="AI Chatbot Testbed">
-                <div>
-                    <p className="text-text-secondary text-sm mb-4">
-                        Simulate a student's query to test the AI's contextual understanding based on their specific timetable and subjects.
-                    </p>
-                    <div className="space-y-4">
-                        {/* FIX: Wrapped SelectInput inside FormField */}
-                        <FormField label="Simulate as Student" htmlFor="student-test-select">
-                            <SelectInput id="student-test-select" value={testStudentId} onChange={e => { setTestStudentId(e.target.value); setTestResponse(null); }}>
-                                {students.length > 0 ? students.map(s => <option key={s.id} value={s.id}>{s.name}</option>) : <option disabled>No students available</option>}
-                            </SelectInput>
-                        </FormField>
-                        {/* FIX: Wrapped textarea inside FormField */}
-                        <FormField label={`Question from ${students.find(s => s.id === testStudentId)?.name || '...'}`} htmlFor="test-question">
-                            <textarea 
-                                id="test-question" 
-                                rows={3} 
-                                className="input-base" 
-                                placeholder="e.g., What is my first class on Monday?" 
-                                value={testQuestion} 
-                                onChange={e => setTestQuestion(e.target.value)}
-                            />
-                        </FormField>
-                        <div className="flex justify-end">
-                            <button 
-                                onClick={handleTestQuery} 
-                                className="btn-primary flex items-center justify-center gap-2 w-48"
-                                disabled={isTesting || !testStudentId || !testQuestion.trim()}
-                            >
-                                {isTesting ? 'Querying AI...' : <><AIIcon/> Test AI Response</>}
-                            </button>
-                        </div>
-                    </div>
-                    {(isTesting || testResponse) && (
-                        <div className="mt-6 pt-4 border-t border-border-primary">
-                            <h4 className="font-semibold mb-2">AI Response:</h4>
-                            {isTesting && <div className="flex items-center gap-2 text-text-secondary"><AIIcon className="h-5 w-5 animate-pulse" /><span>Generating response...</span></div>}
-                            {testResponse && (
-                                 <div className="p-4 bg-gray-50 dark:bg-slate-900/50 rounded-lg space-y-2">
-                                    <p className="whitespace-pre-wrap">{testResponse.text}</p>
-                                    {testResponse.groundingChunks && testResponse.groundingChunks.length > 0 && (
-                                        <div className="pt-2 border-t border-border-primary text-xs">
-                                            <p className="font-semibold text-text-secondary mb-1">Sources:</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {testResponse.groundingChunks.map((chunk, index) => chunk.web && (
-                                                    <a href={chunk.web.uri} target="_blank" rel="noopener noreferrer" key={index} className="bg-bg-primary border border-border-primary px-2 py-1 rounded-md hover:bg-border-primary truncate max-w-xs">
-                                                        <SearchIcon className="h-3 w-3 inline-block mr-1" />
-                                                        {chunk.web.title}
-                                                    </a>
-                                                ))}
-                                            </div>
+                            <div className="h-60 bg-bg-primary border border-border-primary rounded-lg p-4 overflow-y-auto space-y-4" ref={chatContainerRef}>
+                                {filteredMessages.length > 0 ? filteredMessages.map(msg => (
+                                    <div key={msg.id} className={`flex ${msg.role === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`p-2 rounded-lg max-w-[80%] ${msg.role === 'admin' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-slate-700'}`}>
+                                            <p className="text-xs font-bold">{msg.author}</p>
+                                            <p className="text-sm">{msg.text}</p>
                                         </div>
-                                    )}
-                                 </div>
+                                    </div>
+                                )) : <p className="text-center text-text-secondary pt-20">No messages sent to {selectedClassName} yet.</p>}
+                            </div>
+                            <form onSubmit={handleSendMessage} className="flex items-center gap-3 mt-4">
+                                <TextInput type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={`Message ${selectedClassName}...`} className="flex-grow" disabled={isSending} />
+                                <button type="submit" className="btn-primary p-2.5" disabled={isSending || !newMessage.trim()}><SendIcon className="h-5 w-5"/></button>
+                            </form>
+                        </div>
+                    </SectionCard>
+                </div>
+                <div className="lg:col-span-3">
+                    {/* FIX: Wrapped content inside SectionCard */}
+                    <SectionCard title="Campus AI Testbed">
+                        <div>
+                             <p className="text-sm text-text-secondary mb-4">Test the AI's responses by asking questions as if you were a student. Select a student profile to provide context for the query.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormField label="Ask as Student" htmlFor="test-student"><SelectInput id="test-student" value={testStudentId} onChange={e => setTestStudentId(e.target.value)} disabled={isTesting}>{students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput></FormField>
+                                <div className="md:col-span-2"><FormField label="Question" htmlFor="test-question"><TextInput id="test-question" value={testQuestion} onChange={e=>setTestQuestion(e.target.value)} placeholder="e.g., When is my next Algorithms class?" disabled={isTesting}/></FormField></div>
+                            </div>
+                            <div className="flex justify-end mt-4">
+                                <button onClick={handleTestQuery} className="btn-primary flex items-center gap-2 w-48 justify-center" disabled={isTesting}>{isTesting ? 'Querying AI...' : <><AIIcon/>Test Query</>}</button>
+                            </div>
+                            {testResponse && (
+                                <div className="mt-6 p-4 bg-bg-primary border border-border-primary rounded-lg">
+                                    <h4 className="font-semibold mb-2">AI Response:</h4>
+                                    <p className="text-sm whitespace-pre-wrap">{testResponse.text}</p>
+                                </div>
                             )}
                         </div>
-                    )}
+                    </SectionCard>
                 </div>
-            </SectionCard>
+            </div>
         </div>
     );
 };
 
+// --- FIX: Add the missing SmartClassroom component and export it. ---
 export const SmartClassroom = (props: SmartClassroomProps) => {
-    const { user, classes, faculty, students, users, attendance, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance, constraints, chatMessages, onUpdateConstraints, onAdminSendMessage, onAdminAskAsStudent } = props;
-    const [activeTab, setActiveTab] = useState('profile');
+    const { user, classes, faculty, students, users, attendance, constraints, chatMessages, onSaveEntity, onDeleteEntity, onSaveUser, onDeleteUser, onSaveClassAttendance, onUpdateConstraints, onAdminSendMessage, onAdminAskAsStudent } = props;
+
+    const [activeTab, setActiveTab] = useState('students');
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-    const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-    const [isSearchResultsVisible, setIsSearchResultsVisible] = useState(false);
-    const searchContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (feedback) {
-            const timer = setTimeout(() => setFeedback(null), 4000);
+            const timer = setTimeout(() => setFeedback(null), 5000);
             return () => clearTimeout(timer);
         }
     }, [feedback]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-                setIsSearchResultsVisible(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes]);
-
-    const searchResults = useMemo(() => {
-        const query = globalSearchQuery.trim().toLowerCase();
-        if (!query) return [];
-
-        const studentResults = students
-            .filter(s => s.name.toLowerCase().includes(query) || s.email?.toLowerCase().includes(query))
-            .map(s => ({
-                id: s.id,
-                name: s.name,
-                type: 'Student',
-                details: `Class: ${classMap.get(s.classId) || 'N/A'}`
-            }));
-
-        const facultyResults = faculty
-            .filter(f => f.name.toLowerCase().includes(query) || f.email.toLowerCase().includes(query))
-            .map(f => ({
-                id: f.id,
-                name: f.name,
-                type: 'Teacher',
-                details: `Dept: ${f.department}`
-            }));
-
-        return [...studentResults, ...facultyResults];
-    }, [globalSearchQuery, students, faculty, classMap]);
-    
-    const handleSearchResultClick = (result: { id: string, name: string, type: string, details: string }) => {
-        // This is a placeholder. A real implementation would navigate to the student/faculty's detail page.
-        alert(`Navigating to ${result.type}: ${result.name}`);
-        setGlobalSearchQuery('');
-        setIsSearchResultsVisible(false);
-    };
-
-    const TabButton = ({ tab, label, icon }: { tab: string; label: string; icon: React.ReactNode; }) => (
-        <button onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tab ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>
-            {icon}{label}
-        </button>
-    );
+    const tabs = [
+        { key: 'students', label: 'Student Management', icon: <StudentIcon className="h-5 w-5" /> },
+        { key: 'users', label: 'User Accounts', icon: <UsersIcon className="h-5 w-5" /> },
+        { key: 'attendance', label: 'Attendance', icon: <AttendanceIcon className="h-5 w-5" /> },
+        { key: 'chat', label: 'Chatbot Control', icon: <ChatIcon className="h-5 w-5" /> },
+        { key: 'profile', label: 'My Profile', icon: <ProfileIcon className="h-5 w-5" /> },
+    ];
 
     const renderContent = () => {
         switch (activeTab) {
@@ -1104,55 +1012,32 @@ export const SmartClassroom = (props: SmartClassroomProps) => {
                 return <UserManagementTab users={users} faculty={faculty} students={students} onSaveUser={onSaveUser} onDeleteUser={onDeleteUser} setFeedback={setFeedback} />;
             case 'attendance':
                 return <AttendanceManagementTab classes={classes} students={students} attendance={attendance} onSaveClassAttendance={onSaveClassAttendance} setFeedback={setFeedback} />;
-            case 'chatbot':
-                 return <ChatbotControlTab classes={classes} constraints={constraints} chatMessages={chatMessages} onUpdateConstraints={onUpdateConstraints} onAdminSendMessage={onAdminSendMessage} setFeedback={setFeedback} students={students} onAdminAskAsStudent={onAdminAskAsStudent} />;
+            case 'chat':
+                return <ChatbotControlTab classes={classes} constraints={constraints} chatMessages={chatMessages} onUpdateConstraints={onUpdateConstraints} onAdminSendMessage={onAdminSendMessage} setFeedback={setFeedback} students={students} onAdminAskAsStudent={onAdminAskAsStudent} />;
             case 'profile':
-            default:
                 return <MyProfileTab user={user} faculty={faculty} students={students} onSaveEntity={onSaveEntity} onSaveUser={onSaveUser} setFeedback={setFeedback} />;
+            default:
+                return null;
         }
     };
-    
+
     return (
-        <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen">
             <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold">Smart Classroom</h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Classroom, Student, and User Management</p>
-                </div>
-                <div className="relative w-full md:w-auto md:max-w-xs" ref={searchContainerRef}>
-                    <label htmlFor="global-search" className="sr-only">Global Search</label>
-                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                    <TextInput
-                        type="text"
-                        id="global-search"
-                        name="global-search"
-                        value={globalSearchQuery}
-                        onChange={e => { setGlobalSearchQuery(e.target.value); setIsSearchResultsVisible(true); }}
-                        onFocus={() => setIsSearchResultsVisible(true)}
-                        placeholder="Search students, teachers..."
-                        className="pl-10"
-                    />
-                    {isSearchResultsVisible && searchResults.length > 0 && (
-                        <div className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-                            {searchResults.map(result => (
-                                <div key={`${result.type}-${result.id}`} onClick={() => handleSearchResultClick(result)} className="p-3 hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer border-b dark:border-slate-600">
-                                    <p className="font-semibold">{result.name} <span className="text-xs font-normal bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full ml-2">{result.type}</span></p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{result.details}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">Manage students, users, attendance, and classroom settings.</p>
                 </div>
             </header>
             <nav className="bg-white dark:bg-slate-800 border dark:border-slate-700 p-2 rounded-xl flex flex-wrap gap-2 mb-8">
-                <TabButton tab="profile" label="My Profile" icon={<ProfileIcon className="h-5 w-5" />} />
-                <TabButton tab="students" label="Student Management" icon={<StudentIcon className="h-5 w-5" />} />
-                <TabButton tab="users" label="User Accounts" icon={<UsersIcon className="h-5 w-5" />} />
-                <TabButton tab="attendance" label="Attendance" icon={<AttendanceIcon className="h-5 w-5" />} />
-                <TabButton tab="chatbot" label="Chat Control" icon={<ChatIcon className="h-5 w-5" />} />
+                {tabs.map(tab => (
+                    <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeTab === tab.key ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'}`}>
+                        {tab.icon}{tab.label}
+                    </button>
+                ))}
             </nav>
-            <main>
+            <main className="space-y-6">
                 {renderContent()}
             </main>
         </div>

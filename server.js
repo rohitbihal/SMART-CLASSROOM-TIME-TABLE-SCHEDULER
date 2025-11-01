@@ -202,8 +202,10 @@ const collections = { class: Class, faculty: Faculty, subject: Subject, room: Ro
 
 const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
 const MOCK_FACULTY = [ { id: 'f1', name: 'Dr. Rajesh Kumar', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210' }, { id: 'f2', name: 'Prof. Sunita Sharma', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211' } ];
-const MOCK_SUBJECTS = [ { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', type: 'theory', hoursPerWeek: 4, assignedFacultyId: 'f1' }, { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', type: 'theory', hoursPerWeek: 3, assignedFacultyId: 'f1' }, { id: 's3', name: 'Database Systems', code: 'CS303', department: 'CSE', type: 'theory', hoursPerWeek: 3, assignedFacultyId: 'f2' }, { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', type: 'lab', hoursPerWeek: 2, assignedFacultyId: 'f1' }, { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', type: 'lab', hoursPerWeek: 2, assignedFacultyId: 'f2' } ];
-const MOCK_ROOMS = [ { id: 'r1', number: 'CS-101', type: 'classroom', capacity: 65, block: 'A-Block' }, { id: 'r2', number: 'CS-102', type: 'classroom', capacity: 65, block: 'B-Block' }, { id: 'r3', number: 'CS-Lab-1', type: 'lab', capacity: 60, block: 'A-Block' } ];
+// FIX: Corrected casing of 'type' property to match frontend TypeScript definitions.
+const MOCK_SUBJECTS = [ { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f1' }, { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1' }, { id: 's3', name: 'Database Systems', code: 'CS303', department: 'CSE', type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2' }, { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1' }, { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f2' } ];
+// FIX: Corrected casing of 'type' property to match frontend TypeScript definitions.
+const MOCK_ROOMS = [ { id: 'r1', number: 'CS-101', type: 'Classroom', capacity: 65, block: 'A-Block' }, { id: 'r2', number: 'CS-102', type: 'Classroom', capacity: 65, block: 'B-Block' }, { id: 'r3', number: 'CS-Lab-1', type: 'Laboratory', capacity: 60, block: 'A-Block' } ];
 const MOCK_STUDENTS = [ { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu', contactNumber: '8765432109' }, { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02', email: 'bob.singh@university.edu', contactNumber: '8765432108' }, { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01', contactNumber: '8765432107' }, { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02', email: 'diana.p@university.edu', contactNumber: '8765432106' } ];
 const MOCK_USERS = [ { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' }, { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' }, { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' } ];
 const MOCK_INSTITUTIONS = [
@@ -229,7 +231,7 @@ const MOCK_CONSTRAINTS = {
     timePreferences: {
         workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         startTime: '09:30',
-        endTime: '16:35',
+        endTime: '16:55',
         lunchStartTime: '12:50',
         lunchDurationMinutes: 45,
         slotDurationMinutes: 50,
@@ -778,7 +780,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
     const timeSlots = Array.from({ length: 8 }, (_, i) => `${9 + i}:30-${10 + i}:20`);
     return `Generate a JSON timetable for these inputs. Data: Classes: ${JSON.stringify(classes)}, Faculty: ${JSON.stringify(faculty)}, Subjects: ${JSON.stringify(subjects)}, Rooms: ${JSON.stringify(rooms)}. Constraints: ${JSON.stringify(constraints)}. Use time slots: ${JSON.stringify(timeSlots)}.`;
 };
-const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['theory', 'lab'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type'] } };
+const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['Theory', 'Lab', 'Tutorial'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type'] } };
 app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "API_KEY is not configured on the server." }); }
     try {

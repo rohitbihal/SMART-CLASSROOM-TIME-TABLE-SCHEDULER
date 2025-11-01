@@ -6,7 +6,7 @@ import { TimetableEntry } from './types';
 export const TIME_SLOTS = [
     '09:30-10:20', '10:20-11:10', '11:10-12:00', '12:00-12:50',
     '12:50-01:35', // Lunch
-    '01:35-02:20', '02:20-03:05', '03:05-03:50', '03:50-04:35'
+    '01:35-02:25', '02:25-03:15', '03:15-04:05', '04:05-04:55'
 ];
 export const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 

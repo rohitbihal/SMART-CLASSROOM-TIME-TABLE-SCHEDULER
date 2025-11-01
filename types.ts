@@ -24,7 +24,7 @@ export interface Faculty {
   name: string;
   employeeId: string; // NEW
   designation: 'Professor' | 'Associate Professor' | 'Assistant Professor' | 'Research Team' | 'Lecturer' | 'Visiting Faculty'; // NEW
-  contact: string; // RENAMED from contactNumber
+  contactNumber: string; // REVERTED to match backend schema
   email: string;
   department: string;
   specialization: string[];
@@ -193,16 +193,19 @@ export interface Constraints {
 }
 
 // UPDATED: Renamed from TeacherRequest to be more general for the new Query system.
+// UPDATED: Added priority and expanded queryType to match new requirements.
 export interface TeacherQuery {
   id: string;
   facultyId: string;
-  queryType: 'Schedule Change' | 'Leave Request' | 'Resource Request' | 'Other';
+  queryType: 'Classroom Allotment' | 'Classroom Change' | 'Timing Adjustment' | 'Workload Review' | 'Leave Request' | 'Swap Lecture' | 'Other';
   subject?: string;
   currentSchedule?: string;
   requestedChange: string;
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected' | 'Under Review';
   submittedDate: string;
+  priority: 'Urgent' | 'Normal';
+  adminResponse?: string;
 }
 
 // Attendance Types

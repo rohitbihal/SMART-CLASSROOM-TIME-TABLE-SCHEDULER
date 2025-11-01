@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon } from '../../components/Icons';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
@@ -9,6 +9,8 @@ import { NotificationsTab } from './NotificationsTab';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
+type EquipmentKey = keyof Equipment;
+
 
 interface TimetableSchedulerProps {
     classes: Class[];
@@ -68,7 +70,7 @@ const ClassForm = ({ initialData, onSave, blocks }: { initialData: Class | null;
     );
 };
 const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onSave: (data: any) => Promise<void>; }) => {
-    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', ') } : { id: '', name: '', employeeId: '', designation: 'Assistant Professor', contact: '', email: '', department: '', specialization: '', maxWorkload: 40 });
+    const [data, setData] = useState(initialData ? { ...initialData, specialization: initialData.specialization.join(', ') } : { id: '', name: '', employeeId: '', designation: 'Assistant Professor', contactNumber: '', email: '', department: '', specialization: '', maxWorkload: 40 });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.value });
     const handleSave = (e: React.FormEvent) => { e.preventDefault(); onSave({ ...data, specialization: data.specialization.split(',').map(s => s.trim()).filter(Boolean), maxWorkload: Number(data.maxWorkload) }); };
     const formId = initialData?.id || 'new-faculty';
@@ -79,7 +81,7 @@ const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onS
                 <FormField label="Name" htmlFor={`${formId}-name`}><TextInput id={`${formId}-name`} name="name" value={data.name} onChange={handleChange} required /></FormField>
                 <FormField label="Email" htmlFor={`${formId}-email`}><TextInput type="email" id={`${formId}-email`} name="email" value={data.email} onChange={handleChange} required /></FormField>
                 <FormField label="Employee ID" htmlFor={`${formId}-employeeId`}><TextInput id={`${formId}-employeeId`} name="employeeId" value={data.employeeId} onChange={handleChange} required /></FormField>
-                <FormField label="Contact" htmlFor={`${formId}-contact`}><TextInput type="tel" id={`${formId}-contact`} name="contact" value={data.contact} onChange={handleChange} /></FormField>
+                <FormField label="Contact Number" htmlFor={`${formId}-contactNumber`}><TextInput type="tel" id={`${formId}-contactNumber`} name="contactNumber" value={data.contactNumber} onChange={handleChange} /></FormField>
                 <FormField label="Designation" htmlFor={`${formId}-designation`}>
                     <SelectInput id={`${formId}-designation`} name="designation" value={data.designation} onChange={handleChange}>
                         {designationOptions.map(d => <option key={d} value={d}>{d}</option>)}
@@ -214,9 +216,9 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
     
     const formats: { [key in Exclude<EntityType, 'institution'>]: string } = {
         class: "Required: name, branch, year, section, studentCount. Optional: block",
-        faculty: "Required: name, department, email. Optional: specialization (comma-separated), contactNumber",
-        subject: "Required: name, code, department, hoursPerWeek, assignedFacultyId. Optional: type (theory/lab)",
-        room: "Required: number, capacity. Optional: type (classroom/lab), block"
+        faculty: "Required: name, department, email, employeeId, designation, maxWorkload. Optional: specialization (comma-separated), contactNumber",
+        subject: "Required: name, code, department, semester, credits, type, hoursPerWeek, assignedFacultyId.",
+        room: "Required: number, building, type, capacity. Optional: block"
     };
 
     return (
@@ -262,6 +264,10 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
 const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onInitiateBulkDelete, pageError, openImportModal, selectedInstitutionId, setSelectedInstitutionId, institutionFormState, setInstitutionFormState, activeBlocks }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onInitiateBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; selectedInstitutionId: string | 'new'; setSelectedInstitutionId: (id: string | 'new') => void; institutionFormState: Partial<Institution>; setInstitutionFormState: (state: Partial<Institution>) => void; activeBlocks: string[]; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
     const isCreatingNew = selectedInstitutionId === 'new';
+    
+    // NEW: State for equipment filter
+    const [equipmentFilter, setEquipmentFilter] = useState<Partial<Record<EquipmentKey, boolean>>>({});
+    const equipmentKeys: EquipmentKey[] = ['projector', 'smartBoard', 'ac', 'computerSystems', 'audioSystem', 'whiteboard'];
 
     const handleInstituteFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -298,27 +304,31 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
     
     const handleSearch = (type: EntityType, value: string) => setSearch(prev => ({ ...prev, [type]: value }));
     const filter = <T extends object>(data: T[], query: string) => data.filter(item => Object.values(item).some(val => String(val).toLowerCase().includes(query.toLowerCase())));
+    
     const filtered = { 
       class: filter(classes, search.class).filter(c => blockFilter === 'all' || !c.block || c.block === blockFilter), 
       faculty: filter(faculty, search.faculty), 
       subject: filter(subjects, search.subject), 
-      room: filter(rooms, search.room).filter(r => blockFilter === 'all' || !r.block || r.block === blockFilter)
+      room: filter(rooms, search.room)
+        .filter(r => blockFilter === 'all' || !r.block || r.block === blockFilter)
+        .filter(r => { // NEW: Equipment filter logic
+            return Object.entries(equipmentFilter).every(([key, required]) => {
+                if (!required) return true;
+                if (key === 'computerSystems') return r.equipment.computerSystems.available;
+                return r.equipment[key as keyof typeof r.equipment] === true;
+            });
+        })
     };
+    
     const facultyMap = useMemo(() => Object.fromEntries(faculty.map(f => [f.id, f.name])), [faculty]);
     
     const EquipmentDisplay = ({ equipment }: { equipment: Equipment }) => (
         <div className="flex gap-2 text-gray-500">
-            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
             {equipment.projector && <span title="Projector"><ProjectorIcon className="h-4 w-4" /></span>}
-            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
             {equipment.smartBoard && <span title="Smart Board"><SmartBoardIcon className="h-4 w-4" /></span>}
-            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
             {equipment.ac && <span title="AC"><AcIcon className="h-4 w-4" /></span>}
-            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
             {equipment.computerSystems.available && <span title={`Computers: ${equipment.computerSystems.count}`}><ComputerIcon className="h-4 w-4" /></span>}
-            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
             {equipment.audioSystem && <span title="Audio System"><AudioIcon className="h-4 w-4" /></span>}
-            {/* FIX: Removed invalid 'title' prop from Icon component and wrapped with a span to provide tooltip. */}
             {equipment.whiteboard && <span title="Whiteboard"><WhiteboardIcon className="h-4 w-4" /></span>}
         </div>
     );
@@ -405,7 +415,20 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                     )} headerPrefix={<HeaderCheckbox type="subject" items={filtered.subject} selectedItems={selectedItems} onToggleSelectAll={onToggleSelectAll} />} />
                 </SectionCard>
                 <SectionCard title="Rooms" actions={<div className="flex items-center gap-2"><button onClick={() => openImportModal('room')} className="action-btn-secondary"><UploadIcon/></button><button onClick={() => openModal('add', 'room')} className="action-btn-primary"><AddIcon />Add Room</button></div>}>
-                    <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <SearchInput value={search.room} onChange={v => handleSearch('room', v)} placeholder="Search rooms..." label="Search Rooms" id="search-room" />
+                        <div>
+                             <label className="block text-sm font-medium text-text-secondary mb-1">Filter by Equipment</label>
+                             <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                {equipmentKeys.map(key => (
+                                    <label key={key} className="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" checked={!!equipmentFilter[key]} onChange={e => setEquipmentFilter(p => ({...p, [key]: e.target.checked}))} />
+                                        {key.replace(/([A-Z])/g, ' $1').replace('computer Systems', 'Computers').trim()}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                     <DataTable headers={["Number", "Building", "Capacity", "Type", "Equipment", "Actions"]} data={filtered.room} renderRow={(r: Room) => (
                         <tr key={r.id} className="border-b dark:border-slate-700">
                             <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.room.includes(r.id)} onChange={() => onToggleSelect('room', r.id)} /></td>
@@ -791,15 +814,20 @@ const ConstraintsTab = ({ constraints, setConstraints, faculty, subjects, classe
 const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: TimetableEntry[] | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
     const [viewType, setViewType] = useState<'regular' | 'fixed'>('regular');
 
-    const downloadAsExcel = () => {
+    const downloadAsExcel = (type: 'regular' | 'fixed' | 'all') => {
         if (!generationResult) return;
         const headers = ["Day", "Time", "Class", "Subject", "Faculty", "Room", "Type"];
+        let dataToExport = generationResult;
+        if (type !== 'all') {
+            dataToExport = generationResult.filter(e => e.classType === type);
+        }
+        
         const csvContent = "data:text/csv;charset=utf-8," 
             + headers.join(",") + "\n" 
-            + generationResult.map(e => [e.day, e.time, e.className, e.subject, e.faculty, e.room, e.type].join(",")).join("\n");
+            + dataToExport.map(e => [e.day, e.time, e.className, e.subject, e.faculty, e.room, e.type].join(",")).join("\n");
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI(csvContent));
-        link.setAttribute("download", "timetable.csv");
+        link.setAttribute("download", `timetable-${type}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -835,14 +863,15 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
             {generationResult && (
                 <SectionCard title="Generated Timetable Preview" actions={
                     <div className="flex gap-2">
-                         <button onClick={downloadAsExcel} className="action-btn-secondary"><DownloadIcon />Download as Excel</button>
+                         <button onClick={() => downloadAsExcel('regular')} className="action-btn-secondary"><DownloadIcon />Regular</button>
+                         <button onClick={() => downloadAsExcel('fixed')} className="action-btn-secondary"><DownloadIcon />Fixed</button>
                          <button onClick={onSave} className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md"><SaveIcon />Save & Publish</button>
                          <button onClick={onClear} className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md"><DeleteIcon />Clear</button>
                     </div>
                 }>
                     <div className="bg-bg-primary p-2 rounded-lg flex gap-2 mb-4">
                         <button onClick={() => setViewType('regular')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'regular' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Regular Classes</button>
-                        <button onClick={() => setViewType('fixed')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'fixed' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Fixed Classes (Labs/Tutorials)</button>
+                        <button onClick={() => setViewType('fixed')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'fixed' ? 'bg-rose-500 text-white' : 'bg-transparent text-text-primary'}`}>Fixed Classes (Labs/Tutorials)</button>
                     </div>
                     <div className="overflow-x-auto max-h-[80vh]">
                         <table className="w-full text-sm">
@@ -886,7 +915,7 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
         const assigned = faculty.map(f => {
             const assignedHours = subjects.filter(s => s.assignedFacultyId === f.id).reduce((sum, s) => sum + s.hoursPerWeek, 0);
             const scheduledHours = timetable.filter(t => t.faculty === f.name).length;
-            const utilization = assignedHours > 0 ? (scheduledHours / assignedHours) * 100 : 0;
+            const utilization = f.maxWorkload > 0 ? (scheduledHours / f.maxWorkload) * 100 : 0;
             return { ...f, assignedHours, scheduledHours, utilization };
         });
         return assigned.sort((a, b) => b.utilization - a.utilization);
@@ -901,37 +930,70 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
         }).sort((a,b) => b.utilization - a.utilization);
     }, [rooms, timetable]);
 
-    const ProgressBar = ({ value }: { value: number }) => (
-        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min(value, 100)}%` }}></div></div>
+    // NEW: Equipment Utilization calculation
+    const equipmentUtilization = useMemo(() => {
+        const equipmentHours: Record<string, number> = {};
+        const totalHours = timetable.length;
+        if (totalHours === 0) return [];
+        
+        timetable.forEach(entry => {
+            const room = rooms.find(r => r.number === entry.room);
+            if (room) {
+                for (const [key, value] of Object.entries(room.equipment)) {
+                    const isAvailable = key === 'computerSystems' ? (value as { available: boolean }).available : value;
+                    if (isAvailable) {
+                        equipmentHours[key] = (equipmentHours[key] || 0) + 1;
+                    }
+                }
+            }
+        });
+        return Object.entries(equipmentHours).map(([key, hours]) => ({
+            name: key.replace(/([A-Z])/g, ' $1').replace('computer Systems', 'Computers').trim(),
+            utilization: (hours / totalHours) * 100
+        })).sort((a,b) => b.utilization - a.utilization);
+    }, [timetable, rooms]);
+
+
+    const ProgressBar = ({ value, color = 'bg-indigo-600' }: { value: number, color?: string }) => (
+        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5"><div className={`${color} h-2.5 rounded-full`} style={{ width: `${Math.min(value, 100)}%` }}></div></div>
     );
     
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             <div className="lg:col-span-3">
-                 <SectionCard title="Timetable Summary">
-                     <div className="flex justify-around text-center">
-                         <div><p className="text-3xl font-bold text-indigo-500">{timetable.length}</p><p className="text-text-secondary">Total Periods Scheduled</p></div>
-                         <div><p className="text-3xl font-bold text-indigo-500">{faculty.length}</p><p className="text-text-secondary">Total Faculty</p></div>
-                         <div><p className="text-3xl font-bold text-indigo-500">{rooms.length}</p><p className="text-text-secondary">Total Rooms</p></div>
-                     </div>
-                 </SectionCard>
-             </div>
-             <SectionCard title="Faculty Workload" className="lg:col-span-2">
+             <SectionCard title="Timetable Summary" className="lg:col-span-3">
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                     <div><p className="text-3xl font-bold text-indigo-500">{timetable.length}</p><p className="text-text-secondary">Total Periods</p></div>
+                     <div><p className="text-3xl font-bold text-indigo-500">{faculty.length}</p><p className="text-text-secondary">Faculty</p></div>
+                     <div><p className="text-3xl font-bold text-indigo-500">{rooms.length}</p><p className="text-text-secondary">Rooms</p></div>
+                     <div><p className="text-3xl font-bold text-indigo-500">{subjects.length}</p><p className="text-text-secondary">Subjects</p></div>
+                 </div>
+             </SectionCard>
+             <SectionCard title="Faculty Workload Utilization" className="lg:col-span-1">
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                     {facultyWorkload.map(f => (
                         <div key={f.id}>
-                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{f.name}</span><span className="text-text-secondary">{f.scheduledHours} / {f.assignedHours} hrs ({f.utilization.toFixed(0)}%)</span></div>
-                             <ProgressBar value={f.utilization} />
+                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{f.name}</span><span className="text-text-secondary">{f.scheduledHours} / {f.maxWorkload} hrs ({f.utilization.toFixed(0)}%)</span></div>
+                             <ProgressBar value={f.utilization} color={f.utilization > 100 ? 'bg-red-500' : 'bg-green-500'} />
                         </div>
                     ))}
                 </div>
              </SectionCard>
-             <SectionCard title="Room Utilization">
+             <SectionCard title="Room Utilization" className="lg:col-span-1">
                  <div className="space-y-4 max-h-96 overflow-y-auto">
                      {roomUtilization.map(r => (
                         <div key={r.id}>
                              <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{r.number}</span><span className="text-text-secondary">{r.utilization.toFixed(0)}%</span></div>
                              <ProgressBar value={r.utilization} />
+                        </div>
+                     ))}
+                 </div>
+             </SectionCard>
+             <SectionCard title="Equipment Utilization" className="lg:col-span-1">
+                 <div className="space-y-4 max-h-96 overflow-y-auto">
+                     {equipmentUtilization.map(e => (
+                        <div key={e.name}>
+                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold capitalize">{e.name}</span><span className="text-text-secondary">{e.utilization.toFixed(0)}%</span></div>
+                             <ProgressBar value={e.utilization} color="bg-teal-500" />
                         </div>
                      ))}
                  </div>
