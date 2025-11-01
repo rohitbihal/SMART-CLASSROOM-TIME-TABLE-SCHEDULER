@@ -796,6 +796,32 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
     }
 });
 
+app.get('/api/tools', authMiddleware, (req, res) => {
+    const { role } = req.user;
+
+    const studentTools = [
+        { id: 'st1', title: 'Download Syllabus', description: 'Get the latest syllabus for all your subjects.', icon: 'Syllabus', link: '/tools/syllabus' },
+        { id: 'st2', title: 'GPA Calculator', description: 'Calculate your current and projected GPA.', icon: 'Calculator', link: '/tools/gpa' },
+        { id: 'st3', title: 'View Timetable', description: 'Access your full weekly class schedule.', icon: 'Timetable', link: '/schedule' },
+        { id: 'st4', title: 'Submit Assignment', description: 'Upload and submit your completed assignments.', icon: 'Submit', link: '/assignments/submit' },
+    ];
+
+    const teacherTools = [
+        { id: 'tt1', title: 'Grade Calculator', description: 'A tool to calculate final grades for your courses.', icon: 'Gradebook', link: '/tools/grade-calculator' },
+        { id: 'tt2', title: 'Plagiarism Checker', description: 'Upload a document for a plagiarism check.', icon: 'Plagiarism', link: '/tools/plagiarism' },
+        { id: 'tt3', title: 'Upload Assignment', description: 'Create and upload new assignments for students.', icon: 'Upload', link: '/assignments/new' },
+        { id: 'tt4', title: 'Manage Attendance', description: 'View and manage attendance for your classes.', icon: 'Timetable', link: '/attendance' },
+    ];
+
+    if (role === 'student') {
+        return res.json(studentTools);
+    }
+    if (role === 'teacher') {
+        return res.json(teacherTools);
+    }
+    return res.status(403).json({ message: 'No tools available for this role.' });
+});
+
 app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });

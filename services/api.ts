@@ -1,4 +1,4 @@
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest, StudentAttendance, Exam, Notification } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherRequest, StudentAttendance, Exam, Notification, SmartTool } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -210,3 +210,9 @@ export const askTeacherAI = async (payload: { messageText: string, messageId: st
     if (!response.ok) throw await handleApiError(response);
     return response.json();
 };
+
+export const fetchTools = async (): Promise<SmartTool[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/tools`);
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+}

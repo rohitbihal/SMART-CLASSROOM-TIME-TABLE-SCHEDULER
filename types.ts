@@ -233,7 +233,7 @@ export interface SmartTool {
   id: string;
   title: string;
   description: string;
-  iconName: 'Syllabus' | 'Calculator' | 'Timetable';
+  icon: string;
   link: string;
 }
 
