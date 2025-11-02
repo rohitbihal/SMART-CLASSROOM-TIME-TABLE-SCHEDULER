@@ -187,6 +187,19 @@ const teacherRequestSchema = new mongoose.Schema({
     priority: { type: String, default: 'Normal' },
 });
 
+// NEW: Student Query Schema
+const studentQuerySchema = new mongoose.Schema({
+    id: { type: String, unique: true, required: true },
+    studentId: { type: String, required: true },
+    queryType: String,
+    subject: String,
+    details: String,
+    status: { type: String, default: 'Pending' },
+    submittedDate: { type: String, default: () => new Date().toISOString() },
+    adminResponse: String,
+});
+
+
 // --- NEW: Schemas for new modules ---
 const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique: true }, subjectId: String, facultyId: String, lectureNumber: Number, assignedTopic: String, taughtTopic: String, date: String, status: String, variance: Boolean });
 const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String });
@@ -211,6 +224,7 @@ const Attendance = mongoose.model('Attendance', attendanceSchema);
 const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
 const Institution = mongoose.model('Institution', institutionSchema);
 const TeacherRequest = mongoose.model('TeacherRequest', teacherRequestSchema);
+const StudentQuery = mongoose.model('StudentQuery', studentQuerySchema);
 const StudentAttendance = mongoose.model('StudentAttendance', studentAttendanceSchema);
 const Exam = mongoose.model('Exam', examSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
@@ -221,7 +235,7 @@ const Meeting = mongoose.model('Meeting', meetingSchema);
 const AppNotification = mongoose.model('AppNotification', appNotificationSchema);
 
 
-const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest };
+const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest, studentQuery: StudentQuery };
 
 const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
 const MOCK_FACULTY = [
@@ -270,7 +284,10 @@ const MOCK_CONSTRAINTS = {
     maxConcurrentClassesPerDept: { 'CSE': 4 },
 };
 
-// --- NEW MOCK DATA ---
+// NEW MOCK DATA ---
+const MOCK_STUDENT_QUERIES = [
+    { id: 'sq1', studentId: 'st1', queryType: 'Academic', subject: 'Data Structures', details: 'I am having trouble understanding the concept of pointers in linked lists. Can I get some extra resources?', status: 'Pending', submittedDate: new Date().toISOString() }
+];
 const MOCK_SYLLABUS_PROGRESS = [
     { id: 'sp1', subjectId: 's1', facultyId: 'f1', lectureNumber: 1, assignedTopic: 'Introduction to Arrays', taughtTopic: 'Introduction to Arrays', date: '2024-08-05', status: 'Completed', variance: false },
     { id: 'sp2', subjectId: 's1', facultyId: 'f1', lectureNumber: 2, assignedTopic: 'Linked Lists', taughtTopic: 'Linked Lists', date: '2024-08-07', status: 'Completed', variance: false },
@@ -323,7 +340,8 @@ async function seedDatabase() {
             Room: MOCK_ROOMS, Student: MOCK_STUDENTS, Institution: MOCK_INSTITUTIONS,
             // NEW Mocks
             SyllabusProgress: MOCK_SYLLABUS_PROGRESS, CalendarEvent: MOCK_CALENDAR_EVENTS,
-            Meeting: MOCK_MEETINGS, AppNotification: MOCK_APP_NOTIFICATIONS
+            Meeting: MOCK_MEETINGS, AppNotification: MOCK_APP_NOTIFICATIONS,
+            StudentQuery: MOCK_STUDENT_QUERIES
         };
 
         for (const [modelName, data] of Object.entries(modelDataMap)) {
@@ -411,7 +429,7 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         };
 
         // FIX: Safely fetch student-specific data
-        let studentDataPromises = [Promise.resolve([]), Promise.resolve([]), Promise.resolve([])];
+        let studentDataPromises = [Promise.resolve([]), Promise.resolve([]), Promise.resolve([]), Promise.resolve([])];
         if (req.user.role === 'student') {
             const student = await Student.findOne({ id: req.user.profileId }).lean();
             const studentClassId = student ? student.classId : null;
@@ -419,13 +437,16 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
                 StudentAttendance.find({ studentId: req.user.profileId }).lean(),
                 studentClassId ? Exam.find({ classId: studentClassId }).lean() : Promise.resolve([]),
                 Notification.find({ studentId: req.user.profileId }).lean(),
+                StudentQuery.find({ studentId: req.user.profileId }).lean(),
             ];
+        } else if (req.user.role === 'admin') {
+            studentDataPromises[3] = StudentQuery.find().lean();
         }
 
         const [
             classes, faculty, subjects, rooms, students, constraints, timetable, 
             attendance, users, chatMessages, institutions, teacherRequests,
-            studentAttendance, exams, notifications,
+            studentAttendance, exams, notifications, studentQueries,
             // NEW
             syllabusProgress, meetings, calendarEvents, appNotifications
         ] = await Promise.all([
@@ -455,7 +476,7 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         res.json({ 
             classes, faculty, subjects, rooms, students, users, constraints, timetable, 
             attendance: attendanceMap, chatMessages, institutions, teacherRequests,
-            studentAttendance, exams, notifications,
+            studentAttendance, exams, notifications, studentQueries,
             // NEW
             syllabusProgress, meetings, calendarEvents, appNotifications
         });
@@ -824,6 +845,25 @@ app.post('/api/chat/message', authMiddleware, async (req, res) => {
         res.status(201).json(message);
     } catch (error) { handleApiError(res, error, 'chat message send'); }
 });
+
+app.post('/api/student/queries', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'student') {
+        return res.status(403).json({ message: 'Forbidden: Only students can submit queries.' });
+    }
+    try {
+        const queryData = { 
+            ...req.body, 
+            id: `sq-${new mongoose.Types.ObjectId()}`, 
+            studentId: req.user.profileId, 
+            status: 'Pending', 
+            submittedDate: new Date().toISOString() 
+        };
+        const newQuery = new StudentQuery(queryData);
+        await newQuery.save();
+        res.status(201).json(newQuery);
+    } catch(e) { handleApiError(res, e, 'student query submission'); }
+});
+
 
 app.put('/api/teacher/availability', authMiddleware, adminOrTeacher, async (req, res) => {
     const { facultyId, availability } = req.body;

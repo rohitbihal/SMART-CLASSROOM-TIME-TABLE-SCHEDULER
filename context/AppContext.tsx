@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
-import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, Exam, StudentDashboardNotification, StudentAttendance, AppNotification, SyllabusProgress, Meeting, CalendarEvent, CustomConstraint } from '../types';
+import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentQuery, Exam, StudentDashboardNotification, StudentAttendance, AppNotification, SyllabusProgress, Meeting, CalendarEvent, CustomConstraint } from '../types';
 import * as api from '../services/api';
 import { logger } from '../services/logger';
 
@@ -27,6 +27,7 @@ interface AppContextType {
     attendance: Attendance;
     chatMessages: ChatMessage[];
     teacherRequests: TeacherQuery[];
+    studentQueries: StudentQuery[];
     
     // NEW: Student-specific data
     studentAttendance: StudentAttendance[];
@@ -48,6 +49,7 @@ interface AppContextType {
     handleUpdateFacultyAvailability: (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => Promise<void>;
     handleUpdateTeacherAvailability: (facultyId: string, availability: { [day: string]: string[] }) => Promise<void>;
     handleSubmitTeacherRequest: (requestData: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => Promise<void>;
+    handleSubmitStudentQuery: (queryData: Omit<StudentQuery, 'id' | 'studentId' | 'status' | 'submittedDate'>) => Promise<void>;
     handleSaveTimetable: (newTimetable: TimetableEntry[]) => Promise<void>;
     handleSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
@@ -91,6 +93,7 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const [attendance, setAttendance] = useState<Attendance>({});
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [teacherRequests, setTeacherRequests] = useState<TeacherQuery[]>([]);
+    const [studentQueries, setStudentQueries] = useState<StudentQuery[]>([]);
     
     // NEW: State for student-specific data
     const [studentAttendance, setStudentAttendance] = useState<StudentAttendance[]>([]);
@@ -121,6 +124,7 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
             setUsers(data.users || []);
             setInstitutions(data.institutions || []);
             setTeacherRequests(data.teacherRequests || []);
+            setStudentQueries(data.studentQueries || []);
             setStudentAttendance(data.studentAttendance || []);
             setExams(data.exams || []);
             setNotifications(data.notifications || []);
@@ -217,6 +221,11 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const handleSubmitTeacherRequest = useCallback(async (requestData: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => {
         const newRequest = await api.submitTeacherRequest(requestData);
         setTeacherRequests(prev => [...prev, newRequest]);
+    }, []);
+
+    const handleSubmitStudentQuery = useCallback(async (queryData: Omit<StudentQuery, 'id' | 'studentId' | 'status' | 'submittedDate'>) => {
+        const newQuery = await api.submitStudentQuery(queryData);
+        setStudentQueries(prev => [...prev, newQuery]);
     }, []);
 
     const handleSaveTimetable = useCallback(async (newTimetable: TimetableEntry[]) => {
@@ -358,17 +367,17 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
 
     const value: AppContextType = useMemo(() => ({
         user, token, appState, theme, login, logout, toggleTheme,
-        classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
+        classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests, studentQueries,
         studentAttendance, exams, notifications, appNotifications,
         syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleSubmitStudentQuery, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport,
         handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     }), [
-        user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
+        user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests, studentQueries,
         studentAttendance, exams, notifications, appNotifications, syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport, login, logout, toggleTheme,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleSubmitStudentQuery, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport, login, logout, toggleTheme,
         handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     ]);
 
