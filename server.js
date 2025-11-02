@@ -80,7 +80,7 @@ const saltRounds = 10;
 // --- Mongoose Schemas ---
 const classSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, branch: String, year: Number, section: String, studentCount: Number, block: String });
 const facultySchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, employeeId: String, designation: String, department: String, specialization: [String], email: { type: String, required: true, unique: true }, adminId: { type: String, unique: true, sparse: true }, contactNumber: String, accessLevel: String, availability: mongoose.Schema.Types.Mixed, maxWorkload: Number });
-const subjectSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, code: {type: String, required: true, unique: true}, department: String, semester: Number, credits: Number, type: String, hoursPerWeek: Number, assignedFacultyId: String });
+const subjectSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, code: {type: String, required: true, unique: true}, department: String, semester: Number, credits: Number, type: String, hoursPerWeek: Number, assignedFacultyId: String, forClass: String });
 const roomSchema = new mongoose.Schema({ id: {type: String, unique: true}, number: {type: String, required: true, unique: true}, building: String, type: String, capacity: Number, block: String, equipment: mongoose.Schema.Types.Mixed });
 const studentSchema = new mongoose.Schema({ id: {type: String, unique: true}, name: {type: String, required: true}, email: {type: String, unique: true, sparse: true}, classId: String, roll: String, contactNumber: String });
 const userSchema = new mongoose.Schema({
@@ -395,7 +395,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       {
         "className": "string",
         "subject": "string",
-        "reason": "string" // BE VERY SPECIFIC. e.g., "Could not schedule 2 out of 4 hours for [Subject] for class [Class] due to resource conflicts or unavailability." or "Subject department '[Sub Dept]' does not match class branch '[Class Branch]' for class [Class]."
+        "reason": "string" // BE VERY SPECIFIC. e.g., "Could not schedule 2 out of 4 hours for [Subject] for class [Class] due to resource conflicts or unavailability."
       }
 
       **AVAILABLE TIME SLOTS:**
@@ -410,7 +410,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
 
       1. CLASSES: ${JSON.stringify(classes.map(({id, ...c}) => c))}
       2. FACULTY: ${JSON.stringify(faculty.map(f => ({name: f.name, department: f.department, maxWorkload: f.maxWorkload})))}
-      3. SUBJECTS: ${JSON.stringify(subjects.map(s => ({name: s.name, code: s.code, hoursPerWeek: s.hoursPerWeek, assignedFacultyId: s.assignedFacultyId, type: s.type, department: s.department, semester: s.semester})))}
+      3. SUBJECTS: ${JSON.stringify(subjects.map(s => ({name: s.name, code: s.code, hoursPerWeek: s.hoursPerWeek, assignedFacultyId: s.assignedFacultyId, type: s.type, department: s.department, forClass: s.forClass })))}
       4. ROOMS: ${JSON.stringify(rooms.map(({id, ...r}) => r))}
 
       ---
@@ -421,10 +421,8 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       - A class/section can only have one session at a time.
       - A room can only be used for one session at a time.
       - The room capacity must be >= the class studentCount.
-      - Schedule exactly 'hoursPerWeek' sessions for each subject for each relevant class.
-      - **Subject Relevance Rule:** A subject is relevant for a class if:
-        1. The subject's department matches the class's branch AND the subject's semester is appropriate for the class's year (Semesters 1-2 for Year 1, 3-4 for Year 2, etc.).
-        2. **EXCEPTION:** Subjects from foundational departments like 'Applied Science' can be scheduled for ANY first-year class (Year 1), regardless of the class's branch.
+      - **Subject Relevance Rule:** Each subject has a "forClass" property. You MUST schedule a subject ONLY for the class name specified in its "forClass" property.
+      - Schedule exactly 'hoursPerWeek' sessions for each subject.
       - Lab subjects MUST be assigned to 'Laboratory' type rooms. Theory subjects to 'Classroom'.
       - Fixed/Pinned Classes: These are pre-scheduled and MUST be placed exactly as specified: ${JSON.stringify(constraints.fixedClasses || [])}.
       - Faculty Unavailability: This faculty is unavailable at these specific times: ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, day: u.day, time: u.timeSlot }))))}
@@ -567,7 +565,7 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
 
         const facultyPool = {
             humanities: [
-                { id: newId(), name: 'Dr. Eleanor Vance', employeeId: 'F001', designation: 'Professor', department: 'Applied Science', specialization: ['Communication', 'Ethics'], email: 'eleanor.vance@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Dr. Eleanor Vance', employeeId: 'F001', designation: 'Professor', department: 'Applied Science', specialization: ['Communication', 'Ethics'], email: 'eleanor.vance@university.edu', maxWorkload: 18 },
                 { id: newId(), name: 'Prof. Marcus Holloway', employeeId: 'F002', designation: 'Assistant Professor', department: 'Applied Science', specialization: ['Sociology', 'Humanities'], email: 'marcus.holloway@university.edu', maxWorkload: 18 }
             ],
             de: [
@@ -575,51 +573,56 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
                 { id: newId(), name: 'Prof. Aisha Khan', employeeId: 'F004', designation: 'Assistant Professor', department: 'CSE', specialization: ['Circuit Design', 'VLSI'], email: 'aisha.khan@university.edu', maxWorkload: 18 }
             ],
             dsa: [
-                { id: newId(), name: 'Dr. Kenji Tanaka', employeeId: 'F005', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'kenji.tanaka@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Dr. Kenji Tanaka', employeeId: 'F005', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'kenji.tanaka@university.edu', maxWorkload: 18 },
                 { id: newId(), name: 'Prof. Chloe Price', employeeId: 'F006', designation: 'Associate Professor', department: 'CSE', specialization: ['Competitive Programming', 'DSA'], email: 'chloe.price@university.edu', maxWorkload: 18 }
             ],
             math: [
-                { id: newId(), name: 'Dr. Samuel Green', employeeId: 'F007', designation: 'Professor', department: 'Applied Science', specialization: ['Applied Mathematics', 'Calculus'], email: 'samuel.green@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Dr. Samuel Green', employeeId: 'F007', designation: 'Professor', department: 'Applied Science', specialization: ['Applied Mathematics', 'Calculus'], email: 'samuel.green@university.edu', maxWorkload: 18 },
                 { id: newId(), name: 'Prof. Sofia Reyes', employeeId: 'F008', designation: 'Associate Professor', department: 'Applied Science', specialization: ['Linear Algebra', 'Statistics'], email: 'sofia.reyes@university.edu', maxWorkload: 18 }
             ],
             oops: [
-                { id: newId(), name: 'Dr. David Chen', employeeId: 'F009', designation: 'Professor', department: 'CSE', specialization: ['OOPS', 'Software Design'], email: 'david.chen@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Dr. David Chen', employeeId: 'F009', designation: 'Professor', department: 'CSE', specialization: ['OOPS', 'Software Design'], email: 'david.chen@university.edu', maxWorkload: 18 },
                 { id: newId(), name: 'Prof. Maya Sharma', employeeId: 'F010', designation: 'Assistant Professor', department: 'CSE', specialization: ['Java', 'C++', 'OOPS'], email: 'maya.sharma@university.edu', maxWorkload: 18 }
             ]
         };
         let newFacultyData = Object.values(facultyPool).flat();
-        const getRandomFacultyId = (type) => facultyPool[type][Math.floor(Math.random() * facultyPool[type].length)].id;
         
         const newSubjectsData = [];
-        const sharedSubjects = [
-            { name: 'Humanities', code: 'HU-101', type: 'humanities', department: 'Applied Science' },
-            { name: 'Mathematics-I', code: 'MA-101', type: 'math', department: 'Applied Science' }
-        ];
-
-        sharedSubjects.forEach(template => {
-            newSubjectsData.push({
-                id: newId(), name: template.name, code: template.code, department: template.department,
-                semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 4,
-                assignedFacultyId: getRandomFacultyId(template.type),
-            });
-        });
-
-        const departmentSpecificSubjects = [
+        const subjectTemplates = [
+            { name: 'Humanities', codePrefix: 'HU', type: 'humanities' },
+            { name: 'Mathematics-I', codePrefix: 'MA', type: 'math' },
             { name: 'Digital Electronics', codePrefix: 'DE', type: 'de' },
             { name: 'Data Structures & Algorithms', codePrefix: 'DS', type: 'dsa' },
             { name: 'Object Oriented Programming', codePrefix: 'CS', type: 'oops' },
         ];
+        
+        // Use round-robin counters for balanced faculty assignment
+        const facultyCounters = { humanities: 0, de: 0, dsa: 0, math: 0, oops: 0 };
+        const getNextFacultyId = (type) => {
+            const facultyForType = facultyPool[type];
+            if (!facultyForType) return null;
+            const index = facultyCounters[type] % facultyForType.length;
+            facultyCounters[type]++;
+            return facultyForType[index].id;
+        };
 
-        ['CYS', 'BCA', 'CSE'].forEach(branch => {
-            departmentSpecificSubjects.forEach((template, index) => {
+        newClassesData.forEach(cls => {
+            subjectTemplates.forEach(template => {
                 newSubjectsData.push({
-                    id: newId(), name: template.name, code: `${branch}-${template.codePrefix}-${101 + index}`,
-                    department: branch, semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 4,
-                    assignedFacultyId: getRandomFacultyId(template.type),
+                    id: newId(),
+                    name: template.name,
+                    code: `${cls.name.replace(' ', '')}-${template.codePrefix}`, // Unique code like CYSA-HU
+                    department: cls.branch,
+                    forClass: cls.name, // Explicitly link subject to a class
+                    semester: 1,
+                    credits: 3,
+                    type: 'Theory',
+                    hoursPerWeek: 4,
+                    assignedFacultyId: getNextFacultyId(template.type)
                 });
             });
         });
-        
+
         // 3. Create default users and profiles
         const adminProfile = { id: newId(), name: 'Admin User', employeeId: 'ADMIN01', designation: 'Professor', department: 'Administration', specialization: ['System Management'], email: 'admin@university.edu', maxWorkload: 40 };
         const teacherProfileForUser = facultyPool.dsa[0]; // Dr. Kenji Tanaka
