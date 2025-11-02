@@ -324,6 +324,20 @@ app.use('/api/student', createCrudRoutes(Student, 'student'));
 app.use('/api/institution', createCrudRoutes(Institution, 'institution'));
 
 // ... other routes from server.js
+// Smart Tools Route
+const MOCK_SMART_TOOLS = [
+    { id: 'tool-1', title: 'Download Syllabus', description: 'Access and download the official syllabus for all your subjects.', icon: 'Syllabus', link: '#' },
+    { id: 'tool-2', title: 'GPA Calculator', description: 'Calculate your current and projected Grade Point Average.', icon: 'Calculator', link: '#' },
+    { id: 'tool-3', title: 'My Gradebook', description: 'View your grades, marks, and academic performance.', icon: 'Gradebook', link: '#' },
+    { id: 'tool-4', title: 'Plagiarism Checker', description: 'Check your assignments for plagiarism before submission.', icon: 'Plagiarism', link: '#' },
+    { id: 'tool-5', title: 'Submit Assignment', description: 'Upload and submit your course assignments directly.', icon: 'Submit', link: '#' },
+    { id: 'tool-6', title: 'View Timetable', description: 'Access your personal weekly class schedule.', icon: 'Timetable', link: '#' }
+];
+
+app.get('/api/tools', authMiddleware, (req, res) => {
+    res.json(MOCK_SMART_TOOLS);
+});
+
 
 // Constraints Route
 app.get('/api/constraints', authMiddleware, async (req, res) => {
