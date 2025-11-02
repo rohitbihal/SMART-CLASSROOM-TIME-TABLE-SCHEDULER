@@ -26,7 +26,7 @@ const MOCK_NOTIFICATIONS = [
     }
 ];
 
-export const NotificationsPage = () => {
+const NotificationsPage = () => {
     
     const getPriorityStyles = (priority: string) => {
         switch(priority) {
@@ -70,3 +70,5 @@ export const NotificationsPage = () => {
         </SectionCard>
     );
 };
+
+export default NotificationsPage;

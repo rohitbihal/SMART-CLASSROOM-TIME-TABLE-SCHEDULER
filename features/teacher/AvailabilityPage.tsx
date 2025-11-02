@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { SaveIcon } from '../../components/Icons';
 
-export const AvailabilityPage = () => {
+const AvailabilityPage = () => {
     const { user, faculty, handleUpdateTeacherAvailability } = useAppContext();
     const teacherProfile = faculty.find(f => f.id === user?.profileId);
     
@@ -89,3 +89,5 @@ export const AvailabilityPage = () => {
         </SectionCard>
     );
 };
+
+export default AvailabilityPage;

@@ -52,7 +52,7 @@ const Message: React.FC<{ msg: ChatMessage, isUser: boolean }> = React.memo(({ m
     );
 });
 
-export const TeacherChatPage = () => {
+const TeacherChatPage = () => {
     const { user, chatMessages, handleTeacherAskAI } = useAppContext();
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -131,3 +131,5 @@ export const TeacherChatPage = () => {
         </div>
     );
 };
+
+export default TeacherChatPage;

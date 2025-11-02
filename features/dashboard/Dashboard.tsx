@@ -3,7 +3,8 @@ import {
     LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon, UsersIcon
 } from '../../components/Icons';
 import { ChatInterface } from '../chat/ChatInterface';
-import { TimetableGrid } from './TimetableGrid';
+// FIX: Changed to a default import for TimetableGrid as it is a default export in its module.
+import TimetableGrid from './TimetableGrid';
 import { PlaceholderContent } from './PlaceholderContent';
 import { User, Class } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -163,7 +164,7 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
     );
 };
 
-export function Dashboard () {
+function Dashboard () {
     const { user, students, classes } = useAppContext();
 
     const studentProfile = useMemo(() => students.find(s => s.id === user?.profileId), [students, user]);
@@ -178,3 +179,5 @@ export function Dashboard () {
         </div>
     );
 };
+
+export default Dashboard;

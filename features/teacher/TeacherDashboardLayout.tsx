@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 
 // This component acts as the main layout for all teacher-specific pages.
 // It renders nested routes defined in App.tsx within its structure.
-export const TeacherDashboardLayout = () => {
+const TeacherDashboardLayout = () => {
     return (
         <div>
             {/* The <Outlet /> component from react-router-dom is a placeholder
@@ -12,3 +12,5 @@ export const TeacherDashboardLayout = () => {
         </div>
     );
 };
+
+export default TeacherDashboardLayout;

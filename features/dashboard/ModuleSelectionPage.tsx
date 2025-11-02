@@ -20,7 +20,7 @@ const ModuleCard = ({ to, icon, title, description }: { to: string; icon: React.
     </Link>
 );
 
-export const ModuleSelectionPage = ({ user }: ModuleSelectionPageProps) => {
+const ModuleSelectionPage = ({ user }: ModuleSelectionPageProps) => {
     return (
         <div className="min-h-full flex flex-col">
             <div className="flex-grow flex flex-col items-center justify-center text-center">
@@ -44,3 +44,5 @@ export const ModuleSelectionPage = ({ user }: ModuleSelectionPageProps) => {
         </div>
     );
 };
+
+export default ModuleSelectionPage;

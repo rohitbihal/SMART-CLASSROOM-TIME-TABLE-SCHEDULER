@@ -19,7 +19,7 @@ const iconMap: Record<NotificationType, React.ReactNode> = {
     'General': <InfoIcon className="h-5 w-5" />,
 };
 
-export const NotificationsCenterPage = () => {
+const NotificationsCenterPage = () => {
     const { classes, appNotifications, handleSendNotification } = useAppContext();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
@@ -156,3 +156,5 @@ export const NotificationsCenterPage = () => {
         </div>
     );
 };
+
+export default NotificationsCenterPage;

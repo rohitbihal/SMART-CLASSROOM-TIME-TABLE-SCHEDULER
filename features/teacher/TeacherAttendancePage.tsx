@@ -7,7 +7,7 @@ import { AttendanceStatus } from '../../types';
 // This is a placeholder component for the Teacher's Attendance Page.
 // A full implementation would involve fetching assigned classes,
 // students, and attendance data specific to this teacher.
-export const TeacherAttendancePage = () => {
+const TeacherAttendancePage = () => {
     const { user, faculty } = useAppContext();
     const teacherProfile = faculty.find(f => f.id === user?.profileId);
 
@@ -67,3 +67,5 @@ export const TeacherAttendancePage = () => {
         </SectionCard>
     );
 };
+
+export default TeacherAttendancePage;

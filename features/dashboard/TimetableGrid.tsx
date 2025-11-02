@@ -33,7 +33,7 @@ const TimetableCell: React.FC<{ entry: TimetableEntry | undefined; time: string;
 };
 
 
-export const TimetableGrid = ({ timetable, role = 'student', constraints }: { timetable: TimetableEntry[], role?: 'student' | 'teacher', constraints: Constraints | null }) => {
+const TimetableGrid = ({ timetable, role = 'student', constraints }: { timetable: TimetableEntry[], role?: 'student' | 'teacher', constraints: Constraints | null }) => {
     if (!timetable || timetable.length === 0) {
         return (
             <div className="bg-bg-secondary border-2 border-dashed border-border-primary p-8 rounded-xl text-center min-h-[500px] flex flex-col justify-center items-center">
@@ -89,3 +89,5 @@ export const TimetableGrid = ({ timetable, role = 'student', constraints }: { ti
         </div>
     );
 };
+
+export default TimetableGrid;

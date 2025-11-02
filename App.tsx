@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -6,33 +8,31 @@ import { LoadingIcon, LogoutIcon, MoonIcon, SunIcon, ProfileIcon, SchedulerIcon,
 import { User } from './types';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay, FeedbackBanner } from './components/common';
-import { SmartClassroomLayout, StudentManagementTab, UserManagementTab, AttendanceManagementTab, ChatbotControlTab, MyProfileTab } from './features/classroom/SmartClassroom';
+// FIX: Changed to a default import for SmartClassroomLayout as it is a default export in its module.
+import SmartClassroomLayout, { StudentManagementTab, UserManagementTab, AttendanceManagementTab, ChatbotControlTab, MyProfileTab } from './features/classroom/SmartClassroom';
 
 
 // --- START: LAZY LOADED COMPONENTS FOR PERFORMANCE ---
-const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then(module => ({ default: module.Dashboard })));
-const TimetableScheduler = lazy(() => import('./features/scheduler/TimetableScheduler').then(module => ({ default: module.TimetableScheduler })));
-const SmartClassroom = lazy(() => import('./features/classroom/SmartClassroom').then(module => ({ default: module.SmartClassroomLayout })));
-const ModuleSelectionPage = lazy(() => import('./features/dashboard/ModuleSelectionPage').then(module => ({ default: module.ModuleSelectionPage })));
-const TeacherDashboardLayout = lazy(() => import('./features/teacher/TeacherDashboardLayout').then(module => ({ default: module.TeacherDashboardLayout })));
-const TeacherAttendancePage = lazy(() => import('./features/teacher/TeacherAttendancePage').then(module => ({ default: module.TeacherAttendancePage })));
-const IMSPageTeacher = lazy(() => import('./features/teacher/IMSPage').then(module => ({ default: module.IMSPage })));
-const SmartToolsPage = lazy(() => import('./features/teacher/SmartToolsPage').then(module => ({ default: module.SmartToolsPage })));
-const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage').then(module => ({ default: module.AvailabilityPage })));
-const RequestsPage = lazy(() => import('./features/teacher/RequestsPage').then(module => ({ default: module.RequestsPage })));
-const NotificationsPageTeacher = lazy(() => import('./features/teacher/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
-const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage').then(module => ({ default: module.TeacherChatPage })));
-// FIX: Corrected lazy import to handle default export correctly.
-const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage').then(m => ({ default: m.default })));
-const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid').then(module => ({ default: module.TimetableGrid })));
-// FIX: Changed lazy import to use default export from QueryPage to resolve module loading issue.
+const Dashboard = lazy(() => import('./features/dashboard/Dashboard'));
+const TimetableScheduler = lazy(() => import('./features/scheduler/TimetableScheduler'));
+const SmartClassroom = lazy(() => import('./features/classroom/SmartClassroom'));
+const ModuleSelectionPage = lazy(() => import('./features/dashboard/ModuleSelectionPage'));
+const TeacherDashboardLayout = lazy(() => import('./features/teacher/TeacherDashboardLayout'));
+const TeacherAttendancePage = lazy(() => import('./features/teacher/TeacherAttendancePage'));
+const IMSPageTeacher = lazy(() => import('./features/teacher/IMSPage'));
+const SmartToolsPage = lazy(() => import('./features/teacher/SmartToolsPage'));
+const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage'));
+const RequestsPage = lazy(() => import('./features/teacher/RequestsPage'));
+const NotificationsPageTeacher = lazy(() => import('./features/teacher/NotificationsPage'));
+const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage'));
+const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage'));
+const TimetableGrid = lazy(() => import('./features/dashboard/TimetableGrid'));
 const QueryPage = lazy(() => import('./features/query/QueryPage'));
-const NotificationsCenterPage = lazy(() => import('./features/notifications/NotificationsCenterPage').then(module => ({ default: module.NotificationsCenterPage })));
+const NotificationsCenterPage = lazy(() => import('./features/notifications/NotificationsCenterPage'));
 // --- NEW: Import fully implemented module pages ---
-// FIX: Corrected lazy imports to handle default exports correctly, resolving app load failure.
-const IMSPage = lazy(() => import('./features/ims/IMSPage').then(m => ({ default: m.default })));
-const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.default })));
-const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage').then(m => ({ default: m.default })));
+const IMSPage = lazy(() => import('./features/ims/IMSPage'));
+const CalendarPage = lazy(() => import('./features/calendar/CalendarPage'));
+const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage'));
 
 
 // --- SHARED UI COMPONENTS (MOVED TO components/common.tsx) ---

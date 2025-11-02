@@ -7,7 +7,7 @@ const IMS_BUTTON_STYLE = "flex flex-col items-center justify-center p-8 rounded-
 const ICON_STYLE = "h-10 w-10 mb-4";
 const TEXT_STYLE = "text-xl font-bold";
 
-export const IMSPage = () => {
+const IMSPage = () => {
     return (
         <div className="space-y-6">
             <SectionCard title="IMS">
@@ -39,3 +39,5 @@ export const IMSPage = () => {
         </div>
     );
 };
+
+export default IMSPage;

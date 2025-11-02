@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { SendIcon } from '../../components/Icons';
 import { TeacherQuery } from '../../types';
 
-export const RequestsPage = () => {
+const RequestsPage = () => {
     const { user, subjects, teacherRequests, handleSubmitTeacherRequest } = useAppContext();
 
     // FIX: Added missing 'priority' field to initialState to align with the TeacherQuery type.
@@ -129,3 +129,5 @@ export const RequestsPage = () => {
         </div>
     );
 };
+
+export default RequestsPage;

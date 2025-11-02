@@ -1077,8 +1077,13 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
             const room = rooms.find(r => r.number === entry.room);
             if (room) {
                 for (const [key, value] of Object.entries(room.equipment)) {
-                    // FIX: Corrected the type assertion for `computerSystems` to include `count`, ensuring full type safety.
-                    const isAvailable = key === 'computerSystems' ? (value as { available: boolean; count: number }).available : value;
+                    let isAvailable = false;
+                    if (key === 'computerSystems' && typeof value === 'object' && value !== null && 'available' in value) {
+                        isAvailable = (value as { available: boolean }).available;
+                    } else if (typeof value === 'boolean') {
+                        isAvailable = value;
+                    }
+
                     if (isAvailable) {
                         equipmentHours[key] = (equipmentHours[key] || 0) + 1;
                     }
@@ -1206,7 +1211,7 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
     );
 };
 
-export const TimetableScheduler = (props: TimetableSchedulerProps) => {
+const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const { classes, faculty, subjects, rooms, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable, institutions, timetable } = props;
     const [activeTab, setActiveTab] = useState('setup');
     const [modal, setModal] = useState<{ mode: 'add' | 'edit'; type: EntityType; data: Entity | null } | null>(null);
@@ -1367,3 +1372,5 @@ export const TimetableScheduler = (props: TimetableSchedulerProps) => {
         </div>
     );
 };
+
+export default TimetableScheduler;

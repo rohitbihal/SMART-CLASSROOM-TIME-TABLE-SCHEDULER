@@ -1012,7 +1012,7 @@ const useSmartClassroomLayout = () => {
 };
 
 
-export const SmartClassroomLayout = (props: SmartClassroomProps & { children: React.ReactNode }) => {
+const SmartClassroomLayout = (props: SmartClassroomProps & { children: React.ReactNode }) => {
     const { feedback, setFeedback } = useSmartClassroomLayout();
     const location = useLocation();
     
@@ -1053,3 +1053,5 @@ export const SmartClassroomLayout = (props: SmartClassroomProps & { children: Re
         </div>
     );
 };
+
+export default SmartClassroomLayout;
