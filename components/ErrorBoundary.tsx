@@ -24,6 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
     logger.error(error, errorInfo);
   }
 
+  // FIX: Changed to a standard class method to ensure `this` is correctly bound and props are accessible.
   public render() {
     if (this.state.hasError) {
       return (

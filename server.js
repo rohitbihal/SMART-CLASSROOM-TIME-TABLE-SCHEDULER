@@ -808,7 +808,7 @@ app.post('/api/chat/send', authMiddleware, adminOrTeacher, async (req, res) => {
         const message = new ChatMessage({ id: `msg-${Date.now()}`, text, classId, author: authorName, authorId: user.profileId, role: user.role, channel: `admin-chat-${classId}`, timestamp: Date.now(), });
         await message.save();
         res.status(201).json(message);
-    } catch (error) { handleApiError(res, error, 'Privileged chat send'); }
+    } catch (error) { handleApiError(res, e, 'Privileged chat send'); }
 });
 
 app.post('/api/chat/message', authMiddleware, async (req, res) => {
@@ -926,6 +926,95 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
         res.status(500).json({ message: `Failed to generate timetable. ${error.message || "An unexpected error occurred."}` });
     }
 });
+
+// NEW: Universal AI Import endpoint
+app.post('/api/import/universal', authMiddleware, adminOnly, async (req, res) => {
+    if (!process.env.API_KEY) {
+        return res.status(500).json({ message: "AI features are not configured on the server." });
+    }
+    
+    const { fileData, mimeType } = req.body;
+    if (!fileData || !mimeType) {
+        return res.status(400).json({ message: 'File data and MIME type are required.' });
+    }
+
+    try {
+        const base64Data = fileData.split(',')[1];
+        if (!base64Data) {
+            return res.status(400).json({ message: 'Invalid file data format.' });
+        }
+
+        const filePart = { inlineData: { data: base64Data, mimeType } };
+        
+        const prompt = `
+            Analyze the provided document. The document can be a CSV, Excel, or PDF file containing information about a university's resources.
+            Your task is to identify and extract data for the following entities: classes, faculty, subjects, and rooms.
+            
+            - For **classes**, look for names (e.g., 'CSE-3-A'), branch, year, section, and student count.
+            - For **faculty**, look for names, employee IDs, email, department, specializations, and max workload.
+            - For **subjects**, look for names, codes (e.g., 'CS301'), department, semester, credits, type ('Theory' or 'Lab'), and hours per week.
+            - For **rooms**, look for room numbers (e.g., 'CS-101'), building, type ('Classroom' or 'Laboratory'), and capacity.
+            - Pay close attention to headers and data structure to correctly map the information.
+            
+            Return the extracted data as a single JSON object with four keys: "classes", "faculty", "subjects", and "rooms". Each key should hold an array of objects corresponding to the entities found. If no data for an entity type is found, return an empty array for that key.
+        `;
+
+        // Define schemas for Gemini's structured response
+        const classSchema = { type: Type.OBJECT, properties: { name: { type: Type.STRING }, branch: { type: Type.STRING }, year: { type: Type.INTEGER }, section: { type: Type.STRING }, studentCount: { type: Type.INTEGER }, block: { type: Type.STRING, nullable: true } }, required: ['name', 'branch', 'year', 'section', 'studentCount'] };
+        const facultySchema = { type: Type.OBJECT, properties: { name: { type: Type.STRING }, employeeId: { type: Type.STRING }, email: { type: Type.STRING }, department: { type: Type.STRING }, specialization: { type: Type.ARRAY, items: { type: Type.STRING } }, maxWorkload: { type: Type.INTEGER }, designation: { type: Type.STRING, nullable: true }, contactNumber: { type: Type.STRING, nullable: true } }, required: ['name', 'employeeId', 'email', 'department'] };
+        const subjectSchema = { type: Type.OBJECT, properties: { name: { type: Type.STRING }, code: { type: Type.STRING }, department: { type: Type.STRING }, semester: { type: Type.INTEGER }, credits: { type: Type.INTEGER }, type: { type: Type.STRING }, hoursPerWeek: { type: Type.INTEGER } }, required: ['name', 'code', 'department', 'semester', 'type', 'hoursPerWeek'] };
+        const roomSchema = { type: Type.OBJECT, properties: { number: { type: Type.STRING }, building: { type: Type.STRING }, type: { type: Type.STRING }, capacity: { type: Type.INTEGER }, block: { type: Type.STRING, nullable: true } }, required: ['number', 'type', 'capacity'] };
+
+        const responseSchema = {
+            type: Type.OBJECT,
+            properties: {
+                classes: { type: Type.ARRAY, items: classSchema },
+                faculty: { type: Type.ARRAY, items: facultySchema },
+                subjects: { type: Type.ARRAY, items: subjectSchema },
+                rooms: { type: Type.ARRAY, items: roomSchema }
+            }
+        };
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: { parts: [filePart, { text: prompt }] },
+            config: { responseMimeType: "application/json", responseSchema: responseSchema }
+        });
+        
+        const parsedData = JSON.parse(response.text);
+
+        const upsertData = async (Model, data, uniqueKey) => {
+            if (!data || data.length === 0) return;
+            const operations = data.map(item => {
+                if (!item.id) item.id = new mongoose.Types.ObjectId().toString();
+                return {
+                    updateOne: {
+                        filter: { [uniqueKey]: item[uniqueKey] },
+                        update: { $set: item },
+                        upsert: true
+                    }
+                };
+            });
+            if (operations.length > 0) {
+                await Model.bulkWrite(operations);
+            }
+        };
+        
+        await Promise.all([
+            upsertData(Class, parsedData.classes, 'name'),
+            upsertData(Faculty, parsedData.faculty, 'employeeId'),
+            upsertData(Subject, parsedData.subjects, 'code'),
+            upsertData(Room, parsedData.rooms, 'number')
+        ]);
+
+        res.status(200).json({ message: 'Import successful.' });
+
+    } catch (error) {
+        handleApiError(res, error, 'universal import');
+    }
+});
+
 
 app.get('/api/tools', authMiddleware, (req, res) => {
     const { role } = req.user;

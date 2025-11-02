@@ -147,6 +147,17 @@ export const resetAllData = async (): Promise<{ message: string }> => {
     return response.json();
 }
 
+// --- UNIVERSAL IMPORT ---
+export const universalImport = async (fileData: string, mimeType: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/import/universal`, {
+        method: 'POST',
+        body: JSON.stringify({ fileData, mimeType })
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+
 // --- CHAT API ---
 export const askCampusAI = async (payload: { messageText: string, classId: string, messageId: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {

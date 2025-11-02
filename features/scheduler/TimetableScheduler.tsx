@@ -1,7 +1,9 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
+import { FullScreenLoader } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
 import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint } from '../../types';
@@ -29,6 +31,7 @@ interface TimetableSchedulerProps {
     onAddCustomConstraint: (constraint: Omit<CustomConstraint, 'id'>) => Promise<void>;
     onUpdateCustomConstraint: (constraint: CustomConstraint) => Promise<void>;
     onDeleteCustomConstraint: (constraintId: string) => Promise<void>;
+    onUniversalImport: (fileData: string, mimeType: string) => Promise<void>;
 }
 
 const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: (string|React.ReactNode)[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (
@@ -222,41 +225,40 @@ const HeaderCheckbox = <T extends { id: string }>({ type, items, selectedItems, 
     );
 };
 
-const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: boolean; onClose: () => void; initialEntityType?: EntityType; }) => {
-    const [entityType, setEntityType] = useState<EntityType>(initialEntityType || 'class');
+const DataManagementModal = ({ isOpen, onClose, onImport }: { 
+    isOpen: boolean; 
+    onClose: () => void;
+    onImport: (file: File) => void;
+}) => {
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    useEffect(() => {
-        if (initialEntityType) {
-            setEntityType(initialEntityType);
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setSelectedFile(e.target.files[0]);
         }
-    }, [initialEntityType]);
+    };
     
-    const formats: { [key in Exclude<EntityType, 'institution'>]: string } = {
-        class: "Required: name, branch, year, section, studentCount. Optional: block",
-        faculty: "Required: name, department, email, employeeId, designation, maxWorkload. Optional: specialization (comma-separated), contactNumber",
-        subject: "Required: name, code, department, semester, credits, type, hoursPerWeek, assignedFacultyId.",
-        room: "Required: number, building, type, capacity. Optional: block"
+    const handleProcess = () => {
+        if (selectedFile) {
+            onImport(selectedFile);
+        }
     };
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={`Import Data`}
+            title="Universal Data Import"
         >
             <div className="space-y-4">
-                <FormField label="Select Data Type to Import" htmlFor="import-entity-type">
-                     <SelectInput id="import-entity-type" value={entityType} onChange={(e) => setEntityType(e.target.value as EntityType)}>
-                        <option value="class">Classes</option>
-                        <option value="faculty">Faculty</option>
-                        <option value="subject">Subjects</option>
-                        <option value="room">Rooms</option>
-                     </SelectInput>
-                </FormField>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV or Excel file to bulk-add data. Make sure your file follows the specified format.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Upload a single CSV, Excel, or PDF file. The AI will analyze the document, identify classes, faculty, subjects, and rooms, and import them into the system.
+                </p>
                 <div className="p-3 bg-gray-100 dark:bg-slate-700/50 rounded-md">
-                    <p className="text-sm font-semibold">File Format:</p>
-                    <p className="text-xs font-mono mt-1 text-gray-600 dark:text-gray-300">{entityType !== 'institution' && formats[entityType]}</p>
+                    <p className="text-sm font-semibold">Tip:</p>
+                    <p className="text-xs mt-1 text-gray-600 dark:text-gray-300">
+                        For best results, ensure your file has clear headers (e.g., "Class Name", "Faculty Email", "Subject Code") or a discernible tabular structure.
+                    </p>
                 </div>
                 <div>
                     <label htmlFor="file-upload" className="block text-sm font-medium mb-1">Upload File</label>
@@ -264,21 +266,27 @@ const DataManagementModal = ({ isOpen, onClose, initialEntityType }: { isOpen: b
                         id="file-upload"
                         name="file-upload"
                         type="file"
-                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, .pdf"
+                        onChange={handleFileChange}
                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900/50 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800/50"
                     />
                 </div>
-                 <p className="text-xs text-center text-gray-400">PDF import support is coming soon.</p>
-                 <p className="text-xs text-center text-gray-400 font-semibold">Note: A universal import from a single file is planned for a future update.</p>
                 <div className="flex justify-end pt-4">
-                     <button type="button" onClick={() => { alert('File processing is a placeholder and not yet implemented.'); onClose(); }} className="btn-primary flex items-center justify-center gap-2">Process File</button>
+                     <button 
+                        type="button" 
+                        onClick={handleProcess} 
+                        disabled={!selectedFile}
+                        className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+                     >
+                        Process and Import File
+                     </button>
                 </div>
             </div>
         </Modal>
     );
 };
 
-const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onBulkDelete, pageError, openImportModal, selectedInstitutionId, setSelectedInstitutionId, institutionFormState, setInstitutionFormState, activeBlocks }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: (type?: EntityType) => void; selectedInstitutionId: string | 'new'; setSelectedInstitutionId: (id: string | 'new') => void; institutionFormState: Partial<Institution>; setInstitutionFormState: (state: Partial<Institution>) => void; activeBlocks: string[]; }) => {
+const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntity, onDeleteEntity, openModal, handleDelete, handleResetData, selectedItems, onToggleSelect, onToggleSelectAll, onBulkDelete, pageError, openImportModal, selectedInstitutionId, setSelectedInstitutionId, institutionFormState, setInstitutionFormState, activeBlocks }: { institutions: Institution[]; classes: Class[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; onSaveEntity: (type: EntityType | 'student', data: any) => Promise<any>; onDeleteEntity: (type: EntityType | 'student', id: string) => Promise<void>; openModal: (mode: 'add' | 'edit', type: EntityType, data?: Entity | null) => void; handleDelete: (type: EntityType, id: string) => Promise<void>; handleResetData: () => Promise<void>; selectedItems: { [key in EntityType]: string[] }; onToggleSelect: (type: EntityType, id: string) => void; onToggleSelectAll: (type: EntityType, displayedItems: any[]) => void; onBulkDelete: (type: EntityType) => void; pageError: string | null; openImportModal: () => void; selectedInstitutionId: string | 'new'; setSelectedInstitutionId: (id: string | 'new') => void; institutionFormState: Partial<Institution>; setInstitutionFormState: (state: Partial<Institution>) => void; activeBlocks: string[]; }) => {
     const [search, setSearch] = useState({ class: '', faculty: '', subject: '', room: '' });
     const isCreatingNew = selectedInstitutionId === 'new';
     
@@ -365,7 +373,6 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
         }
         return (
             <div className="flex items-center gap-2">
-                <button onClick={() => openImportModal(type)} className="action-btn-secondary"><UploadIcon/></button>
                 <button onClick={() => openModal('add', type)} className="action-btn-primary"><AddIcon />Add {singular}</button>
             </div>
         );
@@ -376,7 +383,7 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
             <ErrorDisplay message={pageError} />
             <SectionCard title="Institution Details" actions={
                 <div className="flex items-center gap-2">
-                    <button onClick={() => openImportModal()} className="action-btn-secondary"><UploadIcon />Universal Import</button>
+                    <button onClick={openImportModal} className="action-btn-primary"><UploadIcon />Universal AI Import</button>
                 </div>
             }>
                 <form onSubmit={handleSaveInstitution}>
@@ -1233,7 +1240,7 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
 };
 
 const TimetableScheduler = (props: TimetableSchedulerProps) => {
-    const { classes, faculty, subjects, rooms, constraints, setConstraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable, institutions, timetable } = props;
+    const { classes, faculty, subjects, rooms, constraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable, institutions, timetable, onUniversalImport } = props;
     const [activeTab, setActiveTab] = useState('setup');
     const [modal, setModal] = useState<{ mode: 'add' | 'edit'; type: EntityType; data: Entity | null } | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
@@ -1241,7 +1248,8 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const [generationError, setGenerationError] = useState<string | null>(null);
     const [generatedTimetable, setGeneratedTimetable] = useState<TimetableEntry[] | null>(null);
     const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [], institution: [] });
-    const [importModalState, setImportModalState] = useState<{ isOpen: boolean; type?: EntityType }>({ isOpen: false });
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
 
     const [selectedInstitutionId, setSelectedInstitutionId] = useState<string | 'new'>('');
     const [institutionFormState, setInstitutionFormState] = useState<Partial<Institution>>({});
@@ -1261,8 +1269,6 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
             setInstitutionFormState(selected || {});
         }
     }, [selectedInstitutionId, institutions]);
-
-    const openImportModal = (type?: EntityType) => setImportModalState({ isOpen: true, type });
 
     const handleSave = async (type: EntityType, data: Entity) => {
         setPageError(null);
@@ -1306,6 +1312,32 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
              setPageError(error instanceof Error ? error.message : "An unknown error occurred during bulk deletion.");
         }
     };
+    
+    const handleUniversalImport = (file: File) => {
+        setImportModalOpen(false);
+        setIsImporting(true);
+        setPageError(null);
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+    
+        reader.onload = async () => {
+            try {
+                const fileData = reader.result as string;
+                await onUniversalImport(fileData, file.type);
+            } catch (error) {
+                setPageError(error instanceof Error ? error.message : "An unknown error occurred during import.");
+            } finally {
+                setIsImporting(false);
+            }
+        };
+    
+        reader.onerror = () => {
+            setPageError('Failed to read the file.');
+            setIsImporting(false);
+        };
+    };
+
 
     const handleGenerate = useCallback(async () => {
         setIsGenerating(true);
@@ -1338,6 +1370,10 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
         { key: 'view', label: 'View & Analytics', icon: <ViewIcon /> },
     ];
     
+    if (isImporting) {
+        return <FullScreenLoader message="AI is processing your document... Please wait." />;
+    }
+    
     const renderContent = () => {
         const loadingIndicator = (
             <div className="flex items-center justify-center p-8 text-text-secondary">
@@ -1347,7 +1383,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
         );
 
         switch (activeTab) {
-            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onBulkDelete={handleBulkDelete} pageError={pageError} openImportModal={openImportModal} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
+            case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onBulkDelete={handleBulkDelete} pageError={pageError} openImportModal={() => setImportModalOpen(true)} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
             case 'constraints': 
                 if (!constraints) return loadingIndicator;
                 return <ConstraintsTab {...props} />;
@@ -1389,7 +1425,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
                     <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={activeBlocks} />
                 </Modal>
             )}
-             <DataManagementModal isOpen={importModalState.isOpen} onClose={() => setImportModalState({isOpen: false})} initialEntityType={importModalState.type} />
+             <DataManagementModal isOpen={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={handleUniversalImport} />
         </div>
     );
 };

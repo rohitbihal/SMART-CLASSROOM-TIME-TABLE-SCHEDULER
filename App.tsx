@@ -40,7 +40,7 @@ const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage'));
 
 // --- SHARED UI COMPONENTS (MOVED TO components/common.tsx) ---
 
-const FullScreenLoader = ({ message }: { message: string }) => (
+export const FullScreenLoader = ({ message }: { message: string }) => (
     <div className="fixed inset-0 bg-bg-primary flex flex-col items-center justify-center z-50">
         <LoadingIcon />
         <p className="mt-4 text-lg text-text-secondary font-medium">{message}</p>
@@ -132,7 +132,7 @@ const AuthenticatedApp = () => {
         constraints, timetable, attendance, token, chatMessages, handleSaveEntity, handleDeleteEntity, 
         handleUpdateConstraints, handleSaveTimetable, handleSaveClassAttendance, 
         handleSaveUser, handleDeleteUser, handleResetData, handleAdminSendMessage, handleAdminAskAsStudent,
-        handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint 
+        handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint, handleUniversalImport
     } = useAppContext();
 
     useEffect(() => {
@@ -177,6 +177,7 @@ const AuthenticatedApp = () => {
                                 onAddCustomConstraint={handleAddCustomConstraint}
                                 onUpdateCustomConstraint={handleUpdateCustomConstraint}
                                 onDeleteCustomConstraint={handleDeleteCustomConstraint}
+                                onUniversalImport={handleUniversalImport}
                             />} />
                             <Route path="/smart-classroom" element={
                                 <SmartClassroomLayout 

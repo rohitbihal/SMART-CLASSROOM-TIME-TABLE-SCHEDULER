@@ -1,12 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SectionCard } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
-import { StudentDashboardNotification } from '../../types';
+import { StudentDashboardNotification, AppNotification } from '../../types';
 import { NotificationsIcon } from '../../components/Icons';
 
+// FIX: Added `timestamp` to the global notification part of the union type to match the object structure created in the `useMemo` hook.
+type CombinedNotification = (StudentDashboardNotification & { sourceType: 'personal' }) | (AppNotification & { sourceType: 'global', timestamp: string });
+
+
 export const NotificationsPage = () => {
-    const { notifications: initialNotifications } = useAppContext();
-    const [notifications, setNotifications] = useState<StudentDashboardNotification[]>(initialNotifications);
+    const { notifications: personalNotifications, appNotifications, user } = useAppContext();
+
+    const combinedNotifications = useMemo(() => {
+        const studentNotifications: CombinedNotification[] = personalNotifications.map(n => ({ ...n, sourceType: 'personal' }));
+        
+        const globalNotifications: CombinedNotification[] = appNotifications
+            .filter(n => {
+                if (n.recipients.type === 'Students' || n.recipients.type === 'Both') {
+                    return true;
+                }
+                // In a real app with class data, you'd check specific class IDs here
+                return false;
+            })
+            .map(n => ({ ...n, sourceType: 'global', timestamp: n.sentDate }));
+
+        return [...studentNotifications, ...globalNotifications].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    }, [personalNotifications, appNotifications, user]);
+    
+    const [notifications, setNotifications] = useState(combinedNotifications);
+
 
     const handleMarkAsRead = (id: string) => {
         setNotifications(prev => 
@@ -19,15 +42,16 @@ export const NotificationsPage = () => {
         <SectionCard title="Notifications & Announcements">
             <div className="space-y-4">
                 {notifications.length > 0 ? notifications.map(notification => (
-                    <div key={notification.id} className={`p-4 rounded-lg transition-colors ${notification.read ? 'bg-bg-primary opacity-70' : 'bg-bg-secondary shadow-sm'}`}>
+                    <div key={`${notification.sourceType}-${notification.id}`} className={`p-4 rounded-lg transition-colors ${notification.read ? 'bg-bg-primary opacity-70' : 'bg-bg-secondary shadow-sm'}`}>
                         <div className="flex justify-between items-start gap-4">
                             <div className="flex-grow">
+                                {notification.sourceType === 'global' && <span className="text-xs font-bold uppercase text-accent-primary">Announcement</span>}
                                 <h3 className="font-bold">{notification.title}</h3>
                                 <p className="text-sm text-text-secondary mt-1">{notification.message}</p>
                             </div>
                             <div className="text-right flex-shrink-0">
-                                <p className="text-xs text-text-secondary">{notification.timestamp}</p>
-                                {!notification.read && (
+                                <p className="text-xs text-text-secondary">{new Date(notification.timestamp).toLocaleString()}</p>
+                                {!notification.read && notification.sourceType === 'personal' && (
                                     <button 
                                         onClick={() => handleMarkAsRead(notification.id)} 
                                         className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-2"

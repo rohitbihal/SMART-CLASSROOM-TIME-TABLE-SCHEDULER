@@ -59,6 +59,7 @@ interface AppContextType {
     handleSaveUser: (userData: any) => Promise<any>;
     handleDeleteUser: (userId: string) => Promise<void>;
     getFacultyProfile: (profileId: string) => Faculty | undefined;
+    handleUniversalImport: (fileData: string, mimeType: string) => Promise<void>;
     
     // NEW Handlers for new modules
     handleCreateMeeting: (meeting: Omit<Meeting, 'id'>) => Promise<void>;
@@ -335,6 +336,12 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         return faculty.find(f => f.id === profileId);
     }, [faculty]);
 
+    const handleUniversalImport = useCallback(async (fileData: string, mimeType: string) => {
+        await api.universalImport(fileData, mimeType);
+        await fetchData(); // Re-fetch all data to sync client state
+    }, [fetchData]);
+
+
     // NEW Handlers
     const handleCreateMeeting = useCallback(async (meeting: Omit<Meeting, 'id'>) => {
         const newMeeting = { ...meeting, id: `meet-${Date.now()}`}; // Mock creation
@@ -355,13 +362,13 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         studentAttendance, exams, notifications, appNotifications,
         syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport,
         handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests,
         studentAttendance, exams, notifications, appNotifications, syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, login, logout, toggleTheme,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport, login, logout, toggleTheme,
         handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     ]);
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-    LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon, UsersIcon
+    LogoutIcon, MoonIcon, SchedulerIcon, StudentIcon, SunIcon, ChatIcon, ProfileIcon, IMSIcon, SmartToolsIcon, BookOpenIcon, NotificationsIcon, ExamsIcon, ExtrasIcon, AttendanceIcon, UsersIcon, CalendarIcon, MeetingIcon, QueryIcon
 } from '../../components/Icons';
 import { ChatInterface } from '../chat/ChatInterface';
 // FIX: Changed to a default import for TimetableGrid as it is a default export in its module.
@@ -18,6 +18,10 @@ import { NotificationsPage } from '../student/NotificationsPage';
 import { ExamsPage } from '../student/ExamsPage';
 import { AttendancePage } from '../student/AttendancePage';
 import { ExtrasPage } from '../student/ExtrasPage';
+import StudentQueryPage from '../student/StudentQueryPage';
+import MyProfilePage from '../student/MyProfilePage';
+import StudentCalendarPage from '../student/StudentCalendarPage';
+import StudentMeetingsPage from '../student/StudentMeetingsPage';
 
 
 const Header = () => {
@@ -106,12 +110,15 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
         { key: 'schedule', label: 'My Schedule', icon: <SchedulerIcon className='h-5 w-5' /> },
         { key: 'chat', label: 'Campus AI', icon: <ChatIcon className='h-5 w-5' /> },
         { key: 'chatbox', label: 'Chatbox', icon: <UsersIcon className='h-5 w-5' /> },
-        { key: 'ims-tools', label: 'IMS & Smart Tools', icon: <IMSIcon className='h-5 w-5' /> },
         { key: 'subjects', label: 'Subjects', icon: <BookOpenIcon className='h-5 w-5' /> },
-        { key: 'upcoming', label: 'Upcoming Classes', icon: <SchedulerIcon className='h-5 w-5' />},
+        { key: 'attendance', label: 'Attendance', icon: <AttendanceIcon className='h-5 w-5' /> },
+        { key: 'calendar', label: 'Calendar', icon: <CalendarIcon className='h-5 w-5' /> },
+        { key: 'meetings', label: 'Meetings', icon: <MeetingIcon className='h-5 w-5' /> },
         { key: 'notifications', label: 'Notifications', icon: <NotificationsIcon className='h-5 w-5' /> },
         { key: 'exams', label: 'Exams', icon: <ExamsIcon className='h-5 w-5' /> },
-        { key: 'attendance', label: 'Attendance', icon: <AttendanceIcon className='h-5 w-5' /> },
+        { key: 'queries', label: 'Help & Queries', icon: <QueryIcon className='h-5 w-5' />},
+        { key: 'ims-tools', label: 'IMS & Smart Tools', icon: <IMSIcon className='h-5 w-5' /> },
+        { key: 'profile', label: 'My Profile', icon: <ProfileIcon className='h-5 w-5' /> },
         { key: 'extras', label: 'Extras', icon: <ExtrasIcon className='h-5 w-5' /> }
     ];
 
@@ -132,6 +139,10 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
             case 'exams': return <ExamsPage />;
             case 'attendance': return <AttendancePage />;
             case 'extras': return <ExtrasPage />;
+            case 'queries': return <StudentQueryPage />;
+            case 'profile': return <MyProfilePage />;
+            case 'calendar': return <StudentCalendarPage />;
+            case 'meetings': return <StudentMeetingsPage />;
             default: return <PlaceholderContent
                 title="Coming Soon"
                 message={`The "${tabs.find(t => t.key === activeTab)?.label}" feature is currently under development.`}

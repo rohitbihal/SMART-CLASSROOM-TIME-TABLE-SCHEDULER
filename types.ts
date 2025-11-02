@@ -220,6 +220,19 @@ export interface TeacherQuery {
   adminResponse?: string;
 }
 
+// NEW: Type for student queries to admin.
+export interface StudentQuery {
+  id: string;
+  studentId: string;
+  queryType: 'Academic' | 'Administrative' | 'Technical' | 'Other';
+  subject?: string;
+  details: string;
+  status: 'Pending' | 'Resolved' | 'Closed';
+  submittedDate: string;
+  adminResponse?: string;
+}
+
+
 // Attendance Types
 export type AttendanceStatus = 'present' | 'absent' | 'present_locked' | 'absent_locked' | 'present_suggested' | 'unmarked';
 export type AttendanceRecord = { [studentId: string]: AttendanceStatus };
