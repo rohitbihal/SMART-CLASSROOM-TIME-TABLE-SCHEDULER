@@ -596,14 +596,12 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { name: 'Object Oriented Programming', codePrefix: 'CS', type: 'oops' },
         ];
         
-        // Use round-robin counters for balanced faculty assignment
-        const facultyCounters = { humanities: 0, de: 0, dsa: 0, math: 0, oops: 0 };
-        const getNextFacultyId = (type) => {
-            const facultyForType = facultyPool[type];
-            if (!facultyForType) return null;
-            const index = facultyCounters[type] % facultyForType.length;
-            facultyCounters[type]++;
-            return facultyForType[index].id;
+        // Use random assignment per user request.
+        const getRandomFacultyId = (type) => {
+            const specialists = facultyPool[type];
+            if (!specialists || specialists.length === 0) return null;
+            const randomIndex = Math.floor(Math.random() * specialists.length);
+            return specialists[randomIndex].id;
         };
 
         newClassesData.forEach(cls => {
@@ -618,7 +616,7 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
                     credits: 3,
                     type: 'Theory',
                     hoursPerWeek: 4,
-                    assignedFacultyId: getNextFacultyId(template.type)
+                    assignedFacultyId: getRandomFacultyId(template.type)
                 });
             });
         });
