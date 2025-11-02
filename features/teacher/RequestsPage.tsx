@@ -69,6 +69,13 @@ const RequestsPage = () => {
                                 <option value="Other">Other</option>
                             </SelectInput>
                         </FormField>
+                        {/* FIX: Added priority selection field. */}
+                        <FormField label="Priority" htmlFor="priority">
+                            <SelectInput id="priority" name="priority" value={formState.priority} onChange={handleChange}>
+                                <option value="Normal">Normal</option>
+                                <option value="Urgent">Urgent</option>
+                            </SelectInput>
+                        </FormField>
                         <FormField label="Subject/Class" htmlFor="subject">
                              <SelectInput id="subject" name="subject" value={formState.subject} onChange={handleChange}>
                                 <option value="">Select a subject...</option>
@@ -78,9 +85,11 @@ const RequestsPage = () => {
                          <FormField label="Current Schedule (if applicable)" htmlFor="currentSchedule">
                             <TextInput id="currentSchedule" name="currentSchedule" placeholder="e.g., Monday 9:30-10:20" value={formState.currentSchedule} onChange={handleChange} />
                         </FormField>
-                        <FormField label="Requested Change" htmlFor="requestedChange">
-                            <TextInput id="requestedChange" name="requestedChange" placeholder="Describe your request" value={formState.requestedChange} onChange={handleChange} required />
-                        </FormField>
+                        <div className="lg:col-span-2">
+                            <FormField label="Requested Change" htmlFor="requestedChange">
+                                <TextInput id="requestedChange" name="requestedChange" placeholder="Describe your request" value={formState.requestedChange} onChange={handleChange} required />
+                            </FormField>
+                        </div>
                     </div>
                      <FormField label="Reason" htmlFor="reason">
                         <textarea id="reason" name="reason" rows={4} className="input-base" placeholder="Please provide a reason for this request" value={formState.reason} onChange={handleChange} required></textarea>

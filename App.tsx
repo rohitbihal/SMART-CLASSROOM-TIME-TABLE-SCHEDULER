@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -109,7 +110,8 @@ const Sidebar = React.memo(() => {
     );
 });
 
-const AppLayout = ({ children }: { children: React.ReactNode }) => {
+// FIX: Made children optional to handle cases where it might not be provided, preventing a TypeScript error.
+const AppLayout = ({ children }: { children?: React.ReactNode }) => {
     return (
         <div className="flex h-screen">
             <Sidebar />

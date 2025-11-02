@@ -314,8 +314,13 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
         .filter(r => {
             return Object.entries(equipmentFilter).every(([key, required]) => {
                 if (!required) return true;
-                if (key === 'computerSystems') return r.equipment.computerSystems.available;
-                return r.equipment[key as keyof typeof r.equipment] === true;
+                if (!r.equipment) return false;
+                
+                const equipmentKey = key as EquipmentKey;
+                if (equipmentKey === 'computerSystems') {
+                    return r.equipment.computerSystems?.available === true;
+                }
+                return r.equipment[equipmentKey] === true;
             });
         })
     };
@@ -324,12 +329,12 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
     
     const EquipmentDisplay = ({ equipment }: { equipment: Equipment }) => (
         <div className="flex gap-2 text-gray-500">
-            {equipment.projector && <span title="Projector"><ProjectorIcon className="h-4 w-4" /></span>}
-            {equipment.smartBoard && <span title="Smart Board"><SmartBoardIcon className="h-4 w-4" /></span>}
-            {equipment.ac && <span title="AC"><AcIcon className="h-4 w-4" /></span>}
-            {equipment.computerSystems.available && <span title={`Computers: ${equipment.computerSystems.count}`}><ComputerIcon className="h-4 w-4" /></span>}
-            {equipment.audioSystem && <span title="Audio System"><AudioIcon className="h-4 w-4" /></span>}
-            {equipment.whiteboard && <span title="Whiteboard"><WhiteboardIcon className="h-4 w-4" /></span>}
+            {equipment?.projector && <span title="Projector"><ProjectorIcon className="h-4 w-4" /></span>}
+            {equipment?.smartBoard && <span title="Smart Board"><SmartBoardIcon className="h-4 w-4" /></span>}
+            {equipment?.ac && <span title="AC"><AcIcon className="h-4 w-4" /></span>}
+            {equipment?.computerSystems?.available && <span title={`Computers: ${equipment.computerSystems.count}`}><ComputerIcon className="h-4 w-4" /></span>}
+            {equipment?.audioSystem && <span title="Audio System"><AudioIcon className="h-4 w-4" /></span>}
+            {equipment?.whiteboard && <span title="Whiteboard"><WhiteboardIcon className="h-4 w-4" /></span>}
         </div>
     );
 

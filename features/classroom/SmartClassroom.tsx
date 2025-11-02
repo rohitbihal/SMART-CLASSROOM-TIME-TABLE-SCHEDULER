@@ -1012,7 +1012,8 @@ const useSmartClassroomLayout = () => {
 };
 
 
-const SmartClassroomLayout = (props: SmartClassroomProps & { children: React.ReactNode }) => {
+// FIX: Made children optional to handle cases where it might not be provided, preventing a TypeScript error.
+const SmartClassroomLayout = (props: SmartClassroomProps & { children?: React.ReactNode }) => {
     const { feedback, setFeedback } = useSmartClassroomLayout();
     const location = useLocation();
     

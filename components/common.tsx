@@ -1,7 +1,8 @@
 import React from 'react';
 
 // --- SHARED UI COMPONENTS ---
-export const SectionCard = ({ title, actions, children, className }: { title: string; actions?: React.ReactNode; children: React.ReactNode; className?: string }) => (
+// FIX: Made children prop optional to fix widespread 'property is missing' errors.
+export const SectionCard = ({ title, actions, children, className }: { title: string; actions?: React.ReactNode; children?: React.ReactNode; className?: string }) => (
     <div className={`bg-bg-secondary border border-border-primary rounded-xl shadow-sm ${className}`}>
         <div className="flex items-center justify-between p-4 border-b border-border-primary">
             <h2 className="text-lg font-bold">{title}</h2>
@@ -11,7 +12,8 @@ export const SectionCard = ({ title, actions, children, className }: { title: st
     </div>
 );
 
-export const Modal = ({ isOpen, onClose, title, children, size = '2xl', error }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl'; error?: string | null }) => {
+// FIX: Made children prop optional to fix widespread 'property is missing' errors.
+export const Modal = ({ isOpen, onClose, title, children, size = '2xl', error }: { isOpen: boolean; onClose: () => void; title: string; children?: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl'; error?: string | null }) => {
     if (!isOpen) return null;
     const sizeClasses: {[key: string]: string} = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-xl', '2xl': 'sm:max-w-2xl', '3xl': 'sm:max-w-3xl', '4xl': 'sm:max-w-4xl', '5xl': 'sm:max-w-5xl', '6xl': 'sm:max-w-6xl', '7xl': 'sm:max-w-7xl' };
     return (
@@ -37,7 +39,8 @@ export const Modal = ({ isOpen, onClose, title, children, size = '2xl', error }:
     );
 };
 
-export const FormField = ({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) => (
+// FIX: Made children prop optional to fix widespread 'property is missing' errors.
+export const FormField = ({ label, htmlFor, children }: { label: string; htmlFor: string; children?: React.ReactNode }) => (
     <div>
         <label htmlFor={htmlFor} className="block text-sm font-medium text-text-secondary mb-1">{label}</label>
         {children}
