@@ -178,6 +178,7 @@ export interface FacultyPreference {
 export interface RoomResourceConstraint {
   subjectRoomTypeRules?: { subjectId: string; roomType: 'Classroom' | 'Laboratory' }[]; // Updated
   prioritizeSameRoomForConsecutive?: boolean;
+  assignHomeRoomForSections?: boolean;
   resourceRequirements?: { subjectId: string, resource: string }[];
 }
 

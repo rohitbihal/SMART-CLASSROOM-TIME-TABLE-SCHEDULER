@@ -153,7 +153,10 @@ const constraintsSchema = new mongoose.Schema({
     chatWindow: { start: String, end: String },
     isChatboxEnabled: { type: Boolean, default: true },
     classSpecific: [Object],
-    maxConcurrentClassesPerDept: mongoose.Schema.Types.Mixed
+    maxConcurrentClassesPerDept: mongoose.Schema.Types.Mixed,
+    roomResourceConstraints: { type: mongoose.Schema.Types.Mixed, default: {} },
+    studentSectionConstraints: { type: mongoose.Schema.Types.Mixed, default: {} },
+    advancedConstraints: { type: mongoose.Schema.Types.Mixed, default: {} },
 });
 
 const attendanceSchema = new mongoose.Schema({
@@ -996,7 +999,11 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
     const simplifiedClasses = classes.map(({id, name, studentCount, branch, year, block}) => ({id, name, studentCount, branch, year, block}));
     const simplifiedFaculty = faculty.map(({id, name, maxWorkload, department}) => ({id, name, maxWorkload, department}));
     const simplifiedSubjects = subjects.map(({id, name, code, hoursPerWeek, type, assignedFacultyId, department, semester}) => ({id, name, code, hoursPerWeek, type, assignedFacultyId, department, semester}));
-    const simplifiedRooms = rooms.map(({id, number, capacity, type, block}) => ({id, number, capacity, type, block}));
+    const simplifiedRooms = rooms.map(({id, number, capacity, type, block, equipment}) => ({id, number, capacity, type, block, equipment}));
+    
+    // Sanitize constraints to remove large or irrelevant data for the prompt
+    const relevantConstraints = { ...constraints };
+    delete relevantConstraints.classSpecific; // This can be large and is better handled by custom rules if needed.
     
     return `
       You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable in JSON format based on the provided data and a strict set of rules.
@@ -1006,31 +1013,43 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       - Faculty: ${JSON.stringify(simplifiedFaculty)}
       - Subjects: ${JSON.stringify(simplifiedSubjects)}
       - Rooms: ${JSON.stringify(simplifiedRooms)}
-      - Constraints: ${JSON.stringify(constraints)}
+      - Constraints: ${JSON.stringify(relevantConstraints)}
 
       **HARD RULES (MUST be followed without exception):**
       1.  **Subject-Class Matching:** A subject must be scheduled for a class ONLY IF the subject's 'department' matches the class's 'branch' AND the subject's 'semester' corresponds to the class's 'year' (Semesters 1-2 for Year 1, 3-4 for Year 2, 5-6 for Year 3, etc.).
       2.  **No Conflicts:** A faculty member, a class, or a room cannot be in two places at once.
       3.  **Room Capacity:** The number of students in a class must not exceed the capacity of its assigned room.
-      4.  **Room Type:** 'Lab' subjects must be in 'Laboratory' rooms. 'Tutorial' subjects in 'Tutorial Room'. 'Theory' subjects in 'Classroom' or 'Seminar Hall'.
+      4.  **Room Type & Equipment:** 'Lab' subjects must be in 'Laboratory' rooms. 'Tutorial' subjects in 'Tutorial Room'. 'Theory' subjects in 'Classroom' or 'Seminar Hall'. The room must have the required equipment if specified.
       5.  **Workload Limit:** The total number of lectures for any faculty member MUST NOT exceed their specified \`maxWorkload\`.
       6.  **Fixed Classes:** Adhere strictly to all 'fixedClasses' defined in constraints. These are non-negotiable pre-scheduled slots and must be placed first. Their 'classType' must be 'fixed'. All other generated classes are 'regular'.
       7.  **Faculty Assignment:** A faculty member can ONLY teach a subject if their ID is listed as the 'assignedFacultyId' for that subject. Do not assign any other faculty.
       8.  **Weekly Hours:** The total number of scheduled slots for each subject for EACH CLASS it is taught to must exactly match its 'hoursPerWeek' requirement.
-      9.  **Working Hours:** Do not schedule any classes outside the working days (${constraints.timePreferences.workingDays.join(', ')}) and time slots defined by the start time (${constraints.timePreferences.startTime}), end time (${constraints.timePreferences.endTime}), and slot duration (${constraints.timePreferences.slotDurationMinutes} mins).
-      10. **Lunch Break:** Do not schedule any classes during the lunch break, which starts at ${constraints.timePreferences.lunchStartTime} and lasts for ${constraints.timePreferences.lunchDurationMinutes} minutes.
+      9.  **Working Hours:** Do not schedule any classes outside the working days and time slots defined by the timePreferences.
+      10. **Lunch Break:** Do not schedule any classes during the lunch break, defined by 'lunchStartTime' and 'lunchDurationMinutes'.
+      11. **Faculty Unavailability:** Strictly respect all unavailability slots for each faculty member defined in 'facultyPreferences.unavailability'.
 
       **OPTIMIZATION GOALS (Apply after all hard rules are met):**
-      1.  **Maximize Slot Utilization:** Fill every available time slot for every class. There should be no empty periods except for lunch, unless required by hard constraints.
-      2.  **Co-location Preference:** If a class has a 'block' specified (e.g., 'A-Block'), strongly prefer scheduling its sessions in rooms that are also in the same 'block'. This minimizes student and faculty travel time.
-      3.  **Balanced Faculty Load:** If \`enableFacultyLoadBalancing\` is true, distribute the teaching load as evenly as possible among qualified faculty members across the week.
-      4.  **Balanced Student Schedule:** Spread lectures for each class throughout the week to avoid cramming subjects on one or two days. Minimize large gaps between classes for students.
-      5.  **Satisfy Soft Constraints:** Try to satisfy soft constraints like faculty preferences (e.g., preferred days, max consecutive classes) and custom rules defined in the constraints object.
+      1.  **Faculty Preferences:** Strongly adhere to the preferences in 'facultyPreferences'. This includes:
+          - Scheduling classes on 'preferredDays' where possible.
+          - Respecting 'maxConsecutiveClasses' for a faculty member.
+          - Adhering to 'gapPreference' (either schedule 'back-to-back' or with a 'one-hour-gap').
+          - Following 'dailySchedulePreference' ('morning' or 'afternoon').
+          - **Crucially, respect 'coursePreferences' to schedule specific subjects in the morning or afternoon if specified.**
+      2.  **Student Schedule Quality:** Respect 'studentSectionConstraints' like 'maxConsecutiveClasses' for students. Spread lectures for each class throughout the week to avoid cramming subjects and minimize large gaps in their day.
+      3.  **Subject Distribution:** Distribute the weekly hours for a single subject across multiple days. For example, a 4-hour/week subject should ideally be scheduled on 3 or 4 different days, not just on two days with 2-hour blocks.
+      4.  **Room & Resource Logic:**
+          - Adhere to 'roomResourceConstraints', such as 'prioritizeSameRoomForConsecutive' classes for the same student group.
+          - If a class has a 'block' specified, strongly prefer scheduling its sessions in rooms within the same 'block' to minimize travel.
+      5.  **Room Consistency:** If 'assignHomeRoomForSections' is true in 'roomResourceConstraints', try to schedule all 'Theory' classes for a single class section (e.g., 'CSE-3-A') in the same room throughout the week.
+      6.  **Advanced Rules:**
+          - If 'enableFacultyLoadBalancing' is true, distribute each faculty's teaching load as evenly as possible across their working days.
+          - If 'travelTimeMinutes' is greater than 0, ensure there is at least that much time between a faculty member's consecutive classes if they are in rooms in different 'block's.
+      7.  **Custom Rules:** Interpret and apply the 'customConstraints' based on their 'description', 'type' (Hard/Soft), and 'priority'.
 
       **OUTPUT FORMAT:**
       Your output MUST be a valid JSON object with two keys: "timetable" and "unscheduledSessions".
       - "timetable": A JSON array of successfully scheduled timetable entry objects. Each object must have keys: "className", "subject", "faculty", "room", "day", "time", "type" ('Theory', 'Lab', or 'Tutorial'), and "classType" ('regular' or 'fixed').
-      - "unscheduledSessions": A JSON array for any sessions that could not be scheduled. Each object must have "className", "subject", and a "reason" string explaining the failure (e.g., "Faculty f1 unavailable at all possible times", "No available rooms with required capacity"). If all sessions are scheduled, this array MUST be empty.
+      - "unscheduledSessions": A JSON array for any sessions that could not be scheduled. Each object must have "className", "subject", and a "reason" string explaining the failure (e.g., "Faculty f1 unavailable at all possible times", "No available rooms with required capacity and equipment"). If all sessions are scheduled, this array MUST be empty.
     `;
 };
 

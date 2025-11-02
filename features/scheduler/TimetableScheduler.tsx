@@ -1,18 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Add missing ClockIcon import.
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon, CheckCircleIcon, ClockIcon, AssignmentIcon, SparklesIcon } from '../../components/Icons';
@@ -660,6 +645,29 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
         const newDays = currentDays.includes(day) ? currentDays.filter(d => d !== day) : [...currentDays, day];
         handlePrefChange('preferredDays', newDays);
     }
+    
+    const facultySubjects = useMemo(() => {
+        if (!selectedFacultyId) return [];
+        return subjects.filter(s => s.assignedFacultyId === selectedFacultyId);
+    }, [selectedFacultyId, subjects]);
+
+    const handleCoursePrefChange = (subjectId: string, time: 'morning' | 'afternoon' | 'none') => {
+        const currentCoursePrefs = currentPref.coursePreferences || [];
+        const existingIndex = currentCoursePrefs.findIndex(p => p.subjectId === subjectId);
+        let newCoursePrefs;
+        if (time === 'none') {
+            newCoursePrefs = currentCoursePrefs.filter(p => p.subjectId !== subjectId);
+        } else {
+            const newPref = { subjectId, time: time as 'morning' | 'afternoon' };
+            if (existingIndex > -1) {
+                newCoursePrefs = currentCoursePrefs.map((p, i) => i === existingIndex ? newPref : p);
+            } else {
+                newCoursePrefs = [...currentCoursePrefs, newPref];
+            }
+        }
+        handlePrefChange('coursePreferences', newCoursePrefs);
+    };
+
 
     return (
         <div>
@@ -727,7 +735,28 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                         </div>
                     </SectionCard>
                      <SectionCard title="Course-Specific Preferences">
-                        <p>Feature coming soon.</p>
+                        {facultySubjects.length > 0 ? (
+                            <div className="space-y-3 max-h-60 overflow-y-auto">
+                                {facultySubjects.map(subject => {
+                                    const currentCoursePref = currentPref.coursePreferences?.find(p => p.subjectId === subject.id);
+                                    return (
+                                        <div key={subject.id} className="grid grid-cols-3 items-center gap-2">
+                                            <span className="font-medium text-sm col-span-2">{subject.name}</span>
+                                            <SelectInput
+                                                value={currentCoursePref?.time || 'none'}
+                                                onChange={e => handleCoursePrefChange(subject.id, e.target.value as 'morning' | 'afternoon' | 'none')}
+                                            >
+                                                <option value="none">No Preference</option>
+                                                <option value="morning">Morning</option>
+                                                <option value="afternoon">Afternoon</option>
+                                            </SelectInput>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-text-secondary">This faculty has no subjects assigned.</p>
+                        )}
                      </SectionCard>
                 </div>
             )}
@@ -754,10 +783,16 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
     return (
         <div className="space-y-6">
             <SectionCard title="Room & Resource Constraints">
-                <label className="flex items-center gap-3">
-                    <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
-                    <span>Prioritize keeping consecutive classes for the same section in the same room.</span>
-                </label>
+                 <div className="space-y-3">
+                    <label className="flex items-center gap-3">
+                        <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
+                        <span>Prioritize keeping consecutive classes for the same section in the same room.</span>
+                    </label>
+                    <label className="flex items-center gap-3">
+                        <input type="checkbox" checked={constraints.roomResourceConstraints?.assignHomeRoomForSections || false} onChange={e => handleToggle('room', 'assignHomeRoomForSections', e.target.checked)} />
+                        <span>Assign a consistent "home room" for each section's theory classes where possible.</span>
+                    </label>
+                </div>
             </SectionCard>
             <SectionCard title="Student Section Constraints">
                 <div className="space-y-4">
