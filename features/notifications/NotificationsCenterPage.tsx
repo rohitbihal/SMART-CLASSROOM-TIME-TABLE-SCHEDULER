@@ -107,7 +107,8 @@ const NotificationsCenterPage = () => {
                                  <div>
                                     <h3 className="font-semibold text-lg mb-3 border-b border-border-primary pb-2">Step 3: Category</h3>
                                     <FormField label="Notification Type" htmlFor="notif-type">
-                                        <SelectInput id="notif-type" value={notificationType} onChange={e => setNotificationType(e.target.value as NotificationType)}>
+                                        {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
+                                        <SelectInput id="notif-type" value={notificationType} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNotificationType(e.target.value as NotificationType)}>
                                             {(['General', 'Meeting', 'Event', 'Schedule Change', 'Exam', 'Holiday', 'Emergency'] as NotificationType[]).map(type => <option key={type} value={type}>{type}</option>)}
                                         </SelectInput>
                                     </FormField>

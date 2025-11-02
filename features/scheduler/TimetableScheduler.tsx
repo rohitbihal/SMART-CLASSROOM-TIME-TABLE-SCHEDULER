@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
@@ -136,7 +137,22 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
     );
 };
 const RoomForm = ({ initialData, onSave, blocks }: { initialData: Room | null; onSave: (data: any) => Promise<void>; blocks: string[]; }) => {
-    const [data, setData] = useState(initialData || { id: '', number: '', building: '', type: 'Classroom', capacity: 0, block: '', equipment: { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: false } });
+    const [data, setData] = useState(() => {
+        const defaultEquipment = { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: false };
+        const baseData = initialData || { id: '', number: '', building: '', type: 'Classroom', capacity: 0, block: '', equipment: defaultEquipment };
+        
+        return {
+            ...baseData,
+            equipment: {
+                ...defaultEquipment,
+                ...(baseData.equipment || {}),
+                computerSystems: {
+                    ...defaultEquipment.computerSystems,
+                    ...(baseData.equipment?.computerSystems || {}),
+                },
+            },
+        };
+    });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const handleEquipmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, checked, value, type } = e.target;
@@ -1081,7 +1097,7 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
         timetable.forEach(entry => {
             const room = rooms.find(r => r.number === entry.room);
             if (room) {
-                for (const [key, value] of Object.entries(room.equipment)) {
+                for (const [key, value] of Object.entries(room.equipment || {})) {
                     let isAvailable = false;
                     if (key === 'computerSystems' && typeof value === 'object' && value !== null && 'available' in value) {
                         isAvailable = (value as { available: boolean }).available;

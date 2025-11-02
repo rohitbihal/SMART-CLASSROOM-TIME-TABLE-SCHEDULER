@@ -7,7 +7,7 @@ import { AddIcon } from '../../components/Icons';
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const EventPill = ({ event }: { event: CalendarEvent }) => (
+const EventPill: React.FC<{ event: CalendarEvent }> = ({ event }) => (
     <div className={`p-1 text-xs rounded truncate ${event.color ? '' : 'bg-blue-500 text-white'}`} style={{ backgroundColor: event.color }}>
         {event.title}
     </div>
@@ -87,6 +87,7 @@ export const CalendarPage = () => {
                 <div key={i} className={`h-32 border border-border-primary p-1 ${day.getMonth() !== currentDate.getMonth() ? 'bg-bg-primary text-text-secondary' : ''}`}>
                     <button onClick={() => openAddEventModal(day)} className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-bg-tertiary">{day.getDate()}</button>
                     <div className="space-y-1 mt-1 overflow-y-auto max-h-20">
+                        {/* FIX: Changed EventPill to a React.FC component which correctly handles the 'key' prop. */}
                         {events.map(event => <EventPill key={event.id} event={event} />)}
                     </div>
                 </div>

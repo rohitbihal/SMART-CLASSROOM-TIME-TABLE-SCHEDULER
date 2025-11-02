@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { StudentAttendance } from '../../types';
 import { AttendanceIcon } from '../../components/Icons';
 
-const AttendanceBar = ({ record }: { record: StudentAttendance }) => {
+const AttendanceBar: React.FC<{ record: StudentAttendance }> = ({ record }) => {
     const percentage = record.total > 0 ? (record.attended / record.total) * 100 : 0;
     const barColor = percentage >= 75 ? 'bg-green-500' : percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500';
 
@@ -35,6 +35,7 @@ export const AttendancePage = () => {
             {studentAttendance.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {studentAttendance.map(record => (
+                        // FIX: Changed AttendanceBar to a React.FC component which correctly handles the 'key' prop.
                         <AttendanceBar key={record.subjectId} record={record} />
                     ))}
                 </div>

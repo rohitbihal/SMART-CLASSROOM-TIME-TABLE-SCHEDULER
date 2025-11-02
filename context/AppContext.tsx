@@ -71,7 +71,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider = ({ children }: { children: React.ReactNode }) => {
+// FIX: Made children optional to handle cases where it might not be provided, preventing a TypeScript error.
+export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(() => { try { const u = sessionStorage.getItem('user'); return u ? JSON.parse(u) : null; } catch { return null; } });
     const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('token'));
     const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark');

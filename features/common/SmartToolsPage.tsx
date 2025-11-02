@@ -14,7 +14,7 @@ const iconMap: { [key: string]: React.ReactNode } = {
     Submit: <SubmitAssignmentIcon className="h-8 w-8 text-indigo-500" />,
 };
 
-const ToolCard = ({ title, description, icon, onClick }: { title: string, description: string, icon: React.ReactNode, onClick: () => void }) => (
+const ToolCard: React.FC<{ title: string, description: string, icon: React.ReactNode, onClick: () => void }> = ({ title, description, icon, onClick }) => (
     <button onClick={onClick} className="text-left p-6 bg-bg-tertiary rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all">
         <div className="mb-4">{icon || <SmartToolsIcon className="h-8 w-8 text-gray-400" />}</div>
         <h3 className="font-bold text-lg mb-1">{title}</h3>
@@ -54,6 +54,7 @@ export const SmartToolsPage = () => {
         <SectionCard title="IMS & Smart Tools">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {tools.map(tool => (
+                    // FIX: Changed ToolCard to a React.FC component which correctly handles the 'key' prop.
                     <ToolCard 
                         key={tool.id}
                         title={tool.title} 

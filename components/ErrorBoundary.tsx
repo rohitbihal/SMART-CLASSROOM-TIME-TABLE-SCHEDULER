@@ -37,8 +37,8 @@ export class ErrorBoundary extends Component<Props, State> {
                 >
                     Refresh Page
                 </button>
-                 {/* FIX: Use import.meta.env.DEV for Vite projects instead of process.env.NODE_ENV */}
-                 {import.meta.env.DEV && (
+                 {/* FIX: Use process.env.NODE_ENV for environment checking to resolve TypeScript type error with import.meta.env */}
+                 {process.env.NODE_ENV === 'development' && (
                     <details className="mt-6 text-left bg-bg-secondary p-4 rounded-lg border border-border-primary">
                         <summary className="font-semibold cursor-pointer">Error Details</summary>
                         <pre className="mt-2 text-sm whitespace-pre-wrap">
