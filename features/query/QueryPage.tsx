@@ -223,10 +223,12 @@ const QueryPage = () => {
                 <SectionCard title="Manage Teacher Queries">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border-b border-border-primary">
                         <SearchInput id="query-search" label="Search queries" value={filters.search} onChange={v => setFilters(p => ({...p, search: v}))} placeholder="Search by teacher or request..." />
-                        <FormField label="Filter by Status" htmlFor="status-filter"><SelectInput id="status-filter" value={filters.status} onChange={e => setFilters(p => ({...p, status: e.target.value}))}>
+                        {/* FIX: Add explicit type annotation to onChange event handler. */}
+                        <FormField label="Filter by Status" htmlFor="status-filter"><SelectInput id="status-filter" value={filters.status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilters(p => ({...p, status: e.target.value}))}>
                             <option value="all">All Statuses</option><option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option><option value="Under Review">Under Review</option>
                         </SelectInput></FormField>
-                        <FormField label="Filter by Priority" htmlFor="priority-filter"><SelectInput id="priority-filter" value={filters.priority} onChange={e => setFilters(p => ({...p, priority: e.target.value}))}>
+                        {/* FIX: Add explicit type annotation to onChange event handler. */}
+                        <FormField label="Filter by Priority" htmlFor="priority-filter"><SelectInput id="priority-filter" value={filters.priority} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilters(p => ({...p, priority: e.target.value}))}>
                             <option value="all">All Priorities</option><option value="Urgent">Urgent</option><option value="Normal">Normal</option>
                         </SelectInput></FormField>
                     </div>
@@ -248,7 +250,8 @@ const QueryPage = () => {
                  <SectionCard title="Manage Student Queries">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 border-b border-border-primary">
                         <SearchInput id="query-search-student" label="Search queries" value={filters.search} onChange={v => setFilters(p => ({...p, search: v}))} placeholder="Search by student or query..." />
-                        <FormField label="Filter by Status" htmlFor="status-filter-student"><SelectInput id="status-filter-student" value={filters.status} onChange={e => setFilters(p => ({...p, status: e.target.value}))}>
+                        {/* FIX: Add explicit type annotation to onChange event handler. */}
+                        <FormField label="Filter by Status" htmlFor="status-filter-student"><SelectInput id="status-filter-student" value={filters.status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilters(p => ({...p, status: e.target.value}))}>
                             <option value="all">All Statuses</option><option value="Pending">Pending</option><option value="Resolved">Resolved</option><option value="Closed">Closed</option>
                         </SelectInput></FormField>
                     </div>

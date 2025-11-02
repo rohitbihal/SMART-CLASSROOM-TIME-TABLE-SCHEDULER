@@ -1028,7 +1028,7 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: [{ text: prompt }] },
+            contents: prompt,
             config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 },
         });
         const parsedResponse = JSON.parse(response.text.trim());
@@ -1135,7 +1135,7 @@ app.get('/api/tools', authMiddleware, (req, res) => {
     const studentTools = [
         { id: 'st1', title: 'Download Syllabus', description: 'Get the latest syllabus for all your subjects.', icon: 'Syllabus', link: '/tools/syllabus' },
         { id: 'st2', title: 'GPA Calculator', description: 'Calculate your current and projected GPA.', icon: 'Calculator', link: '/tools/gpa' },
-        { id: 'st3', title: 'View Timetable', description: 'Access your full weekly class schedule.', icon: 'Timetable', link: '/schedule' },
+        { id: 'st3', title: 'View Timetable', description: 'Access your full weekly class schedule.', icon: '/schedule' },
         { id: 'st4', title: 'Submit Assignment', description: 'Upload and submit your completed assignments.', icon: 'Submit', link: '/assignments/submit' },
     ];
 

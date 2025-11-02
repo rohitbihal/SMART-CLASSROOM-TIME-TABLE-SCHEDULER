@@ -12,21 +12,22 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
+  // FIX: Removed 'public' keyword for better compatibility and idiomatic React class component style.
+  state: State = {
     hasError: false,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log the error using a logging service
     logger.error(error, errorInfo);
   }
 
   // FIX: Changed to a standard class method to ensure `this` is correctly bound and props are accessible.
-  public render() {
+  render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary p-4">

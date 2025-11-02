@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { SectionCard, FormField, SelectInput, TextInput } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { AppNotification } from '../../types';
+// FIX: Imported the missing InfoIcon component.
 import { SendIcon, UsersIcon, TeacherIcon, StudentIcon, EventIcon, EmergencyIcon, MeetingIcon, TemplateIcon, SchedulerIcon, InfoIcon } from '../../components/Icons';
 
 type RecipientType = AppNotification['recipients']['type'];
@@ -19,7 +20,7 @@ const iconMap: Record<NotificationType, React.ReactNode> = {
     'General': <InfoIcon className="h-5 w-5" />,
 };
 
-const NotificationsCenterPage = () => {
+export const NotificationsCenterPage = () => {
     const { classes, appNotifications, handleSendNotification } = useAppContext();
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
@@ -85,7 +86,8 @@ const NotificationsCenterPage = () => {
                                     <div className="mt-4">
                                         <FormField label="Select Classes" htmlFor="specific-classes">
                                             {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
-                                            <SelectInput id="specific-classes" multiple value={specificClassIds} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSpecificClassIds(Array.from(e.target.selectedOptions, option => option.value))}>
+                                            {/* FIX: Add explicit type annotation for option element in Array.from to resolve potential type inference issues. */}
+                                            <SelectInput id="specific-classes" multiple value={specificClassIds} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSpecificClassIds(Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value))}>
                                                 {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                             </SelectInput>
                                         </FormField>

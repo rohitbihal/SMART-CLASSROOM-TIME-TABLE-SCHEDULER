@@ -55,9 +55,11 @@ const MeetingForm = ({ isOpen, onClose, onCreateMeeting }: { isOpen: boolean, on
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
-                     <FormField label="Select Faculty" htmlFor="meet-faculty"><SelectInput id="meet-faculty" multiple value={selectedFaculty} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedFaculty(Array.from(e.target.selectedOptions, o => o.value))}>{faculty.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</SelectInput></FormField>
+                     {/* FIX: Add explicit type annotation for option element in Array.from to resolve potential type inference issues. */}
+                     <FormField label="Select Faculty" htmlFor="meet-faculty"><SelectInput id="meet-faculty" multiple value={selectedFaculty} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedFaculty(Array.from(e.target.selectedOptions, (o: HTMLOptionElement) => o.value))}>{faculty.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</SelectInput></FormField>
                      {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
-                     <FormField label="Select Students" htmlFor="meet-students"><SelectInput id="meet-students" multiple value={selectedStudents} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedStudents(Array.from(e.target.selectedOptions, o => o.value))}>{students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput></FormField>
+                     {/* FIX: Add explicit type annotation for option element in Array.from to resolve potential type inference issues. */}
+                     <FormField label="Select Students" htmlFor="meet-students"><SelectInput id="meet-students" multiple value={selectedStudents} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedStudents(Array.from(e.target.selectedOptions, (o: HTMLOptionElement) => o.value))}>{students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput></FormField>
                 </div>
                 <div className="flex justify-end pt-4"><button className="btn-primary" type="submit">Schedule Meeting</button></div>
             </form>

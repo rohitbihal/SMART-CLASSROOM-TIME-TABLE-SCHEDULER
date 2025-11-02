@@ -67,7 +67,8 @@ export const NotificationsTab = () => {
                                 <div className="mt-4">
                                     <FormField label="Select Classes" htmlFor="specific-classes">
                                         {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
-                                        <SelectInput id="specific-classes" multiple value={specificClassIds} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSpecificClassIds(Array.from(e.target.selectedOptions, option => option.value))}>
+                                        {/* FIX: Explicitly typed `option` as HTMLOptionElement to resolve error 'property "value" does not exist on type "unknown"'. */}
+                                        <SelectInput id="specific-classes" multiple value={specificClassIds} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSpecificClassIds(Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value))}>
                                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </SelectInput>
                                     </FormField>
