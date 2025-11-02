@@ -237,25 +237,94 @@ const AppNotification = mongoose.model('AppNotification', appNotificationSchema)
 
 const collections = { class: Class, faculty: Faculty, subject: Subject, room: Room, student: Student, user: User, timetable: TimetableEntry, constraints: Constraints, attendance: Attendance, chat: ChatMessage, institution: Institution, teacherRequest: TeacherRequest, studentQuery: StudentQuery };
 
-const MOCK_CLASSES = [ { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' }, { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' } ];
+const MOCK_CLASSES = [
+    // CSE
+    { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 60, block: 'A-Block' },
+    { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 60, block: 'B-Block' },
+    { id: 'c3', name: 'CSE-2-A', branch: 'CSE', year: 2, section: 'A', studentCount: 65, block: 'A-Block' },
+    { id: 'c4', name: 'CSE-2-B', branch: 'CSE', year: 2, section: 'B', studentCount: 65, block: 'B-Block' },
+    { id: 'c5', name: 'CSE-1-A', branch: 'CSE', year: 1, section: 'A', studentCount: 70, block: 'C-Block' },
+    { id: 'c6', name: 'CSE-1-B', branch: 'CSE', year: 1, section: 'B', studentCount: 70, block: 'C-Block' },
+    { id: 'c7', name: 'CSE-1-C', branch: 'CSE', year: 1, section: 'C', studentCount: 70, block: 'C-Block' },
+    // CYS
+    { id: 'c8', name: 'CYS-3-A', branch: 'CYS', year: 3, section: 'A', studentCount: 50, block: 'B-Block' },
+    { id: 'c9', name: 'CYS-2-A', branch: 'CYS', year: 2, section: 'A', studentCount: 55, block: 'B-Block' },
+    { id: 'c10', name: 'CYS-1-A', branch: 'CYS', year: 1, section: 'A', studentCount: 60, block: 'C-Block' },
+    // BCA
+    { id: 'c11', name: 'BCA-3-A', branch: 'BCA', year: 3, section: 'A', studentCount: 60, block: 'A-Block' },
+    { id: 'c12', name: 'BCA-2-A', branch: 'BCA', year: 2, section: 'A', studentCount: 65, block: 'A-Block' },
+    { id: 'c13', name: 'BCA-2-B', branch: 'BCA', year: 2, section: 'B', studentCount: 65, block: 'A-Block' },
+    { id: 'c14', name: 'BCA-1-A', branch: 'BCA', year: 1, section: 'A', studentCount: 70, block: 'C-Block' },
+    { id: 'c15', name: 'BCA-1-B', branch: 'BCA', year: 1, section: 'B', studentCount: 70, block: 'C-Block' },
+];
 const MOCK_FACULTY = [
     { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'teacher@university.edu', contactNumber: '9876543210', maxWorkload: 18 },
-    { id: 'f2', name: 'Prof. Sunita Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211', maxWorkload: 20 }
+    { id: 'f2', name: 'Prof. Sunita Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Database Systems', 'Operating Systems'], email: 'prof.sunita@university.edu', contactNumber: '9876543211', maxWorkload: 20 },
+    { id: 'f3', name: 'Dr. Anil Mehta', employeeId: 'T003', designation: 'Professor', department: 'CSE', specialization: ['AI', 'Machine Learning'], email: 'anil.mehta@university.edu', contactNumber: '9876543212', maxWorkload: 16 },
+    { id: 'f4', name: 'Dr. Priya Singh', employeeId: 'T004', designation: 'Assistant Professor', department: 'CSE', specialization: ['Computer Networks'], email: 'priya.singh@university.edu', contactNumber: '9876543213', maxWorkload: 22 },
+    { id: 'f5', name: 'Mr. Vikram Rathod', employeeId: 'T005', designation: 'Lecturer', department: 'CYS', specialization: ['Network Security', 'Cryptography'], email: 'vikram.rathod@university.edu', contactNumber: '9876543214', maxWorkload: 20 },
+    { id: 'f6', name: 'Ms. Nisha Patel', employeeId: 'T006', designation: 'Associate Professor', department: 'CYS', specialization: ['Digital Forensics', 'Ethical Hacking'], email: 'nisha.patel@university.edu', contactNumber: '9876543215', maxWorkload: 18 },
+    { id: 'f7', name: 'Dr. Mohan Kumar', employeeId: 'T007', designation: 'Professor', department: 'BCA', specialization: ['Software Engineering', 'Java'], email: 'mohan.kumar@university.edu', contactNumber: '9876543216', maxWorkload: 18 },
+    { id: 'f8', name: 'Mrs. Geeta Desai', employeeId: 'T008', designation: 'Assistant Professor', department: 'BCA', specialization: ['Web Technologies', 'C Programming'], email: 'geeta.desai@university.edu', contactNumber: '9876543217', maxWorkload: 24 },
+    { id: 'f9', name: 'Dr. Sandeep Verma', employeeId: 'T009', designation: 'Associate Professor', department: 'Applied Science', specialization: ['Mathematics', 'Physics'], email: 'sandeep.verma@university.edu', contactNumber: '9876543218', maxWorkload: 20 },
+    { id: 'f10', name: 'Mr. Ravi Shankar', employeeId: 'T010', designation: 'Lecturer', department: 'BCA', specialization: ['DBMS'], email: 'ravi.shankar@university.edu', contactNumber: '9876543219', maxWorkload: 22 },
+    { id: 'f11', name: 'Ms. Aarti Gupta', employeeId: 'T011', designation: 'Lecturer', department: 'CYS', specialization: ['Malware Analysis'], email: 'aarti.gupta@university.edu', contactNumber: '9876543220', maxWorkload: 22 },
 ];
 const MOCK_SUBJECTS = [
-    { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f1' },
-    { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1' },
-    { id: 's3', name: 'Database Systems', code: 'CS303', department: 'CSE', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2' },
-    { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', semester: 3, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1' },
-    { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', semester: 3, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f2' }
+    // Existing CSE 3rd Year
+    { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f1' },
+    { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1' },
+    { id: 's3', name: 'Database Systems', code: 'CS303', department: 'CSE', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2' },
+    { id: 's4', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', semester: 5, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1' },
+    { id: 's5', name: 'Database Systems Lab', code: 'CS303L', department: 'CSE', semester: 5, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f2' },
+    // New CSE Subjects
+    { id: 's6', name: 'Operating Systems', code: 'CS201', department: 'CSE', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f2' },
+    { id: 's7', name: 'Computer Networks', code: 'CS304', department: 'CSE', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f4' },
+    { id: 's8', name: 'Artificial Intelligence', code: 'CS305', department: 'CSE', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f3' },
+    { id: 's9', name: 'C Programming', code: 'CS101', department: 'CSE', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f8' },
+    { id: 's10', name: 'Engineering Maths-I', code: 'AS101', department: 'Applied Science', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f9' },
+    // CYS Subjects
+    { id: 's11', name: 'Network Security', code: 'CYS201', department: 'CYS', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f5' },
+    { id: 's12', name: 'Cryptography', code: 'CYS202', department: 'CYS', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f5' },
+    { id: 's13', name: 'Digital Forensics', code: 'CYS301', department: 'CYS', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f6' },
+    { id: 's14', name: 'Ethical Hacking Lab', code: 'CYS301L', department: 'CYS', semester: 5, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f6' },
+    { id: 's15', name: 'Malware Analysis', code: 'CYS302', department: 'CYS', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f11' },
+    // BCA Subjects
+    { id: 's16', name: 'Intro to Web Tech', code: 'BCA201', department: 'BCA', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f8' },
+    { id: 's17', name: 'Java Programming', code: 'BCA301', department: 'BCA', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f7' },
+    { id: 's18', name: 'Software Engineering', code: 'BCA302', department: 'BCA', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f7' },
+    { id: 's19', name: 'BCA DBMS', code: 'BCA202', department: 'BCA', semester: 3, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f10' },
+    { id: 's20', name: 'BCA C Programming', code: 'BCA101', department: 'BCA', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f8' },
 ];
 const MOCK_ROOMS = [
     { id: 'r1', number: 'CS-101', building: 'Academic Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
     { id: 'r2', number: 'CS-102', building: 'Academic Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
-    { id: 'r3', number: 'CS-Lab-1', building: 'Academic Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 30 }, audioSystem: false, whiteboard: true } }
+    { id: 'r3', number: 'CS-Lab-1', building: 'Academic Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 30 }, audioSystem: false, whiteboard: true } },
+    { id: 'r4', number: 'BCA-201', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+    { id: 'r5', number: 'CYS-Lab', building: 'Academic Block B', type: 'Laboratory', capacity: 55, block: 'B-Block', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: true, count: 55 }, audioSystem: true, whiteboard: true } },
+    { id: 'r6', number: 'LT-1', building: 'C-Block', type: 'Classroom', capacity: 75, block: 'C-Block', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+    { id: 'r7', number: 'LT-2', building: 'C-Block', type: 'Classroom', capacity: 75, block: 'C-Block', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+    { id: 'r8', number: 'BCA-Lab', building: 'Academic Block A', type: 'Laboratory', capacity: 65, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 65 }, audioSystem: false, whiteboard: true } },
 ];
-const MOCK_STUDENTS = [ { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu', contactNumber: '8765432109' }, { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02', email: 'bob.singh@university.edu', contactNumber: '8765432108' }, { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01', contactNumber: '8765432107' }, { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02', email: 'diana.p@university.edu', contactNumber: '8765432106' } ];
-const MOCK_USERS = [ { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' }, { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' }, { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' } ];
+const MOCK_STUDENTS = [ 
+    { id: 'st1', name: 'Alice Sharma', classId: 'c1', roll: '01', email: 'student@university.edu', contactNumber: '8765432109' }, 
+    { id: 'st2', name: 'Bob Singh', classId: 'c1', roll: '02', email: 'bob.singh@university.edu', contactNumber: '8765432108' }, 
+    { id: 'st3', name: 'Charlie Brown', classId: 'c2', roll: '01', contactNumber: '8765432107' }, 
+    { id: 'st4', name: 'Diana Prince', classId: 'c2', roll: '02', email: 'diana.p@university.edu', contactNumber: '8765432106' },
+    // New students
+    { id: 'st5', name: 'Ethan Hunt', classId: 'c3', roll: '01', email: 'ethan.h@university.edu' },
+    { id: 'st6', name: 'Fiona Glenanne', classId: 'c8', roll: '01', email: 'fiona.g@university.edu' },
+    { id: 'st7', name: 'George Costanza', classId: 'c11', roll: '01', email: 'george.c@university.edu' },
+    { id: 'st8', name: 'Harry Potter', classId: 'c5', roll: '01', email: 'harry.p@university.edu' },
+];
+const MOCK_USERS = [ 
+    { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: 'admin01' }, 
+    { username: 'teacher@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f1' }, 
+    { username: 'student@university.edu', password: 'student123', role: 'student', profileId: 'st1' },
+    { username: 'nisha.patel@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f6' },
+    { username: 'geeta.desai@university.edu', password: 'teacher123', role: 'teacher', profileId: 'f8' },
+    { username: 'ethan.h@university.edu', password: 'student123', role: 'student', profileId: 'st5' },
+];
 const MOCK_INSTITUTIONS = [
     {
         id: 'inst1',
@@ -263,13 +332,13 @@ const MOCK_INSTITUTIONS = [
         academicYear: '2024-2025',
         semester: 'Odd',
         session: 'Regular',
-        blocks: ['A-Block', 'B-Block', 'Science Wing']
+        blocks: ['A-Block', 'B-Block', 'C-Block']
     },
 ];
 const MOCK_CONSTRAINTS = {
     maxConsecutiveClasses: 3,
     timePreferences: {
-        workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+        workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
         startTime: '09:30',
         endTime: '16:55',
         lunchStartTime: '12:50',
@@ -281,7 +350,7 @@ const MOCK_CONSTRAINTS = {
     classSpecific: [],
     fixedClasses: [],
     customConstraints: [],
-    maxConcurrentClassesPerDept: { 'CSE': 4 },
+    maxConcurrentClassesPerDept: { 'CSE': 4, 'CYS': 2, 'BCA': 3 },
 };
 
 // NEW MOCK DATA ---
@@ -957,7 +1026,11 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
         if (!constraints || !constraints.timePreferences) { throw new Error("Time preferences are missing."); }
         const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 }, });
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [{ text: prompt }] },
+            config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 },
+        });
         const parsedResponse = JSON.parse(response.text.trim());
         if (!Array.isArray(parsedResponse)) { throw new Error("AI returned non-array data."); }
         res.status(200).json(parsedResponse);
