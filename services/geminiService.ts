@@ -1,6 +1,7 @@
 
 
-import { Class, Faculty, Subject, Room, Constraints, TimetableEntry } from '../types';
+
+import { Class, Faculty, Subject, Room, Constraints, TimetableEntry, GenerationResult } from '../types';
 
 // NOTE: The base URL for the backend server.
 const API_BASE_URL = '/api';
@@ -16,7 +17,7 @@ export const generateTimetable = async (
   rooms: Room[], 
   constraints: Constraints,
   token: string // Auth token is now required
-): Promise<TimetableEntry[]> => {
+): Promise<GenerationResult> => {
   try {
     const headers = {
       'Content-Type': 'application/json',
@@ -42,14 +43,14 @@ export const generateTimetable = async (
         throw new Error(`The server encountered an issue: ${errorMsg}`);
     }
 
-    const timetable = await response.json();
+    const generationResult = await response.json();
     
-    if (!Array.isArray(timetable)) {
-      console.error("Backend returned non-array for timetable:", timetable);
-      throw new Error("The server returned an invalid data format for the timetable.");
+    if (!generationResult || !Array.isArray(generationResult.timetable) || !Array.isArray(generationResult.unscheduledSessions)) {
+      console.error("Backend returned invalid format for generation result:", generationResult);
+      throw new Error("The server returned an invalid data format for the timetable generation result.");
     }
     
-    return timetable;
+    return generationResult;
     
   } catch (error) {
     console.error("Error during timetable generation request:", error);

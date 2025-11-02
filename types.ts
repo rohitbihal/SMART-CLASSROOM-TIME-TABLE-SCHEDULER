@@ -85,6 +85,20 @@ export interface TimetableEntry {
   type: 'Theory' | 'Lab' | 'Tutorial'; // UPDATED to match Subject
 }
 
+// NEW: Type for sessions that could not be scheduled by the AI.
+export interface UnscheduledSession {
+  className: string;
+  subject: string;
+  reason: string;
+}
+
+// NEW: Type for the combined result of a timetable generation.
+export interface GenerationResult {
+  timetable: TimetableEntry[];
+  unscheduledSessions: UnscheduledSession[];
+}
+
+
 export interface ChatMessage {
   id: string;
   author: string;

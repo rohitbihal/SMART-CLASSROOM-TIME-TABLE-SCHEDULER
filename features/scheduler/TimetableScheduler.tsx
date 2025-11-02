@@ -3,13 +3,19 @@
 
 
 
+
+
+
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon } from '../../components/Icons';
+// FIX: Add missing ClockIcon import.
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon, CheckCircleIcon, ClockIcon, AssignmentIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
 import { FullScreenLoader } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint } from '../../types';
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint, GenerationResult, UnscheduledSession } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
@@ -968,7 +974,7 @@ const ConstraintsTab = (props: TimetableSchedulerProps) => {
         </div>
     );
 };
-const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: TimetableEntry[] | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
+const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: GenerationResult | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
     if (!constraints) {
         return (
             <SectionCard title="Generate Timetable">
@@ -983,11 +989,11 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
     const [viewType, setViewType] = useState<'regular' | 'fixed'>('regular');
 
     const downloadAsExcel = (type: 'regular' | 'fixed' | 'all') => {
-        if (!generationResult) return;
+        if (!generationResult?.timetable) return;
         const headers = ["Day", "Time", "Class", "Subject", "Faculty", "Room", "Type"];
-        let dataToExport = generationResult;
+        let dataToExport = generationResult.timetable;
         if (type !== 'all') {
-            dataToExport = generationResult.filter(e => e.classType === type);
+            dataToExport = generationResult.timetable.filter(e => e.classType === type);
         }
         
         const csvContent = "data:text/csv;charset=utf-8," 
@@ -1015,17 +1021,23 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
     }, [constraints]);
 
     const displayedTimetable = useMemo(() => {
-        return generationResult?.filter(entry => entry.classType === viewType) || [];
+        return generationResult?.timetable?.filter(entry => entry.classType === viewType) || [];
     }, [generationResult, viewType]);
 
     return (
         <div className="space-y-6">
             <SectionCard title="Generate Timetable" actions={
-                <button onClick={onGenerate} disabled={isLoading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+                <button onClick={onGenerate} disabled={isLoading} className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50 w-48">
                     {isLoading ? <><LoadingIcon className="h-5 w-5" /> Generating...</> : <><GenerateIcon /> Generate Timetable</>}
                 </button>
             }>
-                <p className="text-gray-500 dark:text-gray-400">Click the "Generate" button to use the AI to create an optimized timetable based on all your setup data and constraints. This process may take a few moments.</p>
+                 <p className="text-gray-500 dark:text-gray-400">Click the "Generate" button to use the AI to create an optimized timetable based on all your setup data and constraints. This process can take up to 60 seconds.</p>
+                 {isLoading && (
+                    <div className="flex items-center gap-2 mt-4 text-sm text-indigo-500 font-semibold">
+                        <ClockIcon className="h-5 w-5" />
+                        AI is processing your constraints... Please wait.
+                    </div>
+                )}
             </SectionCard>
             <ErrorDisplay message={error} />
             {generationResult && (
@@ -1077,6 +1089,45 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
         </div>
     );
 };
+
+const UnscheduledSessionsReport = ({ sessions }: { sessions: UnscheduledSession[] }) => {
+    if (sessions.length === 0) {
+        return (
+            <SectionCard title="Unscheduled Sessions Report">
+                <div className="flex items-center gap-3 text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 p-4 rounded-lg">
+                    <CheckCircleIcon className="h-6 w-6" />
+                    <p className="font-semibold">All classes were scheduled successfully!</p>
+                </div>
+            </SectionCard>
+        );
+    }
+
+    return (
+        <SectionCard title="Unscheduled Sessions Report">
+             <p className="text-sm text-text-secondary mb-4">The following sessions could not be scheduled due to conflicts or resource limitations.</p>
+            <div className="overflow-auto max-h-60">
+                <table className="w-full text-sm">
+                    <thead className="bg-bg-tertiary sticky top-0 z-10"><tr>
+                        <th className="p-2 text-left">Class</th>
+                        <th className="p-2 text-left">Subject</th>
+                        <th className="p-2 text-left">Reason for Failure</th>
+                    </tr></thead>
+                    <tbody>
+                        {sessions.map((session, index) => (
+                            <tr key={index} className="border-b border-border-primary">
+                                <td className="p-2">{session.className}</td>
+                                <td className="p-2">{session.subject}</td>
+                                <td className="p-2 text-red-500">{session.reason}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </SectionCard>
+    );
+};
+
+
 // NEW: ViewTab now contains analytics and availability viewer
 const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; }) => {
     const facultyWorkload = useMemo(() => {
@@ -1146,7 +1197,7 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                     {facultyWorkload.map(f => (
                         <div key={f.id}>
-                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{f.name}</span><span className="text-text-secondary">{f.scheduledHours} / {f.maxWorkload} hrs ({f.utilization.toFixed(0)}%)</span></div>
+                             <div className="flex justify-between text-sm mb-1"><span className="font-semibold">{f.name}</span><span className={`font-medium ${f.utilization > 100 ? 'text-red-500' : 'text-text-secondary'}`}>{f.scheduledHours} / {f.maxWorkload} hrs ({f.utilization.toFixed(0)}%)</span></div>
                              <ProgressBar value={f.utilization} color={f.utilization > 100 ? 'bg-red-500' : 'bg-green-500'} />
                         </div>
                     ))}
@@ -1225,7 +1276,7 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
         </SectionCard>
     );
 };
-const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; }) => {
+const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks, generationResult }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; generationResult: GenerationResult | null; }) => {
     if (!constraints) {
         return (
             <div className="flex items-center justify-center p-8 text-text-secondary">
@@ -1236,11 +1287,142 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
     }
     return (
         <div className="space-y-6">
+            {generationResult && generationResult.unscheduledSessions && <UnscheduledSessionsReport sessions={generationResult.unscheduledSessions} />}
             <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} />
             <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
         </div>
     );
 };
+
+const AssignmentsTab = ({ subjects, faculty, classes }: { subjects: Subject[]; faculty: Faculty[]; classes: Class[]; }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const { assignmentList, facultyWorkloadSummary } = useMemo(() => {
+        const assignments: any[] = [];
+        const workload: { [key: string]: number } = {};
+
+        // Find all classes a subject might be taught in based on department
+        const departmentClassMap = new Map<string, Class[]>();
+        classes.forEach(c => {
+            const classList = departmentClassMap.get(c.branch) || [];
+            departmentClassMap.set(c.branch, [...classList, c]);
+        });
+
+        subjects.forEach(subject => {
+            const assignedFaculty = faculty.find(f => f.id === subject.assignedFacultyId);
+            if (!assignedFaculty) return;
+
+            // Initialize workload if not present
+            if (!workload[assignedFaculty.name]) {
+                workload[assignedFaculty.name] = 0;
+            }
+
+            const relevantClasses = departmentClassMap.get(subject.department) || [];
+            relevantClasses.forEach(cls => {
+                assignments.push({
+                    id: `${subject.id}-${cls.id}`,
+                    subjectCode: subject.code,
+                    subjectName: subject.name,
+                    facultyName: assignedFaculty.name,
+                    className: cls.name,
+                    subjectHours: subject.hoursPerWeek,
+                });
+            });
+            // Add subject hours to total workload for the assigned faculty
+            workload[assignedFaculty.name] += subject.hoursPerWeek * relevantClasses.length;
+        });
+        
+        const workloadSummary = Object.entries(workload).map(([name, hours]) => {
+            const facultyMember = faculty.find(f => f.name === name);
+            return {
+                id: facultyMember?.id || name,
+                name,
+                assignedHours: hours,
+                maxWorkload: facultyMember?.maxWorkload || 0,
+                utilization: facultyMember?.maxWorkload ? (hours / facultyMember.maxWorkload) * 100 : 0
+            };
+        }).sort((a,b) => b.utilization - a.utilization);
+
+
+        return { assignmentList: assignments, facultyWorkloadSummary: workloadSummary };
+    }, [subjects, faculty, classes]);
+
+    const filteredAssignments = useMemo(() => {
+        if (!searchTerm) return assignmentList;
+        const lowercasedFilter = searchTerm.toLowerCase();
+        return assignmentList.filter(item =>
+            Object.values(item).some(val => String(val).toLowerCase().includes(lowercasedFilter))
+        );
+    }, [assignmentList, searchTerm]);
+
+    const downloadAssignments = () => {
+        const headers = ["Subject Code", "Subject", "Faculty", "Class"];
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + headers.join(",") + "\n"
+            + filteredAssignments.map(e => [e.subjectCode, e.subjectName, e.facultyName, e.className].join(",")).join("\n");
+        const link = document.createElement("a");
+        link.setAttribute("href", encodeURI(csvContent));
+        link.setAttribute("download", "teacher-assignments.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+    
+    const ProgressBar = ({ value, color = 'bg-indigo-600' }: { value: number, color?: string }) => (
+        <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5"><div className={`${color} h-2.5 rounded-full`} style={{ width: `${Math.min(value, 100)}%` }}></div></div>
+    );
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+                <SectionCard title="Teacher-Class-Subject Assignments" actions={<button onClick={downloadAssignments} className="action-btn-secondary"><DownloadIcon /> Export List</button>}>
+                    <div className="mb-4">
+                        <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search assignments..." label="Search Assignments" id="assignment-search" />
+                    </div>
+                    <div className="overflow-auto max-h-[70vh]">
+                        <table className="w-full text-sm">
+                            <thead className="bg-bg-tertiary sticky top-0 z-10">
+                                <tr>
+                                    <th className="p-3 text-left">Subject Code</th>
+                                    <th className="p-3 text-left">Subject</th>
+                                    <th className="p-3 text-left">Assigned Faculty</th>
+                                    <th className="p-3 text-left">Class</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredAssignments.map((item, index) => (
+                                    <tr key={`${item.id}-${index}`} className="border-b border-border-primary">
+                                        <td className="p-3">{item.subjectCode}</td>
+                                        <td className="p-3 font-semibold">{item.subjectName}</td>
+                                        <td className="p-3">{item.facultyName}</td>
+                                        <td className="p-3">{item.className}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </SectionCard>
+            </div>
+             <div className="lg:col-span-1">
+                 <SectionCard title="Faculty Assigned Workload">
+                     <p className="text-sm text-text-secondary mb-4">This is the total hours based on subject assignments, before the timetable is generated.</p>
+                     <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                        {facultyWorkloadSummary.map(f => (
+                            <div key={f.id}>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="font-semibold">{f.name}</span>
+                                    <span className={`font-medium ${f.utilization > 100 ? 'text-red-500' : 'text-text-secondary'}`}>{f.assignedHours} / {f.maxWorkload} hrs ({f.utilization.toFixed(0)}%)</span>
+                                </div>
+                                <ProgressBar value={f.utilization} color={f.utilization > 100 ? 'bg-red-500' : 'bg-green-500'} />
+                            </div>
+                        ))}
+                    </div>
+                 </SectionCard>
+             </div>
+        </div>
+    );
+};
+
 
 const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const { classes, faculty, subjects, rooms, constraints, onSaveEntity, onDeleteEntity, onResetData, token, onSaveTimetable, institutions, timetable, onUniversalImport } = props;
@@ -1249,7 +1431,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const [pageError, setPageError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationError, setGenerationError] = useState<string | null>(null);
-    const [generatedTimetable, setGeneratedTimetable] = useState<TimetableEntry[] | null>(null);
+    const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
     const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [], institution: [] });
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
@@ -1348,7 +1530,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
         try {
             if (!constraints) throw new Error("Constraints are not loaded.");
             const result = await generateTimetable(classes, faculty, subjects, rooms, constraints, token);
-            setGeneratedTimetable(result);
+            setGenerationResult(result);
         } catch (error) {
             setGenerationError(error instanceof Error ? error.message : "An unknown error occurred.");
         } finally {
@@ -1357,17 +1539,18 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
     }, [classes, faculty, subjects, rooms, constraints, token]);
 
     const handleSaveTimetable = useCallback(async () => {
-        if (!generatedTimetable) return;
+        if (!generationResult?.timetable) return;
         try {
-            await onSaveTimetable(generatedTimetable);
+            await onSaveTimetable(generationResult.timetable);
             alert("Timetable saved and published successfully!");
         } catch (error) {
             setGenerationError(error instanceof Error ? error.message : "Failed to save the timetable.");
         }
-    }, [generatedTimetable, onSaveTimetable]);
+    }, [generationResult, onSaveTimetable]);
     
     const tabs = [
         { key: 'setup', label: 'Setup', icon: <SetupIcon /> },
+        { key: 'assignments', label: 'Assignments', icon: <AssignmentIcon /> },
         { key: 'constraints', label: 'Constraints', icon: <ConstraintsIcon /> },
         { key: 'generate', label: 'Generate', icon: <GenerateIcon /> },
         { key: 'view', label: 'View & Analytics', icon: <ViewIcon /> },
@@ -1387,15 +1570,16 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
 
         switch (activeTab) {
             case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onBulkDelete={handleBulkDelete} pageError={pageError} openImportModal={() => setImportModalOpen(true)} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
+            case 'assignments': return <AssignmentsTab subjects={subjects} faculty={faculty} classes={classes} />;
             case 'constraints': 
                 if (!constraints) return loadingIndicator;
                 return <ConstraintsTab {...props} />;
             case 'generate': 
                 if (!constraints) return loadingIndicator;
-                return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generatedTimetable} isLoading={isGenerating} error={generationError} onClear={() => setGeneratedTimetable(null)} constraints={constraints} />;
+                return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generationResult} isLoading={isGenerating} error={generationError} onClear={() => setGenerationResult(null)} constraints={constraints} />;
             case 'view': 
                 if (!constraints) return loadingIndicator;
-                return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} />;
+                return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} generationResult={generationResult} />;
             default: return null;
         }
     };

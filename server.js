@@ -348,7 +348,14 @@ const MOCK_CONSTRAINTS = {
     chatWindow: { start: '09:00', end: '17:00' },
     isChatboxEnabled: true,
     classSpecific: [],
-    fixedClasses: [],
+    fixedClasses: [
+        { id: 'fc1', classId: 'c1', subjectId: 's4', day: 'wednesday', time: '10:20-11:10', roomId: 'r3' },
+        { id: 'fc2', classId: 'c1', subjectId: 's4', day: 'wednesday', time: '11:10-12:00', roomId: 'r3' },
+        { id: 'fc2-b', classId: 'c2', subjectId: 's4', day: 'friday', time: '10:20-11:10', roomId: 'r3' },
+        { id: 'fc2-c', classId: 'c2', subjectId: 's4', day: 'friday', time: '11:10-12:00', roomId: 'r3' },
+        { id: 'fc3', classId: 'c3', subjectId: 's5', day: 'thursday', time: '01:35-02:25', roomId: 'r3' },
+        { id: 'fc4', classId: 'c8', subjectId: 's14', day: 'tuesday', time: '09:30-10:20', roomId: 'r5' },
+    ],
     customConstraints: [],
     maxConcurrentClassesPerDept: { 'CSE': 4, 'CYS': 2, 'BCA': 3 },
 };
@@ -986,45 +993,51 @@ app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
 });
 
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-    // A more detailed prompt for better results
     return `
-      You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable in JSON format.
-      
+      You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable in JSON format based on the provided data and a strict set of rules.
+
       **INPUT DATA:**
       - Classes: ${JSON.stringify(classes.map(({id, name, studentCount, branch}) => ({id, name, studentCount, branch})))}
       - Faculty: ${JSON.stringify(faculty.map(({id, name, maxWorkload, department}) => ({id, name, maxWorkload, department})))}
       - Subjects: ${JSON.stringify(subjects.map(({id, name, code, hoursPerWeek, type, assignedFacultyId}) => ({id, name, code, hoursPerWeek, type, assignedFacultyId})))}
       - Rooms: ${JSON.stringify(rooms.map(({id, number, capacity, type}) => ({id, number, capacity, type})))}
+      - Constraints: ${JSON.stringify(constraints)}
 
-      **CONSTRAINTS & RULES:**
-      - Global Constraints: ${JSON.stringify(constraints)}
-      - A faculty member cannot teach two classes at the same time.
-      - A class cannot have two subjects at the same time.
-      - A room cannot be occupied by two classes at the same time.
-      - The number of students in a class must not exceed the capacity of the room.
-      - Labs and Tutorials must be assigned to 'Laboratory' or 'Tutorial Room' type rooms respectively. Theory classes go in 'Classroom's.
-      - The total weekly hours for each subject must be met.
-      - Adhere strictly to all 'fixedClasses' defined in constraints. These are non-negotiable and must be placed first.
-      - Respect faculty unavailability preferences.
-      - Try to satisfy soft constraints like faculty preferences and max consecutive classes.
-      - Lunch break is from ${constraints.timePreferences.lunchStartTime} for ${constraints.timePreferences.lunchDurationMinutes} minutes. Do not schedule classes during this time.
-      - Working days are: ${constraints.timePreferences.workingDays.join(', ')}.
-      - Time slots are based on a start time of ${constraints.timePreferences.startTime} and slot duration of ${constraints.timePreferences.slotDurationMinutes} minutes.
+      **HARD RULES (MUST be followed without exception):**
+      1.  **No Conflicts:** A faculty member, a class, or a room cannot be in two places at once.
+      2.  **Room Capacity:** The number of students in a class must not exceed the capacity of its assigned room.
+      3.  **Room Type:** 'Lab' subjects must be in 'Laboratory' rooms. 'Tutorial' subjects in 'Tutorial Room'. 'Theory' subjects in 'Classroom' or 'Seminar Hall'.
+      4.  **Workload Limit:** The total number of lectures for any faculty member MUST NOT exceed their specified \`maxWorkload\`.
+      5.  **Fixed Classes:** Adhere strictly to all 'fixedClasses' defined in constraints. These are non-negotiable pre-scheduled slots and must be placed first. Their 'classType' must be 'fixed'. All other generated classes are 'regular'.
+      6.  **Faculty Assignment:** A faculty member can ONLY teach a subject if their ID is listed as the 'assignedFacultyId' for that subject. Do not assign any other faculty.
+      7.  **Weekly Hours:** The total number of scheduled slots for each subject must exactly match its 'hoursPerWeek' requirement.
+      8.  **Working Hours:** Do not schedule any classes outside the working days (${constraints.timePreferences.workingDays.join(', ')}) and time slots defined by the start time (${constraints.timePreferences.startTime}), end time (${constraints.timePreferences.endTime}), and slot duration (${constraints.timePreferences.slotDurationMinutes} mins).
+      9.  **Lunch Break:** Do not schedule any classes during the lunch break, which starts at ${constraints.timePreferences.lunchStartTime} and lasts for ${constraints.timePreferences.lunchDurationMinutes} minutes.
 
-      **KEY OPTIMIZATION GOALS:**
-      - **Strict Faculty Workload Management:** The total number of scheduled hours for any faculty member MUST NOT exceed their specified \`maxWorkload\`. This is a hard, non-negotiable rule.
-      - **Balanced Faculty Load:** Distribute the teaching load as evenly as possible among qualified faculty members. Avoid assigning a significantly higher number of classes to one faculty member while another with similar specializations is underutilized. If \`enableFacultyLoadBalancing\` is true in the advanced constraints, this is a top priority.
-      - **Optimal Student Schedule:** Aim for a balanced weekly schedule for each class. Spread lectures throughout the week to avoid cramming subjects on one or two days. Minimize large, awkward gaps between classes for students.
-      - **Full Resource Utilization:** Maximize the use of available rooms and faculty time within the defined working hours, ensuring no resources are unnecessarily left idle while others are over-booked.
+      **OPTIMIZATION GOALS (Apply after all hard rules are met):**
+      1.  **Maximize Slot Utilization:** Fill every available time slot for every class. There should be no empty periods except for lunch, unless required by hard constraints.
+      2.  **Balanced Faculty Load:** If \`enableFacultyLoadBalancing\` is true, distribute the teaching load as evenly as possible among qualified faculty members across the week.
+      3.  **Balanced Student Schedule:** Spread lectures for each class throughout the week to avoid cramming subjects on one or two days. Minimize large gaps between classes for students.
+      4.  **Satisfy Soft Constraints:** Try to satisfy soft constraints like faculty preferences (e.g., preferred days, max consecutive classes) and custom rules defined in the constraints object.
 
       **OUTPUT FORMAT:**
-      - Your output MUST be a valid JSON array of timetable entry objects.
-      - Each object must have these exact keys: "className", "subject", "faculty", "room", "day", "time", "type" ('Theory', 'Lab', or 'Tutorial'), and "classType" ('regular' or 'fixed').
-      - For fixed classes from the constraints, set "classType" to "fixed". For all others, set it to "regular".
-      - Ensure all subject hours are scheduled.
+      Your output MUST be a valid JSON object with two keys: "timetable" and "unscheduledSessions".
+      - "timetable": A JSON array of successfully scheduled timetable entry objects. Each object must have keys: "className", "subject", "faculty", "room", "day", "time", "type" ('Theory', 'Lab', or 'Tutorial'), and "classType" ('regular' or 'fixed').
+      - "unscheduledSessions": A JSON array for any sessions that could not be scheduled. Each object must have "className", "subject", and a "reason" string explaining the failure (e.g., "Faculty f1 unavailable at all possible times", "No available rooms with required capacity"). If all sessions are scheduled, this array MUST be empty.
     `;
 };
-const responseSchema = { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['Theory', 'Lab', 'Tutorial'] }, classType: { type: Type.STRING, enum: ['regular', 'fixed'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type', 'classType'] } };
+
+const timetableEntrySchemaDef = { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, faculty: { type: Type.STRING }, room: { type: Type.STRING }, day: { type: Type.STRING }, time: { type: Type.STRING }, type: { type: Type.STRING, enum: ['Theory', 'Lab', 'Tutorial'] }, classType: { type: Type.STRING, enum: ['regular', 'fixed'] } }, required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'type', 'classType'] };
+const unscheduledSessionSchemaDef = { type: Type.OBJECT, properties: { className: { type: Type.STRING }, subject: { type: Type.STRING }, reason: { type: Type.STRING } }, required: ['className', 'subject', 'reason'] };
+const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        timetable: { type: Type.ARRAY, items: timetableEntrySchemaDef },
+        unscheduledSessions: { type: Type.ARRAY, items: unscheduledSessionSchemaDef }
+    },
+    required: ['timetable', 'unscheduledSessions']
+};
+
 app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) => {
     if (!process.env.API_KEY) { return res.status(500).json({ message: "API_KEY is not configured on the server." }); }
     try {
@@ -1035,10 +1048,12 @@ app.post('/api/generate-timetable', authMiddleware, adminOnly, async (req, res) 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.2 },
+            config: { responseMimeType: "application/json", responseSchema: responseSchema, temperature: 0.1 },
         });
         const parsedResponse = JSON.parse(response.text.trim());
-        if (!Array.isArray(parsedResponse)) { throw new Error("AI returned non-array data."); }
+        if (!parsedResponse || !Array.isArray(parsedResponse.timetable) || !Array.isArray(parsedResponse.unscheduledSessions)) {
+             throw new Error("AI returned data in an unexpected format.");
+        }
         res.status(200).json(parsedResponse);
     } catch (error) {
         console.error("Error calling Gemini API from server:", error);

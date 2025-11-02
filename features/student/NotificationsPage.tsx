@@ -41,28 +41,33 @@ export const NotificationsPage = () => {
     return (
         <SectionCard title="Notifications & Announcements">
             <div className="space-y-4">
-                {notifications.length > 0 ? notifications.map(notification => (
-                    <div key={`${notification.sourceType}-${notification.id}`} className={`p-4 rounded-lg transition-colors ${notification.read ? 'bg-bg-primary opacity-70' : 'bg-bg-secondary shadow-sm'}`}>
-                        <div className="flex justify-between items-start gap-4">
-                            <div className="flex-grow">
-                                {notification.sourceType === 'global' && <span className="text-xs font-bold uppercase text-accent-primary">Announcement</span>}
-                                <h3 className="font-bold">{notification.title}</h3>
-                                <p className="text-sm text-text-secondary mt-1">{notification.message}</p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                                <p className="text-xs text-text-secondary">{new Date(notification.timestamp).toLocaleString()}</p>
-                                {!notification.read && notification.sourceType === 'personal' && (
-                                    <button 
-                                        onClick={() => handleMarkAsRead(notification.id)} 
-                                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-2"
-                                    >
-                                        Mark as Read
-                                    </button>
-                                )}
+                {notifications.length > 0 ? notifications.map(notification => {
+                    // FIX: Check `sourceType` to determine if a notification is read, as the `read` property only exists on personal notifications.
+                    const isRead = notification.sourceType === 'personal' ? notification.read : notification.status === 'Read';
+                    return (
+                        <div key={`${notification.sourceType}-${notification.id}`} className={`p-4 rounded-lg transition-colors ${isRead ? 'bg-bg-primary opacity-70' : 'bg-bg-secondary shadow-sm'}`}>
+                            <div className="flex justify-between items-start gap-4">
+                                <div className="flex-grow">
+                                    {notification.sourceType === 'global' && <span className="text-xs font-bold uppercase text-accent-primary">Announcement</span>}
+                                    <h3 className="font-bold">{notification.title}</h3>
+                                    <p className="text-sm text-text-secondary mt-1">{notification.message}</p>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                    <p className="text-xs text-text-secondary">{new Date(notification.timestamp).toLocaleString()}</p>
+                                    {/* FIX: Check `sourceType` before `read` to ensure type safety and correct property access. */}
+                                    {notification.sourceType === 'personal' && !notification.read && (
+                                        <button 
+                                            onClick={() => handleMarkAsRead(notification.id)} 
+                                            className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-2"
+                                        >
+                                            Mark as Read
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )) : (
+                    );
+                }) : (
                      <div className="text-center p-8 text-text-secondary">
                         <NotificationsIcon className="h-12 w-12 mx-auto mb-4" />
                         <p>You have no new notifications.</p>
