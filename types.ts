@@ -108,6 +108,19 @@ export interface ReassignmentSuggestion {
     toFacultyName: string;
 }
 
+// NEW: Types for the AI reassignment payload
+export interface UnresolvableWorkload {
+    facultyName: string;
+    department: string;
+    reason: string;
+    recommendation: string;
+}
+
+export interface ReassignmentPayload {
+    suggestions: ReassignmentSuggestion[];
+    unresolvableWorkloads: UnresolvableWorkload[];
+}
+
 export interface ChatMessage {
   id: string;
   author: string;

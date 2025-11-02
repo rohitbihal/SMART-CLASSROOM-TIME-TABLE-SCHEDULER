@@ -993,32 +993,39 @@ app.post('/api/reset-data', authMiddleware, adminOnly, async (req, res) => {
 });
 
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
+    const simplifiedClasses = classes.map(({id, name, studentCount, branch, year, block}) => ({id, name, studentCount, branch, year, block}));
+    const simplifiedFaculty = faculty.map(({id, name, maxWorkload, department}) => ({id, name, maxWorkload, department}));
+    const simplifiedSubjects = subjects.map(({id, name, code, hoursPerWeek, type, assignedFacultyId, department, semester}) => ({id, name, code, hoursPerWeek, type, assignedFacultyId, department, semester}));
+    const simplifiedRooms = rooms.map(({id, number, capacity, type, block}) => ({id, number, capacity, type, block}));
+    
     return `
       You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable in JSON format based on the provided data and a strict set of rules.
 
       **INPUT DATA:**
-      - Classes: ${JSON.stringify(classes.map(({id, name, studentCount, branch}) => ({id, name, studentCount, branch})))}
-      - Faculty: ${JSON.stringify(faculty.map(({id, name, maxWorkload, department}) => ({id, name, maxWorkload, department})))}
-      - Subjects: ${JSON.stringify(subjects.map(({id, name, code, hoursPerWeek, type, assignedFacultyId}) => ({id, name, code, hoursPerWeek, type, assignedFacultyId})))}
-      - Rooms: ${JSON.stringify(rooms.map(({id, number, capacity, type}) => ({id, number, capacity, type})))}
+      - Classes: ${JSON.stringify(simplifiedClasses)}
+      - Faculty: ${JSON.stringify(simplifiedFaculty)}
+      - Subjects: ${JSON.stringify(simplifiedSubjects)}
+      - Rooms: ${JSON.stringify(simplifiedRooms)}
       - Constraints: ${JSON.stringify(constraints)}
 
       **HARD RULES (MUST be followed without exception):**
-      1.  **No Conflicts:** A faculty member, a class, or a room cannot be in two places at once.
-      2.  **Room Capacity:** The number of students in a class must not exceed the capacity of its assigned room.
-      3.  **Room Type:** 'Lab' subjects must be in 'Laboratory' rooms. 'Tutorial' subjects in 'Tutorial Room'. 'Theory' subjects in 'Classroom' or 'Seminar Hall'.
-      4.  **Workload Limit:** The total number of lectures for any faculty member MUST NOT exceed their specified \`maxWorkload\`.
-      5.  **Fixed Classes:** Adhere strictly to all 'fixedClasses' defined in constraints. These are non-negotiable pre-scheduled slots and must be placed first. Their 'classType' must be 'fixed'. All other generated classes are 'regular'.
-      6.  **Faculty Assignment:** A faculty member can ONLY teach a subject if their ID is listed as the 'assignedFacultyId' for that subject. Do not assign any other faculty.
-      7.  **Weekly Hours:** The total number of scheduled slots for each subject must exactly match its 'hoursPerWeek' requirement.
-      8.  **Working Hours:** Do not schedule any classes outside the working days (${constraints.timePreferences.workingDays.join(', ')}) and time slots defined by the start time (${constraints.timePreferences.startTime}), end time (${constraints.timePreferences.endTime}), and slot duration (${constraints.timePreferences.slotDurationMinutes} mins).
-      9.  **Lunch Break:** Do not schedule any classes during the lunch break, which starts at ${constraints.timePreferences.lunchStartTime} and lasts for ${constraints.timePreferences.lunchDurationMinutes} minutes.
+      1.  **Subject-Class Matching:** A subject must be scheduled for a class ONLY IF the subject's 'department' matches the class's 'branch' AND the subject's 'semester' corresponds to the class's 'year' (Semesters 1-2 for Year 1, 3-4 for Year 2, 5-6 for Year 3, etc.).
+      2.  **No Conflicts:** A faculty member, a class, or a room cannot be in two places at once.
+      3.  **Room Capacity:** The number of students in a class must not exceed the capacity of its assigned room.
+      4.  **Room Type:** 'Lab' subjects must be in 'Laboratory' rooms. 'Tutorial' subjects in 'Tutorial Room'. 'Theory' subjects in 'Classroom' or 'Seminar Hall'.
+      5.  **Workload Limit:** The total number of lectures for any faculty member MUST NOT exceed their specified \`maxWorkload\`.
+      6.  **Fixed Classes:** Adhere strictly to all 'fixedClasses' defined in constraints. These are non-negotiable pre-scheduled slots and must be placed first. Their 'classType' must be 'fixed'. All other generated classes are 'regular'.
+      7.  **Faculty Assignment:** A faculty member can ONLY teach a subject if their ID is listed as the 'assignedFacultyId' for that subject. Do not assign any other faculty.
+      8.  **Weekly Hours:** The total number of scheduled slots for each subject for EACH CLASS it is taught to must exactly match its 'hoursPerWeek' requirement.
+      9.  **Working Hours:** Do not schedule any classes outside the working days (${constraints.timePreferences.workingDays.join(', ')}) and time slots defined by the start time (${constraints.timePreferences.startTime}), end time (${constraints.timePreferences.endTime}), and slot duration (${constraints.timePreferences.slotDurationMinutes} mins).
+      10. **Lunch Break:** Do not schedule any classes during the lunch break, which starts at ${constraints.timePreferences.lunchStartTime} and lasts for ${constraints.timePreferences.lunchDurationMinutes} minutes.
 
       **OPTIMIZATION GOALS (Apply after all hard rules are met):**
       1.  **Maximize Slot Utilization:** Fill every available time slot for every class. There should be no empty periods except for lunch, unless required by hard constraints.
-      2.  **Balanced Faculty Load:** If \`enableFacultyLoadBalancing\` is true, distribute the teaching load as evenly as possible among qualified faculty members across the week.
-      3.  **Balanced Student Schedule:** Spread lectures for each class throughout the week to avoid cramming subjects on one or two days. Minimize large gaps between classes for students.
-      4.  **Satisfy Soft Constraints:** Try to satisfy soft constraints like faculty preferences (e.g., preferred days, max consecutive classes) and custom rules defined in the constraints object.
+      2.  **Co-location Preference:** If a class has a 'block' specified (e.g., 'A-Block'), strongly prefer scheduling its sessions in rooms that are also in the same 'block'. This minimizes student and faculty travel time.
+      3.  **Balanced Faculty Load:** If \`enableFacultyLoadBalancing\` is true, distribute the teaching load as evenly as possible among qualified faculty members across the week.
+      4.  **Balanced Student Schedule:** Spread lectures for each class throughout the week to avoid cramming subjects on one or two days. Minimize large gaps between classes for students.
+      5.  **Satisfy Soft Constraints:** Try to satisfy soft constraints like faculty preferences (e.g., preferred days, max consecutive classes) and custom rules defined in the constraints object.
 
       **OUTPUT FORMAT:**
       Your output MUST be a valid JSON object with two keys: "timetable" and "unscheduledSessions".
@@ -1157,13 +1164,29 @@ const generateReassignmentPrompt = (classes, faculty, subjects) => {
 
     return `
     You are an expert academic advisor tasked with balancing teaching workloads.
-    First, calculate the current workload for each faculty member. A faculty member's workload is the sum of 'hoursPerWeek' for each subject they are assigned, multiplied by the number of classes they teach that subject to. A subject is taught to all classes whose 'branch' matches the subject's 'department' and whose 'year' matches the subject's semester group (Semesters 1-2 are Year 1, 3-4 are Year 2, 5-6 are Year 3).
+    Your task is to analyze the provided data and provide two sets of recommendations in a single JSON object:
+    1.  'suggestions': Concrete re-assignments for subjects from over-allocated faculty to under-utilized ones.
+    2.  'unresolvableWorkloads': A report on faculty whose workloads cannot be balanced with the current staff, along with a recommendation to hire new staff.
 
-    After calculating the workloads, identify all faculty members whose calculated workload exceeds their 'maxWorkload'.
+    **Step 1: Calculate Workload**
+    Calculate the current workload for each faculty member. A faculty member's workload is the sum of 'hoursPerWeek' for each subject they are assigned, multiplied by the number of classes they teach that subject to. A subject is taught to all classes whose 'branch' matches the subject's 'department' and whose 'year' corresponds to the subject's semester group (Semesters 1-2 for Year 1, 3-4 for Year 2, etc.).
 
-    For each over-allocated faculty member, suggest re-assigning one or more of their subjects to another QUALIFIED and UNDER-UTILIZED faculty member to bring the over-allocated faculty's workload at or below their 'maxWorkload'.
-    - A qualified faculty member is one who belongs to the same department as the subject.
-    - An under-utilized faculty member is one whose current workload is well below their 'maxWorkload'. Do not suggest a re-assignment that would make the receiving faculty over-allocated.
+    **Step 2: Identify Over-allocated Faculty**
+    Identify all faculty members whose calculated workload exceeds their 'maxWorkload'.
+
+    **Step 3: Generate Re-assignment Suggestions**
+    For each over-allocated faculty member, try to re-assign their subjects to other qualified and under-utilized faculty members.
+    - A **qualified** faculty member is one who belongs to the same department as the subject. Give strong preference to faculty whose 'specialization' list includes topics related to the subject name.
+    - An **under-utilized** faculty member is one whose current workload is significantly below their 'maxWorkload'.
+    - A re-assignment is only valid if it does not make the receiving faculty member over-allocated.
+    - Create a suggestion object for each valid re-assignment you find. Populate the 'suggestions' array with these objects.
+
+    **Step 4: Identify Unresolvable Workloads**
+    After attempting re-assignments, if an over-allocated faculty member still has subjects that could not be re-assigned (because no other qualified and under-utilized faculty are available), identify them.
+    - For each such case, create an object explaining the situation.
+    - The 'reason' should state why re-assignment is not possible (e.g., "All other CSE faculty are at full capacity," or "No other faculty with 'AI' specialization is available.").
+    - The 'recommendation' should suggest a course of action, such as hiring a new faculty member with specific qualifications.
+    - Populate the 'unresolvableWorkloads' array with these objects.
 
     **INPUT DATA:**
     - Classes: ${JSON.stringify(simplifiedClasses)}
@@ -1171,26 +1194,46 @@ const generateReassignmentPrompt = (classes, faculty, subjects) => {
     - Subjects: ${JSON.stringify(simplifiedSubjects)}
 
     **OUTPUT FORMAT:**
-    Your output MUST be a valid JSON array of suggestion objects.
-    Each object must have the keys: "subjectId", "subjectName", "fromFacultyId", "fromFacultyName", "toFacultyId", "toFacultyName".
-    If no re-assignments are necessary, return an empty array.
+    Your output MUST be a single valid JSON object with two keys: "suggestions" and "unresolvableWorkloads".
+    - "suggestions": A JSON array of suggestion objects. Each object must have the keys: "subjectId", "subjectName", "fromFacultyId", "fromFacultyName", "toFacultyId", "toFacultyName".
+    - "unresolvableWorkloads": A JSON array of report objects. Each object must have keys: "facultyName", "department", "reason", "recommendation".
+    If no re-assignments are necessary and no workloads are unresolvable, both arrays MUST be empty.
     `;
 };
 
 const reassignmentResponseSchema = {
-    type: Type.ARRAY,
-    items: {
-        type: Type.OBJECT,
-        properties: {
-            subjectId: { type: Type.STRING },
-            subjectName: { type: Type.STRING },
-            fromFacultyId: { type: Type.STRING },
-            fromFacultyName: { type: Type.STRING },
-            toFacultyId: { type: Type.STRING },
-            toFacultyName: { type: Type.STRING }
+    type: Type.OBJECT,
+    properties: {
+        suggestions: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    subjectId: { type: Type.STRING },
+                    subjectName: { type: Type.STRING },
+                    fromFacultyId: { type: Type.STRING },
+                    fromFacultyName: { type: Type.STRING },
+                    toFacultyId: { type: Type.STRING },
+                    toFacultyName: { type: Type.STRING }
+                },
+                required: ['subjectId', 'subjectName', 'fromFacultyId', 'fromFacultyName', 'toFacultyId', 'toFacultyName']
+            }
         },
-        required: ['subjectId', 'subjectName', 'fromFacultyId', 'fromFacultyName', 'toFacultyId', 'toFacultyName']
-    }
+        unresolvableWorkloads: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    facultyName: { type: Type.STRING },
+                    department: { type: Type.STRING },
+                    reason: { type: Type.STRING },
+                    recommendation: { type: Type.STRING }
+                },
+                required: ['facultyName', 'department', 'reason', 'recommendation']
+            }
+        }
+    },
+    required: ['suggestions', 'unresolvableWorkloads']
 };
 
 app.post('/api/suggest-reassignment', authMiddleware, adminOnly, async (req, res) => {

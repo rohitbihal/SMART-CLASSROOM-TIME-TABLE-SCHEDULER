@@ -1,5 +1,5 @@
 // FIX: Add ReassignmentSuggestion to imports and remove duplicate StudentQuery
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification, StudentQuery, ReassignmentSuggestion } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification, StudentQuery, ReassignmentPayload, ReassignmentSuggestion } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -158,9 +158,8 @@ export const universalImport = async (fileData: string, mimeType: string): Promi
     return response.json();
 };
 
-// FIX: Add suggestReassignment function to handle AI workload balancing suggestions.
 // --- AI SUGGESTIONS ---
-export const suggestReassignment = async (payload: { classes: Class[], faculty: Faculty[], subjects: Subject[] }): Promise<ReassignmentSuggestion[]> => {
+export const suggestReassignment = async (payload: { classes: Class[], faculty: Faculty[], subjects: Subject[] }): Promise<ReassignmentPayload> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/suggest-reassignment`, {
         method: 'POST',
         body: JSON.stringify(payload)

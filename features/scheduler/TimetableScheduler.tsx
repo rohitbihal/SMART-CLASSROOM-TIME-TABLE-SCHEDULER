@@ -9,6 +9,10 @@
 
 
 
+
+
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Add missing ClockIcon import.
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon, CheckCircleIcon, ClockIcon, AssignmentIcon, SparklesIcon } from '../../components/Icons';
@@ -17,8 +21,8 @@ import { FullScreenLoader } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
 import * as api from '../../services/api';
-// FIX: Import ReassignmentSuggestion from types.ts
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint, GenerationResult, UnscheduledSession, ReassignmentSuggestion } from '../../types';
+// FIX: Import ReassignmentSuggestion and UnresolvableWorkload from types.ts
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint, GenerationResult, UnscheduledSession, ReassignmentSuggestion, UnresolvableWorkload } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
@@ -979,25 +983,57 @@ const ConstraintsTab = (props: TimetableSchedulerProps) => {
 };
 const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: GenerationResult | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
     const [progress, setProgress] = useState(0);
+    const [progressText, setProgressText] = useState('');
     const progressIntervalRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (isLoading) {
             setProgress(0);
-            // Simulate progress for 55 seconds to reach 95%
-            const duration = 55000;
-            const intervalTime = 100; // update every 100ms
-            const increment = (95 / (duration / intervalTime));
+            setProgressText('Initializing AI Model...');
+            
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
 
-            progressIntervalRef.current = window.setInterval(() => {
-                setProgress(prev => {
-                    if (prev >= 95) {
-                        if(progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-                        return 95;
-                    }
-                    return prev + increment;
-                });
-            }, intervalTime);
+            // A more realistic simulation with stages. Total duration is ~55s.
+            const stages = [
+                { text: 'Analyzing Constraints & Setup Data...', duration: 10000, target: 30 },
+                { text: 'Running Optimization Algorithms...', duration: 25000, target: 75 },
+                { text: 'Resolving Conflicts...', duration: 15000, target: 90 },
+                { text: 'Finalizing Timetable...', duration: 5000, target: 95 },
+            ];
+
+            let currentStageIndex = 0;
+            let stageStartTime = Date.now();
+            let startProgress = 0;
+
+            const updateProgress = () => {
+                const stage = stages[currentStageIndex];
+                if (!stage || !isLoading) { // Stop if stages are done or if loading is externally cancelled
+                    if(progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                    return;
+                }
+
+                if (progressText !== stage.text) {
+                    setProgressText(stage.text);
+                }
+
+                const elapsedTime = Date.now() - stageStartTime;
+                // Use a non-linear easing function for a smoother feel
+                const stageProgressFraction = Math.min(elapsedTime / stage.duration, 1);
+                const easedProgress = 1 - Math.pow(1 - stageProgressFraction, 2); // Ease-out quad
+
+                const newProgress = startProgress + (stage.target - startProgress) * easedProgress;
+                setProgress(newProgress);
+
+                if (stageProgressFraction >= 1) {
+                    startProgress = stage.target;
+                    currentStageIndex++;
+                    stageStartTime = Date.now();
+                }
+            };
+            
+            progressIntervalRef.current = window.setInterval(updateProgress, 100);
 
         } else {
             if (progressIntervalRef.current) {
@@ -1005,7 +1041,11 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
                 progressIntervalRef.current = null;
             }
             if (generationResult && !error) {
+                setProgressText('Generation Complete!');
                 setProgress(100);
+            } else if (error) {
+                setProgressText('');
+                setProgress(0);
             }
         }
 
@@ -1076,11 +1116,11 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
                  {isLoading && (
                     <div className="mt-4">
                         <div className="flex justify-between mb-1">
-                            <span className="text-base font-medium text-blue-700 dark:text-white">AI is generating your timetable...</span>
+                            <span className="text-base font-medium text-blue-700 dark:text-white">{progressText}</span>
                             <span className="text-sm font-medium text-blue-700 dark:text-white">{Math.round(progress)}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                            <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                            <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-100 ease-linear" style={{ width: `${progress}%` }}></div>
                         </div>
                         <p className="text-sm text-gray-500 mt-2">This process can take up to 60 seconds. Please wait.</p>
                     </div>
@@ -1345,6 +1385,8 @@ const AssignmentsTab = ({ subjects, faculty, classes, onSaveEntity }: { subjects
     const [searchTerm, setSearchTerm] = useState('');
     const [isReassignmentModalOpen, setIsReassignmentModalOpen] = useState(false);
     const [reassignmentSuggestions, setReassignmentSuggestions] = useState<ReassignmentSuggestion[]>([]);
+    // FIX: Add state for unresolvable workloads.
+    const [unresolvableWorkloads, setUnresolvableWorkloads] = useState<UnresolvableWorkload[]>([]);
     const [isSuggesting, setIsSuggesting] = useState(false);
     const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
@@ -1397,8 +1439,10 @@ const AssignmentsTab = ({ subjects, faculty, classes, onSaveEntity }: { subjects
         setIsSuggesting(true);
         setSuggestionError(null);
         try {
-            const suggestions = await api.suggestReassignment({ classes, faculty, subjects });
-            setReassignmentSuggestions(suggestions);
+            // FIX: Correctly handle the payload from the API. The API returns an object with a 'suggestions' property, not the array directly.
+            const payload = await api.suggestReassignment({ classes, faculty, subjects });
+            setReassignmentSuggestions(payload.suggestions);
+            setUnresolvableWorkloads(payload.unresolvableWorkloads);
         } catch (error) {
             setSuggestionError(error instanceof Error ? error.message : "Failed to get suggestions.");
         } finally {
@@ -1454,18 +1498,39 @@ const AssignmentsTab = ({ subjects, faculty, classes, onSaveEntity }: { subjects
                         <LoadingIcon />
                         <p className="mt-2 text-text-secondary">AI is analyzing workloads...</p>
                     </div>
-                ) : reassignmentSuggestions.length > 0 ? (
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {reassignmentSuggestions.map((s, i) => (
-                            <div key={i} className="p-3 bg-bg-primary rounded-lg flex items-center justify-between">
-                                <div>
-                                    <p>Move <strong>{s.subjectName}</strong></p>
-                                    <p className="text-sm">From: <span className="text-red-500">{s.fromFacultyName}</span></p>
-                                    <p className="text-sm">To: <span className="text-green-500">{s.toFacultyName}</span></p>
+                ) : (reassignmentSuggestions.length > 0 || unresolvableWorkloads.length > 0) ? (
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                        {reassignmentSuggestions.length > 0 && (
+                            <div>
+                                <h4 className="font-semibold text-lg mb-2">Re-assignment Suggestions</h4>
+                                <div className="space-y-3">
+                                    {reassignmentSuggestions.map((s, i) => (
+                                        <div key={i} className="p-3 bg-bg-primary rounded-lg flex items-center justify-between">
+                                            <div>
+                                                <p>Move <strong>{s.subjectName}</strong></p>
+                                                <p className="text-sm">From: <span className="text-red-500">{s.fromFacultyName}</span></p>
+                                                <p className="text-sm">To: <span className="text-green-500">{s.toFacultyName}</span></p>
+                                            </div>
+                                            <button onClick={() => handleApplySuggestion(s)} className="btn-primary text-sm">Apply</button>
+                                        </div>
+                                    ))}
                                 </div>
-                                <button onClick={() => handleApplySuggestion(s)} className="btn-primary text-sm">Apply</button>
                             </div>
-                        ))}
+                        )}
+                        {unresolvableWorkloads.length > 0 && (
+                            <div className="mt-4">
+                                <h4 className="font-semibold text-lg mb-2 text-red-600 dark:text-red-400">Unresolvable Workloads</h4>
+                                <div className="space-y-3">
+                                    {unresolvableWorkloads.map((w, i) => (
+                                        <div key={i} className="p-3 bg-red-100/50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg">
+                                            <p className="font-semibold">{w.facultyName} <span className="text-sm text-text-secondary">({w.department})</span></p>
+                                            <p className="text-sm mt-1"><strong>Reason:</strong> {w.reason}</p>
+                                            <p className="text-sm mt-1"><strong>Recommendation:</strong> {w.recommendation}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <p className="text-center text-text-secondary p-8">No suggestions available, or all workloads are balanced.</p>
