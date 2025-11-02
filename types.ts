@@ -98,6 +98,15 @@ export interface GenerationResult {
   unscheduledSessions: UnscheduledSession[];
 }
 
+// FIX: Add ReassignmentSuggestion interface for AI workload balancing.
+export interface ReassignmentSuggestion {
+    subjectId: string;
+    subjectName: string;
+    fromFacultyId: string;
+    fromFacultyName: string;
+    toFacultyId: string;
+    toFacultyName: string;
+}
 
 export interface ChatMessage {
   id: string;

@@ -8,20 +8,23 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Add missing ClockIcon import.
-import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon, CheckCircleIcon, ClockIcon, AssignmentIcon } from '../../components/Icons';
+import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon, CheckCircleIcon, ClockIcon, AssignmentIcon, SparklesIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
 import { FullScreenLoader } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
-import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint, GenerationResult, UnscheduledSession } from '../../types';
+import * as api from '../../services/api';
+// FIX: Import ReassignmentSuggestion from types.ts
+import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint, GenerationResult, UnscheduledSession, ReassignmentSuggestion } from '../../types';
 
 type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'institution';
 type Entity = Class | Faculty | Subject | Room | Institution;
 type EquipmentKey = keyof Equipment;
 
-
+// FIX: Remove local ReassignmentSuggestion interface definition, as it is now imported from types.ts
 interface TimetableSchedulerProps {
     classes: Class[];
     faculty: Faculty[];
@@ -975,6 +978,44 @@ const ConstraintsTab = (props: TimetableSchedulerProps) => {
     );
 };
 const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: GenerationResult | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
+    const [progress, setProgress] = useState(0);
+    const progressIntervalRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (isLoading) {
+            setProgress(0);
+            // Simulate progress for 55 seconds to reach 95%
+            const duration = 55000;
+            const intervalTime = 100; // update every 100ms
+            const increment = (95 / (duration / intervalTime));
+
+            progressIntervalRef.current = window.setInterval(() => {
+                setProgress(prev => {
+                    if (prev >= 95) {
+                        if(progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+                        return 95;
+                    }
+                    return prev + increment;
+                });
+            }, intervalTime);
+
+        } else {
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+                progressIntervalRef.current = null;
+            }
+            if (generationResult && !error) {
+                setProgress(100);
+            }
+        }
+
+        return () => {
+            if (progressIntervalRef.current) {
+                clearInterval(progressIntervalRef.current);
+            }
+        };
+    }, [isLoading, generationResult, error]);
+
     if (!constraints) {
         return (
             <SectionCard title="Generate Timetable">
@@ -1031,11 +1072,17 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
                     {isLoading ? <><LoadingIcon className="h-5 w-5" /> Generating...</> : <><GenerateIcon /> Generate Timetable</>}
                 </button>
             }>
-                 <p className="text-gray-500 dark:text-gray-400">Click the "Generate" button to use the AI to create an optimized timetable based on all your setup data and constraints. This process can take up to 60 seconds.</p>
+                 <p className="text-gray-500 dark:text-gray-400">Click the "Generate" button to use the AI to create an optimized timetable based on all your setup data and constraints.</p>
                  {isLoading && (
-                    <div className="flex items-center gap-2 mt-4 text-sm text-indigo-500 font-semibold">
-                        <ClockIcon className="h-5 w-5" />
-                        AI is processing your constraints... Please wait.
+                    <div className="mt-4">
+                        <div className="flex justify-between mb-1">
+                            <span className="text-base font-medium text-blue-700 dark:text-white">AI is generating your timetable...</span>
+                            <span className="text-sm font-medium text-blue-700 dark:text-white">{Math.round(progress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                            <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2">This process can take up to 60 seconds. Please wait.</p>
                     </div>
                 )}
             </SectionCard>
@@ -1294,30 +1341,29 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
     );
 };
 
-const AssignmentsTab = ({ subjects, faculty, classes }: { subjects: Subject[]; faculty: Faculty[]; classes: Class[]; }) => {
+const AssignmentsTab = ({ subjects, faculty, classes, onSaveEntity }: { subjects: Subject[]; faculty: Faculty[]; classes: Class[]; onSaveEntity: (type: 'subject', data: any) => Promise<void>; }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [isReassignmentModalOpen, setIsReassignmentModalOpen] = useState(false);
+    const [reassignmentSuggestions, setReassignmentSuggestions] = useState<ReassignmentSuggestion[]>([]);
+    const [isSuggesting, setIsSuggesting] = useState(false);
+    const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
     const { assignmentList, facultyWorkloadSummary } = useMemo(() => {
         const assignments: any[] = [];
         const workload: { [key: string]: number } = {};
-
-        // Find all classes a subject might be taught in based on department
-        const departmentClassMap = new Map<string, Class[]>();
-        classes.forEach(c => {
-            const classList = departmentClassMap.get(c.branch) || [];
-            departmentClassMap.set(c.branch, [...classList, c]);
-        });
+        const semesterToYearMap: { [key: number]: number } = { 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3, 7: 4, 8: 4 };
 
         subjects.forEach(subject => {
             const assignedFaculty = faculty.find(f => f.id === subject.assignedFacultyId);
             if (!assignedFaculty) return;
 
-            // Initialize workload if not present
             if (!workload[assignedFaculty.name]) {
                 workload[assignedFaculty.name] = 0;
             }
 
-            const relevantClasses = departmentClassMap.get(subject.department) || [];
+            const yearForSubject = semesterToYearMap[subject.semester];
+            const relevantClasses = classes.filter(c => c.branch === subject.department && c.year === yearForSubject);
+
             relevantClasses.forEach(cls => {
                 assignments.push({
                     id: `${subject.id}-${cls.id}`,
@@ -1328,24 +1374,51 @@ const AssignmentsTab = ({ subjects, faculty, classes }: { subjects: Subject[]; f
                     subjectHours: subject.hoursPerWeek,
                 });
             });
-            // Add subject hours to total workload for the assigned faculty
             workload[assignedFaculty.name] += subject.hoursPerWeek * relevantClasses.length;
         });
         
-        const workloadSummary = Object.entries(workload).map(([name, hours]) => {
-            const facultyMember = faculty.find(f => f.name === name);
+        const workloadSummary = faculty.map(f => {
+            const assignedHours = workload[f.name] || 0;
             return {
-                id: facultyMember?.id || name,
-                name,
-                assignedHours: hours,
-                maxWorkload: facultyMember?.maxWorkload || 0,
-                utilization: facultyMember?.maxWorkload ? (hours / facultyMember.maxWorkload) * 100 : 0
+                id: f.id,
+                name: f.name,
+                assignedHours: assignedHours,
+                maxWorkload: f.maxWorkload || 0,
+                utilization: f.maxWorkload ? (assignedHours / f.maxWorkload) * 100 : 0,
             };
         }).sort((a,b) => b.utilization - a.utilization);
 
-
         return { assignmentList: assignments, facultyWorkloadSummary: workloadSummary };
     }, [subjects, faculty, classes]);
+
+    const isOverAllocated = useMemo(() => facultyWorkloadSummary.some(f => f.utilization > 100), [facultyWorkloadSummary]);
+
+    const handleGetSuggestions = async () => {
+        setIsSuggesting(true);
+        setSuggestionError(null);
+        try {
+            const suggestions = await api.suggestReassignment({ classes, faculty, subjects });
+            setReassignmentSuggestions(suggestions);
+        } catch (error) {
+            setSuggestionError(error instanceof Error ? error.message : "Failed to get suggestions.");
+        } finally {
+            setIsSuggesting(false);
+        }
+    };
+    
+    const handleApplySuggestion = async (suggestion: ReassignmentSuggestion) => {
+        try {
+            const subjectToUpdate = subjects.find(s => s.id === suggestion.subjectId);
+            if (!subjectToUpdate) throw new Error("Subject not found");
+            
+            await onSaveEntity('subject', { ...subjectToUpdate, assignedFacultyId: suggestion.toFacultyId });
+            // Remove the applied suggestion from the list
+            setReassignmentSuggestions(prev => prev.filter(s => s.subjectId !== suggestion.subjectId));
+        } catch (error) {
+             setSuggestionError(error instanceof Error ? error.message : "Failed to apply suggestion.");
+        }
+    };
+
 
     const filteredAssignments = useMemo(() => {
         if (!searchTerm) return assignmentList;
@@ -1373,53 +1446,85 @@ const AssignmentsTab = ({ subjects, faculty, classes }: { subjects: Subject[]; f
     );
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-                <SectionCard title="Teacher-Class-Subject Assignments" actions={<button onClick={downloadAssignments} className="action-btn-secondary"><DownloadIcon /> Export List</button>}>
-                    <div className="mb-4">
-                        <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search assignments..." label="Search Assignments" id="assignment-search" />
+        <>
+            <Modal isOpen={isReassignmentModalOpen} onClose={() => setIsReassignmentModalOpen(false)} title="AI Workload Balancing Suggestions" size="3xl">
+                <ErrorDisplay message={suggestionError} />
+                {isSuggesting ? (
+                    <div className="flex flex-col items-center justify-center p-8">
+                        <LoadingIcon />
+                        <p className="mt-2 text-text-secondary">AI is analyzing workloads...</p>
                     </div>
-                    <div className="overflow-auto max-h-[70vh]">
-                        <table className="w-full text-sm">
-                            <thead className="bg-bg-tertiary sticky top-0 z-10">
-                                <tr>
-                                    <th className="p-3 text-left">Subject Code</th>
-                                    <th className="p-3 text-left">Subject</th>
-                                    <th className="p-3 text-left">Assigned Faculty</th>
-                                    <th className="p-3 text-left">Class</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredAssignments.map((item, index) => (
-                                    <tr key={`${item.id}-${index}`} className="border-b border-border-primary">
-                                        <td className="p-3">{item.subjectCode}</td>
-                                        <td className="p-3 font-semibold">{item.subjectName}</td>
-                                        <td className="p-3">{item.facultyName}</td>
-                                        <td className="p-3">{item.className}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </SectionCard>
-            </div>
-             <div className="lg:col-span-1">
-                 <SectionCard title="Faculty Assigned Workload">
-                     <p className="text-sm text-text-secondary mb-4">This is the total hours based on subject assignments, before the timetable is generated.</p>
-                     <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-                        {facultyWorkloadSummary.map(f => (
-                            <div key={f.id}>
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-semibold">{f.name}</span>
-                                    <span className={`font-medium ${f.utilization > 100 ? 'text-red-500' : 'text-text-secondary'}`}>{f.assignedHours} / {f.maxWorkload} hrs ({f.utilization.toFixed(0)}%)</span>
+                ) : reassignmentSuggestions.length > 0 ? (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {reassignmentSuggestions.map((s, i) => (
+                            <div key={i} className="p-3 bg-bg-primary rounded-lg flex items-center justify-between">
+                                <div>
+                                    <p>Move <strong>{s.subjectName}</strong></p>
+                                    <p className="text-sm">From: <span className="text-red-500">{s.fromFacultyName}</span></p>
+                                    <p className="text-sm">To: <span className="text-green-500">{s.toFacultyName}</span></p>
                                 </div>
-                                <ProgressBar value={f.utilization} color={f.utilization > 100 ? 'bg-red-500' : 'bg-green-500'} />
+                                <button onClick={() => handleApplySuggestion(s)} className="btn-primary text-sm">Apply</button>
                             </div>
                         ))}
                     </div>
-                 </SectionCard>
-             </div>
-        </div>
+                ) : (
+                    <p className="text-center text-text-secondary p-8">No suggestions available, or all workloads are balanced.</p>
+                )}
+            </Modal>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <SectionCard title="Teacher-Class-Subject Assignments" actions={<button onClick={downloadAssignments} className="action-btn-secondary"><DownloadIcon /> Export List</button>}>
+                        <div className="mb-4">
+                            <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search assignments..." label="Search Assignments" id="assignment-search" />
+                        </div>
+                        <div className="overflow-auto max-h-[70vh]">
+                            <table className="w-full text-sm">
+                                <thead className="bg-bg-tertiary sticky top-0 z-10">
+                                    <tr>
+                                        <th className="p-3 text-left">Subject Code</th>
+                                        <th className="p-3 text-left">Subject</th>
+                                        <th className="p-3 text-left">Assigned Faculty</th>
+                                        <th className="p-3 text-left">Class</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredAssignments.map((item, index) => (
+                                        <tr key={`${item.id}-${index}`} className="border-b border-border-primary">
+                                            <td className="p-3">{item.subjectCode}</td>
+                                            <td className="p-3 font-semibold">{item.subjectName}</td>
+                                            <td className="p-3">{item.facultyName}</td>
+                                            <td className="p-3">{item.className}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </SectionCard>
+                </div>
+                 <div className="lg:col-span-1">
+                     <SectionCard title="Faculty Assigned Workload" actions={
+                        isOverAllocated && (
+                            <button onClick={() => { setIsReassignmentModalOpen(true); handleGetSuggestions(); }} className="action-btn-primary flex items-center gap-1">
+                                <SparklesIcon className="h-4 w-4" /> AI Suggest Re-assignment
+                            </button>
+                        )
+                     }>
+                         <p className="text-sm text-text-secondary mb-4">This is the total hours based on subject assignments, before the timetable is generated.</p>
+                         <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                            {facultyWorkloadSummary.map(f => (
+                                <div key={f.id}>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span className="font-semibold">{f.name}</span>
+                                        <span className={`font-medium ${f.utilization > 100 ? 'text-red-500' : 'text-text-secondary'}`}>{f.assignedHours} / {f.maxWorkload} hrs ({f.utilization.toFixed(0)}%)</span>
+                                    </div>
+                                    <ProgressBar value={f.utilization} color={f.utilization > 100 ? 'bg-red-500' : (f.utilization > 90 ? 'bg-yellow-500' : 'bg-green-500')} />
+                                </div>
+                            ))}
+                        </div>
+                     </SectionCard>
+                 </div>
+            </div>
+        </>
     );
 };
 
@@ -1570,7 +1675,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
 
         switch (activeTab) {
             case 'setup': return <SetupTab {...props} onSaveEntity={onSaveEntity} onDeleteEntity={onDeleteEntity} openModal={(m, t, d) => setModal({ mode: m, type: t, data: d || null })} handleDelete={handleDelete} handleResetData={handleResetData} selectedItems={selectedItems} onToggleSelect={handleToggleSelect} onToggleSelectAll={handleToggleSelectAll} onBulkDelete={handleBulkDelete} pageError={pageError} openImportModal={() => setImportModalOpen(true)} selectedInstitutionId={selectedInstitutionId} setSelectedInstitutionId={setSelectedInstitutionId} institutionFormState={institutionFormState} setInstitutionFormState={setInstitutionFormState} activeBlocks={activeBlocks} />;
-            case 'assignments': return <AssignmentsTab subjects={subjects} faculty={faculty} classes={classes} />;
+            case 'assignments': return <AssignmentsTab subjects={subjects} faculty={faculty} classes={classes} onSaveEntity={onSaveEntity} />;
             case 'constraints': 
                 if (!constraints) return loadingIndicator;
                 return <ConstraintsTab {...props} />;

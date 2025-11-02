@@ -1149,6 +1149,71 @@ app.post('/api/import/universal', authMiddleware, adminOnly, async (req, res) =>
     }
 });
 
+// NEW: Endpoint for suggesting workload re-assignments
+const generateReassignmentPrompt = (classes, faculty, subjects) => {
+    const simplifiedFaculty = faculty.map(f => ({ id: f.id, name: f.name, department: f.department, maxWorkload: f.maxWorkload, specialization: f.specialization }));
+    const simplifiedSubjects = subjects.map(s => ({ id: s.id, name: s.name, department: s.department, hoursPerWeek: s.hoursPerWeek, assignedFacultyId: s.assignedFacultyId, semester: s.semester }));
+    const simplifiedClasses = classes.map(c => ({ id: c.id, name: c.name, branch: c.branch, year: c.year }));
+
+    return `
+    You are an expert academic advisor tasked with balancing teaching workloads.
+    First, calculate the current workload for each faculty member. A faculty member's workload is the sum of 'hoursPerWeek' for each subject they are assigned, multiplied by the number of classes they teach that subject to. A subject is taught to all classes whose 'branch' matches the subject's 'department' and whose 'year' matches the subject's semester group (Semesters 1-2 are Year 1, 3-4 are Year 2, 5-6 are Year 3).
+
+    After calculating the workloads, identify all faculty members whose calculated workload exceeds their 'maxWorkload'.
+
+    For each over-allocated faculty member, suggest re-assigning one or more of their subjects to another QUALIFIED and UNDER-UTILIZED faculty member to bring the over-allocated faculty's workload at or below their 'maxWorkload'.
+    - A qualified faculty member is one who belongs to the same department as the subject.
+    - An under-utilized faculty member is one whose current workload is well below their 'maxWorkload'. Do not suggest a re-assignment that would make the receiving faculty over-allocated.
+
+    **INPUT DATA:**
+    - Classes: ${JSON.stringify(simplifiedClasses)}
+    - Faculty: ${JSON.stringify(simplifiedFaculty)}
+    - Subjects: ${JSON.stringify(simplifiedSubjects)}
+
+    **OUTPUT FORMAT:**
+    Your output MUST be a valid JSON array of suggestion objects.
+    Each object must have the keys: "subjectId", "subjectName", "fromFacultyId", "fromFacultyName", "toFacultyId", "toFacultyName".
+    If no re-assignments are necessary, return an empty array.
+    `;
+};
+
+const reassignmentResponseSchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            subjectId: { type: Type.STRING },
+            subjectName: { type: Type.STRING },
+            fromFacultyId: { type: Type.STRING },
+            fromFacultyName: { type: Type.STRING },
+            toFacultyId: { type: Type.STRING },
+            toFacultyName: { type: Type.STRING }
+        },
+        required: ['subjectId', 'subjectName', 'fromFacultyId', 'fromFacultyName', 'toFacultyId', 'toFacultyName']
+    }
+};
+
+app.post('/api/suggest-reassignment', authMiddleware, adminOnly, async (req, res) => {
+    if (!process.env.API_KEY) { return res.status(500).json({ message: "AI features are not configured on the server." }); }
+    try {
+        const { classes, faculty, subjects } = req.body;
+        const prompt = generateReassignmentPrompt(classes, faculty, subjects);
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json", responseSchema: reassignmentResponseSchema, temperature: 0.2 },
+        });
+
+        const suggestions = JSON.parse(response.text.trim());
+        res.status(200).json(suggestions);
+    } catch (error) {
+        handleApiError(res, error, 'workload re-assignment suggestion');
+    }
+});
+
+
 
 app.get('/api/tools', authMiddleware, (req, res) => {
     const { role } = req.user;
