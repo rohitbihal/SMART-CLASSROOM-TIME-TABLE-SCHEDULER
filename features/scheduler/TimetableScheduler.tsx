@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
@@ -36,9 +38,9 @@ interface TimetableSchedulerProps {
 }
 
 const DataTable = <T extends { id: string }>({ headers, data, renderRow, emptyMessage = "No data available.", headerPrefix = null }: { headers: (string|React.ReactNode)[]; data: T[]; renderRow: (item: T) => React.ReactNode; emptyMessage?: string; headerPrefix?: React.ReactNode; }) => (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-96">
         <table className="w-full text-sm text-left">
-            <thead className="bg-gray-100 dark:bg-slate-900/50 text-gray-500 uppercase text-xs">
+            <thead className="bg-gray-100 dark:bg-slate-900/50 text-gray-500 uppercase text-xs sticky top-0 z-10">
                 <tr>
                     {headerPrefix}
                     {headers.map((h, i) => <th key={i} className="px-6 py-3">{h}</th>)}
@@ -894,9 +896,9 @@ const CustomConstraintsContent = ({ constraints, onAdd, onUpdate, onDelete }: {
                 <button onClick={() => setModalState({ mode: 'add', data: { name: '', type: 'Soft', description: '', appliedTo: 'Class', priority: 'Medium', isActive: true } })} className="action-btn-primary"><AddIcon />Add Rule</button>
             }>
                 <p className="text-text-secondary text-sm mb-4">Define custom hard or soft constraints for the AI. For example: "No classes for Section A after 3 PM on Fridays" (Soft) or "Dr. Smith must not have a class in the first period" (Hard).</p>
-                <div className="overflow-x-auto">
+                <div className="overflow-auto max-h-96">
                     <table className="w-full text-sm">
-                        <thead>
+                        <thead className="sticky top-0 z-10">
                             <tr className="text-left bg-bg-tertiary">
                                 <th className="p-3">Name</th>
                                 <th className="p-3">Type</th>

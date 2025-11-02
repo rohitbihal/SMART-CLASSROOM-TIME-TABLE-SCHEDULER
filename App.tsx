@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react';
 import { HashRouter, Routes, Route, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { LoginPage } from './features/auth/LoginPage';
@@ -36,6 +30,11 @@ const NotificationsCenterPage = lazy(() => import('./features/notifications/Noti
 const IMSPage = lazy(() => import('./features/ims/IMSPage'));
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage'));
 const MeetingsPage = lazy(() => import('./features/meetings/MeetingsPage'));
+
+// --- NEW: Teacher Pages for Feature Parity ---
+const TeacherCalendarPage = lazy(() => import('./features/teacher/TeacherCalendarPage'));
+const TeacherMeetingsPage = lazy(() => import('./features/teacher/TeacherMeetingsPage'));
+const TeacherProfilePage = lazy(() => import('./features/teacher/TeacherProfilePage'));
 
 
 // --- SHARED UI COMPONENTS (MOVED TO components/common.tsx) ---
@@ -86,6 +85,9 @@ const Sidebar = React.memo(() => {
         { to: '/notifications', icon: <NotificationsIcon className="h-5 w-5" />, label: 'Notifications' },
         { to: '/chat', icon: <ChatIcon className="h-5 w-5" />, label: 'Campus AI' },
         { to: '/chatbox', icon: <UsersIcon className="h-5 w-5" />, label: 'Chatbox' },
+        { to: '/calendar', icon: <CalendarIcon className="h-5 w-5" />, label: 'Calendar' },
+        { to: '/meetings', icon: <MeetingIcon className="h-5 w-5" />, label: 'Meetings' },
+        { to: '/profile', icon: <ProfileIcon className="h-5 w-5" />, label: 'My Profile' },
     ];
 
     const navLinks = user.role === 'admin' ? adminNavLinks : teacherNavLinks;
@@ -227,6 +229,9 @@ const AuthenticatedApp = () => {
                              <Route path="notifications" element={<NotificationsPageTeacher />} />
                              <Route path="chat" element={<TeacherChatPage />} />
                              <Route path="chatbox" element={<TeacherChatboxPage />} />
+                             <Route path="calendar" element={<TeacherCalendarPage />} />
+                             <Route path="meetings" element={<TeacherMeetingsPage />} />
+                             <Route path="profile" element={<TeacherProfilePage />} />
                         </Route>
                     )}
                     <Route path="*" element={<Navigate to="/" />} />

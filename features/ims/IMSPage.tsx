@@ -45,9 +45,9 @@ const SyllabusTracking = () => {
                                 <span className="font-semibold">{completionPercentage.toFixed(0)}% Complete</span>
                             </div>
                             <ProgressBar value={completionPercentage} />
-                            <div className="mt-4 overflow-x-auto">
+                            <div className="mt-4 overflow-auto max-h-96">
                                 <table className="w-full text-sm">
-                                    <thead><tr className="text-left bg-bg-tertiary">
+                                    <thead className="sticky top-0 z-10"><tr className="text-left bg-bg-tertiary">
                                         <th className="p-2">Lec#</th><th className="p-2">Assigned Topic</th><th className="p-2">Taught Topic</th><th className="p-2">Status</th><th className="p-2">Variance</th>
                                     </tr></thead>
                                     <tbody>
@@ -75,9 +75,9 @@ const FacultyPerformanceDashboard = () => {
     const { faculty, subjects, timetable } = useAppContext();
     return (
         <SectionCard title="Faculty Teaching Performance">
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-96">
                 <table className="w-full text-sm">
-                    <thead>
+                    <thead className="sticky top-0 z-10">
                         <tr className="text-left bg-bg-tertiary">
                             <th className="p-2">Faculty</th>
                             <th className="p-2">Classes/Wk</th>

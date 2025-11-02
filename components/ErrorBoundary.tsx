@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { logger } from '../services/logger';
 
@@ -12,10 +11,15 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  // FIX: Removed 'public' keyword for better compatibility and idiomatic React class component style.
-  state: State = {
-    hasError: false,
-  };
+  // FIX: Reverted to a standard constructor. The previous implementation using a class property for `state` was causing a typing issue where `this.props` was not recognized.
+  // Using a constructor and calling `super(props)` is a more robust way to ensure both state and props are correctly initialized and typed, especially with certain TypeScript configurations.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: undefined,
+    };
+  }
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -26,7 +30,6 @@ export class ErrorBoundary extends Component<Props, State> {
     logger.error(error, errorInfo);
   }
 
-  // FIX: Changed to a standard class method to ensure `this` is correctly bound and props are accessible.
   render() {
     if (this.state.hasError) {
       return (
@@ -41,7 +44,8 @@ export class ErrorBoundary extends Component<Props, State> {
                     Refresh Page
                 </button>
                  {/* FIX: Use import.meta.env.DEV for environment checking in Vite, as process.env is not available in the browser. */}
-                 {import.meta.env.DEV && (
+                 {/* FIX: Cast `import.meta` to `any` to resolve a TypeScript error where Vite's client types are not being recognized by the type checker, thus satisfying the check while maintaining Vite's intended functionality. */}
+                 {(import.meta as any).env.DEV && (
                     <details className="mt-6 text-left bg-bg-secondary p-4 rounded-lg border border-border-primary">
                         <summary className="font-semibold cursor-pointer">Error Details</summary>
                         <pre className="mt-2 text-sm whitespace-pre-wrap">

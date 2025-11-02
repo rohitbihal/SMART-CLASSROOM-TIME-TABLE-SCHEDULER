@@ -1,69 +1,49 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SectionCard } from '../../components/common';
+import { useAppContext } from '../../context/AppContext';
+import { AppNotification } from '../../types';
 import { NotificationsIcon } from '../../components/Icons';
 
-const MOCK_NOTIFICATIONS = [
-    {
-        id: 1,
-        type: 'SCHEDULE CHANGE',
-        message: 'Your Data Structures class for CSE-3-A has been moved to Tuesday 9:30-10:20 in CS-101',
-        timestamp: '2024-12-15 10:30',
-        priority: 'HIGH'
-    },
-    {
-        id: 2,
-        type: 'ROOM CHANGE',
-        message: 'Room change for Algorithms Lab: CS-Lab-1 is now CS-Lab-2',
-        timestamp: '2024-12-15 09:15',
-        priority: 'NORMAL'
-    },
-    {
-        id: 3,
-        type: 'REQUEST APPROVED',
-        message: 'Your leave request for 2024-12-20 has been approved.',
-        timestamp: '2024-12-14 17:00',
-        priority: 'NORMAL'
-    }
-];
+type CombinedNotification = (AppNotification & { sourceType: 'global' });
 
 const NotificationsPage = () => {
-    
-    const getPriorityStyles = (priority: string) => {
-        switch(priority) {
-            case 'HIGH': return 'border-l-4 border-red-500';
-            case 'NORMAL': return 'border-l-4 border-blue-500';
-            default: return 'border-l-4 border-gray-400';
-        }
-    };
-    
-     const getPriorityTagStyles = (priority: string) => {
-        switch(priority) {
-            case 'HIGH': return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
-            case 'NORMAL': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300';
-            default: return 'bg-gray-200 text-gray-800 dark:bg-slate-700 dark:text-slate-300';
-        }
-    };
+    const { appNotifications, user } = useAppContext();
+
+    const combinedNotifications = useMemo(() => {
+        const globalNotifications: CombinedNotification[] = appNotifications
+            .filter(n => {
+                if (n.recipients.type === 'Teachers' || n.recipients.type === 'Both') {
+                    return true;
+                }
+                // Placeholder for more specific filtering logic if needed
+                return false;
+            })
+            .map(n => ({ ...n, sourceType: 'global' }));
+
+        return [...globalNotifications].sort((a, b) => new Date(b.sentDate).getTime() - new Date(a.sentDate).getTime());
+
+    }, [appNotifications, user]);
 
     return (
-        <SectionCard title="Notifications">
+        <SectionCard title="Notifications & Announcements">
             <div className="space-y-4">
-                {MOCK_NOTIFICATIONS.length > 0 ? MOCK_NOTIFICATIONS.map(notification => (
-                    <div key={notification.id} className={`p-4 bg-bg-secondary rounded-lg shadow-sm flex flex-col md:flex-row justify-between md:items-start gap-4 ${getPriorityStyles(notification.priority)}`}>
-                        <div className="flex-grow">
-                            <p className="font-bold text-sm tracking-wider text-text-secondary">{notification.type}</p>
-                            <p className="mt-1 text-text-primary">{notification.message}</p>
-                             <div className="mt-3">
-                                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${getPriorityTagStyles(notification.priority)}`}>
-                                    {notification.priority}
-                                </span>
+                {combinedNotifications.length > 0 ? combinedNotifications.map(notification => (
+                    <div key={`${notification.sourceType}-${notification.id}`} className={`p-4 rounded-lg bg-bg-secondary shadow-sm`}>
+                        <div className="flex justify-between items-start gap-4">
+                            <div className="flex-grow">
+                                <span className="text-xs font-bold uppercase text-accent-primary">Announcement</span>
+                                <h3 className="font-bold mt-1">{notification.title}</h3>
+                                <p className="text-sm text-text-secondary mt-1">{notification.message}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                                <p className="text-xs text-text-secondary">{new Date(notification.sentDate).toLocaleString()}</p>
                             </div>
                         </div>
-                        <p className="text-xs text-text-secondary whitespace-nowrap mt-1 md:mt-0">{notification.timestamp}</p>
                     </div>
                 )) : (
-                    <div className="text-center p-8 text-text-secondary">
+                     <div className="text-center p-8 text-text-secondary">
                         <NotificationsIcon className="h-12 w-12 mx-auto mb-4" />
-                        <p>No new notifications.</p>
+                        <p>You have no new notifications.</p>
                     </div>
                 )}
             </div>

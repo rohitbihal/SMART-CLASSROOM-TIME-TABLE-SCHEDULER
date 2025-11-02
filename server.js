@@ -1011,6 +1011,12 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       - Working days are: ${constraints.timePreferences.workingDays.join(', ')}.
       - Time slots are based on a start time of ${constraints.timePreferences.startTime} and slot duration of ${constraints.timePreferences.slotDurationMinutes} minutes.
 
+      **KEY OPTIMIZATION GOALS:**
+      - **Strict Faculty Workload Management:** The total number of scheduled hours for any faculty member MUST NOT exceed their specified \`maxWorkload\`. This is a hard, non-negotiable rule.
+      - **Balanced Faculty Load:** Distribute the teaching load as evenly as possible among qualified faculty members. Avoid assigning a significantly higher number of classes to one faculty member while another with similar specializations is underutilized. If \`enableFacultyLoadBalancing\` is true in the advanced constraints, this is a top priority.
+      - **Optimal Student Schedule:** Aim for a balanced weekly schedule for each class. Spread lectures throughout the week to avoid cramming subjects on one or two days. Minimize large, awkward gaps between classes for students.
+      - **Full Resource Utilization:** Maximize the use of available rooms and faculty time within the defined working hours, ensuring no resources are unnecessarily left idle while others are over-booked.
+
       **OUTPUT FORMAT:**
       - Your output MUST be a valid JSON array of timetable entry objects.
       - Each object must have these exact keys: "className", "subject", "faculty", "room", "day", "time", "type" ('Theory', 'Lab', or 'Tutorial'), and "classType" ('regular' or 'fixed').

@@ -55,10 +55,8 @@ const MeetingForm = ({ isOpen, onClose, onCreateMeeting }: { isOpen: boolean, on
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
-                     {/* FIX: Add explicit type annotation for option element in Array.from to resolve potential type inference issues. */}
                      <FormField label="Select Faculty" htmlFor="meet-faculty"><SelectInput id="meet-faculty" multiple value={selectedFaculty} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedFaculty(Array.from(e.target.selectedOptions, (o: HTMLOptionElement) => o.value))}>{faculty.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</SelectInput></FormField>
                      {/* FIX: Added explicit type for the event in onChange handler to resolve TypeScript error. */}
-                     {/* FIX: Add explicit type annotation for option element in Array.from to resolve potential type inference issues. */}
                      <FormField label="Select Students" htmlFor="meet-students"><SelectInput id="meet-students" multiple value={selectedStudents} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedStudents(Array.from(e.target.selectedOptions, (o: HTMLOptionElement) => o.value))}>{students.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput></FormField>
                 </div>
                 <div className="flex justify-end pt-4"><button className="btn-primary" type="submit">Schedule Meeting</button></div>
@@ -84,9 +82,9 @@ export const MeetingsPage = () => {
             <MeetingForm isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreateMeeting={handleCreateMeeting} />
             <h1 className="text-3xl font-bold">Meeting Management</h1>
             <SectionCard title="Upcoming & Past Meetings" actions={<button onClick={() => setIsModalOpen(true)} className="btn-primary flex items-center gap-2"><AddIcon/>New Meeting</button>}>
-                <div className="overflow-x-auto">
+                <div className="overflow-auto max-h-96">
                     <table className="w-full text-sm">
-                        <thead className="text-left bg-bg-tertiary">
+                        <thead className="text-left bg-bg-tertiary sticky top-0 z-10">
                             <tr>
                                 <th className="p-3">Title</th>
                                 <th className="p-3">Date & Time</th>
