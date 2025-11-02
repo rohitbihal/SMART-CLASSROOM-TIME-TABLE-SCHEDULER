@@ -766,18 +766,19 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
 
 const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classes, faculty, subjects }: { constraints: Constraints; onConstraintsChange: (c: Constraints) => void; classes: Class[], faculty: Faculty[], subjects: Subject[] }) => {
     
-    const handleToggle = (category: 'room' | 'student' | 'advanced', field: string, value: boolean) => {
-        const keyMap = { room: 'roomResourceConstraints', student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
-        const categoryKey = keyMap[category];
-        const newCategoryState = { ...(constraints[categoryKey] || {}), [field]: value };
-        onConstraintsChange({ ...constraints, [categoryKey]: newCategoryState });
-    };
-
-    const handleNumberChange = (category: 'student' | 'advanced', field: string, value: string) => {
-        const keyMap = { student: 'studentSectionConstraints', advanced: 'advancedConstraints'};
-        const categoryKey = keyMap[category];
-        const newCategoryState = { ...(constraints[categoryKey] || {}), [field]: parseInt(value) || 0 };
-        onConstraintsChange({ ...constraints, [categoryKey]: newCategoryState });
+    // A single, more robust handler for all constraint changes within this component
+    const handleConstraintChange = (
+        category: 'roomResourceConstraints' | 'studentSectionConstraints' | 'advancedConstraints',
+        field: string,
+        value: any
+    ) => {
+        onConstraintsChange({
+            ...constraints,
+            [category]: {
+                ...(constraints[category] || {}),
+                [field]: value
+            }
+        });
     };
 
     return (
@@ -785,11 +786,11 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
             <SectionCard title="Room & Resource Constraints">
                  <div className="space-y-3">
                     <label className="flex items-center gap-3">
-                        <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleToggle('room', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
+                        <input type="checkbox" checked={constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive || false} onChange={e => handleConstraintChange('roomResourceConstraints', 'prioritizeSameRoomForConsecutive', e.target.checked)} />
                         <span>Prioritize keeping consecutive classes for the same section in the same room.</span>
                     </label>
                     <label className="flex items-center gap-3">
-                        <input type="checkbox" checked={constraints.roomResourceConstraints?.assignHomeRoomForSections || false} onChange={e => handleToggle('room', 'assignHomeRoomForSections', e.target.checked)} />
+                        <input type="checkbox" checked={constraints.roomResourceConstraints?.assignHomeRoomForSections || false} onChange={e => handleConstraintChange('roomResourceConstraints', 'assignHomeRoomForSections', e.target.checked)} />
                         <span>Assign a consistent "home room" for each section's theory classes where possible.</span>
                     </label>
                 </div>
@@ -797,24 +798,24 @@ const AdditionalConstraintsContent = ({ constraints, onConstraintsChange, classe
             <SectionCard title="Student Section Constraints">
                 <div className="space-y-4">
                     <label className="flex items-center gap-3">
-                        <input type="checkbox" checked={constraints.studentSectionConstraints?.avoidConsecutiveCore || false} onChange={e => handleToggle('student', 'avoidConsecutiveCore', e.target.checked)} />
+                        <input type="checkbox" checked={constraints.studentSectionConstraints?.avoidConsecutiveCore || false} onChange={e => handleConstraintChange('studentSectionConstraints', 'avoidConsecutiveCore', e.target.checked)} />
                         <span>Avoid scheduling two core subjects back-to-back for the same section.</span>
                     </label>
                     <div className="flex items-center gap-3">
                         <label htmlFor="max-consecutive-student" className="whitespace-nowrap">Max consecutive classes for any student section:</label>
-                        <TextInput type="number" id="max-consecutive-student" value={constraints.studentSectionConstraints?.maxConsecutiveClasses || 4} onChange={e => handleNumberChange('student', 'maxConsecutiveClasses', e.target.value)} className="w-20" />
+                        <TextInput type="number" id="max-consecutive-student" value={constraints.studentSectionConstraints?.maxConsecutiveClasses || 4} onChange={e => handleConstraintChange('studentSectionConstraints', 'maxConsecutiveClasses', parseInt(e.target.value) || 0)} className="w-20" />
                     </div>
                 </div>
             </SectionCard>
             <SectionCard title="Advanced & Logistical Constraints">
                  <div className="space-y-4">
                     <label className="flex items-center gap-3">
-                        <input type="checkbox" checked={constraints.advancedConstraints?.enableFacultyLoadBalancing || false} onChange={e => handleToggle('advanced', 'enableFacultyLoadBalancing', e.target.checked)} />
+                        <input type="checkbox" checked={constraints.advancedConstraints?.enableFacultyLoadBalancing || false} onChange={e => handleConstraintChange('advancedConstraints', 'enableFacultyLoadBalancing', e.target.checked)} />
                         <span>Enable automatic faculty load balancing across the week.</span>
                     </label>
                     <div className="flex items-center gap-3">
                         <label htmlFor="travel-time" className="whitespace-nowrap">Travel time between different campus buildings (in minutes):</label>
-                        <TextInput type="number" id="travel-time" value={constraints.advancedConstraints?.travelTimeMinutes || 0} onChange={e => handleNumberChange('advanced', 'travelTimeMinutes', e.target.value)} className="w-20" />
+                        <TextInput type="number" id="travel-time" value={constraints.advancedConstraints?.travelTimeMinutes || 0} onChange={e => handleConstraintChange('advancedConstraints', 'travelTimeMinutes', parseInt(e.target.value) || 0)} className="w-20" />
                     </div>
                 </div>
             </SectionCard>
