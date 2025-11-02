@@ -6,6 +6,7 @@ import { FullScreenLoader } from '../../App';
 import { DAYS, TIME_SLOTS } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
 import * as api from '../../services/api';
+import TimetableGrid from '../dashboard/TimetableGrid';
 // FIX: Import ReassignmentSuggestion and UnresolvableWorkload from types.ts
 import { Class, Constraints, Faculty, Room, Subject, TimetableEntry, Student, TimePreferences, FacultyPreference, Institution, FixedClassConstraint, Equipment, CustomConstraint, GenerationResult, UnscheduledSession, ReassignmentSuggestion, UnresolvableWorkload } from '../../types';
 
@@ -1124,19 +1125,6 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
         document.body.removeChild(link);
     };
 
-    const lunchSlot = useMemo(() => {
-        if (constraints?.timePreferences) {
-            const { lunchStartTime, lunchDurationMinutes } = constraints.timePreferences;
-            const [hours, minutes] = lunchStartTime.split(':').map(Number);
-            const startTotalMinutes = hours * 60 + minutes;
-            const endTotalMinutes = startTotalMinutes + lunchDurationMinutes;
-            const endHours = Math.floor(endTotalMinutes / 60).toString().padStart(2, '0');
-            const endMinutes = (endTotalMinutes % 60).toString().padStart(2, '0');
-            return `${lunchStartTime}-${endHours}:${endMinutes}`;
-        }
-        return '12:50-01:35'; // Fallback
-    }, [constraints]);
-
     const displayedTimetable = useMemo(() => {
         return generationResult?.timetable?.filter(entry => entry.classType === viewType) || [];
     }, [generationResult, viewType]);
@@ -1176,37 +1164,12 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
                         <button onClick={() => setViewType('regular')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'regular' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Regular Classes</button>
                         <button onClick={() => setViewType('fixed')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'fixed' ? 'bg-rose-500 text-white' : 'bg-transparent text-text-primary'}`}>Fixed Classes (Labs/Tutorials)</button>
                     </div>
-                    <div className="overflow-x-auto max-h-[80vh]">
-                        <table className="w-full text-sm">
-                             <thead>
-                                <tr>
-                                    <th className="p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700">Time</th>
-                                    {DAYS.map(day => <th key={day} className="p-2 border dark:border-slate-600 bg-gray-50 dark:bg-slate-700 capitalize">{day}</th>)}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {TIME_SLOTS.map(time => (
-                                    <tr key={time}>
-                                        <td className="p-2 border dark:border-slate-600 font-medium">{time}</td>
-                                        {DAYS.map(day => (
-                                            <td key={day} className={`p-1 border dark:border-slate-600 align-top ${time === lunchSlot ? 'bg-gray-100 dark:bg-slate-900/50' : ''}`}>
-                                                {time === lunchSlot ? <div className="text-center font-semibold p-2">Lunch</div> :
-                                                    displayedTimetable.filter(e => e.day === day && e.time === time).map((entry, idx) => (
-                                                        <div key={idx} className={`p-2 rounded-lg text-xs mb-1 ${entry.classType === 'fixed' ? 'timetable-cell-fixed' : 'timetable-cell-regular'}`}>
-                                                            <p className="font-bold">{entry.className}</p>
-                                                            <p>{entry.subject}</p>
-                                                            <p className="opacity-80">{entry.faculty}</p>
-                                                            <p className="opacity-80">Room: {entry.room}</p>
-                                                        </div>
-                                                    ))
-                                                }
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <TimetableGrid 
+                        timetable={displayedTimetable} 
+                        constraints={constraints}
+                        role="student"
+                        viewType="class"
+                    />
                 </SectionCard>
             )}
         </div>
@@ -1399,7 +1362,88 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
         </SectionCard>
     );
 };
-const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks, generationResult }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; generationResult: GenerationResult | null; }) => {
+const TimetableViewer = ({ timetable, classes, faculty, rooms, constraints }: { timetable: TimetableEntry[]; classes: Class[]; faculty: Faculty[]; rooms: Room[]; constraints: Constraints | null; }) => {
+  const [viewMode, setViewMode] = useState<'master' | 'class' | 'faculty' | 'room'>('master');
+  const [selectedId, setSelectedId] = useState<string>('');
+
+  useEffect(() => {
+    setSelectedId(''); // Reset selection when mode changes
+  }, [viewMode]);
+
+  const selectionOptions = useMemo(() => {
+    switch (viewMode) {
+      case 'class': return classes.sort((a,b) => a.name.localeCompare(b.name));
+      case 'faculty': return faculty.sort((a,b) => a.name.localeCompare(b.name));
+      case 'room': return rooms.sort((a,b) => a.number.localeCompare(b.number));
+      default: return [];
+    }
+  }, [viewMode, classes, faculty, rooms]);
+
+  const filteredTimetable = useMemo(() => {
+    if (viewMode === 'master') return timetable;
+    if (!selectedId) return [];
+
+    switch (viewMode) {
+      case 'class':
+        const className = classes.find(c => c.id === selectedId)?.name;
+        return timetable.filter(e => e.className === className);
+      case 'faculty':
+        const facultyName = faculty.find(f => f.id === selectedId)?.name;
+        return timetable.filter(e => e.faculty === facultyName);
+      case 'room':
+        const roomNumber = rooms.find(r => r.id === selectedId)?.number;
+        return timetable.filter(e => e.room === roomNumber);
+      default:
+        return timetable;
+    }
+  }, [viewMode, selectedId, timetable, classes, faculty, rooms]);
+
+  const getTitle = () => {
+    if (viewMode === 'master') return 'Master Timetable';
+    if (!selectedId) return `Select a ${viewMode}...`;
+    const selectedItem = selectionOptions.find(o => o.id === selectedId);
+    // FIX: Use 'in' operator for type guarding to safely access 'name' or 'number' properties.
+    const selectedName = selectedItem ? ('name' in selectedItem ? selectedItem.name : selectedItem.number) : '';
+    return `Timetable for ${selectedName}`;
+  };
+
+  return (
+    <SectionCard title="Timetable Viewer">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <FormField label="View By" htmlFor="view-mode">
+          <SelectInput id="view-mode" value={viewMode} onChange={e => setViewMode(e.target.value as any)}>
+            <option value="master">Master Timetable</option>
+            <option value="class">Class / Section</option>
+            <option value="faculty">Teacher</option>
+            <option value="room">Room</option>
+          </SelectInput>
+        </FormField>
+        {viewMode !== 'master' && (
+          <div className="md:col-span-2">
+            <FormField label={`Select ${viewMode}`} htmlFor="selection-id">
+              <SelectInput id="selection-id" value={selectedId} onChange={e => setSelectedId(e.target.value)} disabled={selectionOptions.length === 0}>
+                <option value="">-- Select --</option>
+                {selectionOptions.map(option => (
+                  <option key={option.id} value={option.id}>
+                    {viewMode === 'room' ? (option as Room).number : option.name}
+                  </option>
+                ))}
+              </SelectInput>
+            </FormField>
+          </div>
+        )}
+      </div>
+      <TimetableGrid
+        timetable={filteredTimetable}
+        constraints={constraints}
+        viewType={viewMode === 'master' ? 'class' : viewMode}
+        title={getTitle()}
+      />
+    </SectionCard>
+  );
+};
+
+const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks, generationResult, classes }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; generationResult: GenerationResult | null; classes: Class[] }) => {
     if (!constraints) {
         return (
             <div className="flex items-center justify-center p-8 text-text-secondary">
@@ -1410,6 +1454,13 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
     }
     return (
         <div className="space-y-6">
+            <TimetableViewer 
+              timetable={timetable} 
+              classes={classes}
+              faculty={faculty}
+              rooms={rooms}
+              constraints={constraints}
+            />
             {generationResult && generationResult.unscheduledSessions && <UnscheduledSessionsReport sessions={generationResult.unscheduledSessions} />}
             <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} />
             <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
@@ -1785,7 +1836,8 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
                 return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generationResult} isLoading={isGenerating} error={generationError} onClear={() => setGenerationResult(null)} constraints={constraints} />;
             case 'view': 
                 if (!constraints) return loadingIndicator;
-                return <ViewTab timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} activeBlocks={activeBlocks} generationResult={generationResult} />;
+                // FIX: Pass activeBlocks and generationResult props to the ViewTab component.
+                return <ViewTab {...props} activeBlocks={activeBlocks} generationResult={generationResult} />;
             default: return null;
         }
     };

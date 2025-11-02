@@ -381,10 +381,10 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
 
       **SESSION OBJECT STRUCTURE:**
       {
-        "className": "string",  // e.g., "CSE-3-A"
-        "subject": "string",    // e.g., "Data Structures"
-        "faculty": "string",    // e.g., "Dr. Smith"
-        "room": "string",       // e.g., "CS-101"
+        "className": "string",  // e.g., "CSE A"
+        "subject": "string",    // e.g., "Data Structures & Algorithms"
+        "faculty": "string",    // e.g., "Dr. Kenji Tanaka"
+        "room": "string",       // e.g., "CSE-A-CR"
         "day": "string" (lowercase), // e.g., "monday"
         "time": "string",       // e.g., "09:30-10:20"
         "type": "string",       // "Theory", "Lab", or "Tutorial"
@@ -433,6 +433,8 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       **OPTIMIZATION GOALS (Secondary priority after HARD RULES):**
 
       - Fulfilling all hard constraints is your most important task. If a perfect schedule satisfying all soft goals is not possible, create a valid schedule that meets all hard rules, even if it's not ideal.
+      - Distribute subjects for a class throughout the week. A 4-hour subject should ideally be on 3-4 different days, not just 1 or 2.
+      - Prioritize compact schedules: Fill morning slots first and minimize gaps in a section's schedule, especially at the start or end of the day.
       - Max Consecutive Classes (Global): Try not to schedule more than ${constraints.maxConsecutiveClasses} classes in a row for any section.
       - Faculty Preferences:
         - Preferred Days: Try to schedule faculty on these days: ${JSON.stringify(constraints.facultyPreferences?.map(p => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, days: p.preferredDays })))}
@@ -442,14 +444,13 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
         - Course Time Preference: Try to schedule these specific courses in the morning or afternoon as requested: ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.coursePreferences || []).map(cp => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, subject: subjects.find(s=>s.id===cp.subjectId)?.name, time: cp.time }))))}
       - Room/Resource Rules:
         - Prioritize Same Room: ${constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive ? "If a section has back-to-back classes, try to keep them in the same room." : "Not a priority."}
-        - Assign 'Home Room': ${constraints.roomResourceConstraints?.assignHomeRoomForSections ? "Try to assign a single, consistent 'home room' for all theory classes of a specific section (e.g., all theory for CSE-3-A in CS-101)." : "Not a priority."}
+        - Assign 'Home Room': ${constraints.roomResourceConstraints?.assignHomeRoomForSections ? "Try to assign a single, consistent 'home room' for all theory classes of a specific section (e.g., all theory for CSE A in CSE-A-CR)." : "Not a priority."}
       - Student Section Rules:
         - Max Consecutive for Students: Try not to schedule more than ${constraints.studentSectionConstraints?.maxConsecutiveClasses} classes in a row for any student section.
         - Avoid Consecutive Core Subjects: ${constraints.studentSectionConstraints?.avoidConsecutiveCore ? "Try to avoid scheduling two core subjects back-to-back." : "Not a priority."}
       - Advanced Rules:
         - Faculty Load Balancing: ${constraints.advancedConstraints?.enableFacultyLoadBalancing ? "Distribute a faculty member's classes evenly across their available days." : "Not a priority."}
         - Travel Time: If a faculty has classes in different blocks, ensure there's a gap of at least ${constraints.advancedConstraints?.travelTimeMinutes || 0} minutes between them.
-      - General Goal: Distribute subjects for a class throughout the week. For example, a 4-hour subject should ideally be scheduled on 3-4 different days rather than just 2.
 
       Now, generate the JSON output based on all the above.
     `;
@@ -519,6 +520,144 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         res.status(500).json({ message: 'Error fetching all data', error: error.message });
     }
 });
+
+// NEW: Reset Data Endpoint
+app.post('/api/reset-data', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    try {
+        // 1. Clear existing data
+        await Promise.all([
+            Class.deleteMany({}), Faculty.deleteMany({}), Subject.deleteMany({}),
+            Room.deleteMany({}), Student.deleteMany({}), User.deleteMany({}),
+            TimetableEntry.deleteMany({}), Constraints.deleteMany({}), Attendance.deleteMany({}),
+            ChatMessage.deleteMany({}), Institution.deleteMany({}), TeacherRequest.deleteMany({}),
+            StudentQuery.deleteMany({})
+        ]);
+
+        // 2. Define new seed data
+        const newId = () => new mongoose.Types.ObjectId().toString();
+
+        const newClassesData = [
+            { id: newId(), name: 'CYS A', branch: 'CYS', year: 1, section: 'A', studentCount: 60, block: 'A-Block' },
+            { id: newId(), name: 'CYS B', branch: 'CYS', year: 1, section: 'B', studentCount: 60, block: 'A-Block' },
+            { id: newId(), name: 'BCA A', branch: 'BCA', year: 1, section: 'A', studentCount: 60, block: 'B-Block' },
+            { id: newId(), name: 'BCA B', branch: 'BCA', year: 1, section: 'B', studentCount: 60, block: 'B-Block' },
+            { id: newId(), name: 'CSE A', branch: 'CSE', year: 1, section: 'A', studentCount: 60, block: 'C-Block' },
+            { id: newId(), name: 'CSE B', branch: 'CSE', year: 1, section: 'B', studentCount: 60, block: 'C-Block' },
+            { id: newId(), name: 'CSE C', branch: 'CSE', year: 1, section: 'C', studentCount: 60, block: 'C-Block' },
+            { id: newId(), name: 'CSE D', branch: 'CSE', year: 1, section: 'D', studentCount: 60, block: 'C-Block' },
+        ];
+
+        const newRoomsData = [
+            { id: newId(), number: 'CYS-A-CR', building: 'Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, whiteboard: true } },
+            { id: newId(), number: 'CYS-B-CR', building: 'Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, whiteboard: true } },
+            { id: newId(), number: 'BCA-A-CR', building: 'Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, whiteboard: true } },
+            { id: newId(), number: 'BCA-B-CR', building: 'Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, whiteboard: true } },
+            { id: newId(), number: 'CSE-A-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
+            { id: newId(), number: 'CSE-B-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
+            { id: newId(), number: 'CSE-C-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
+            { id: newId(), number: 'CSE-D-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
+            { id: newId(), number: 'CS-LAB-1', building: 'Block C', type: 'Laboratory', capacity: 60, block: 'C-Block', equipment: { computerSystems: { available: true, count: 60 }, ac: true } },
+            { id: newId(), number: 'CS-LAB-2', building: 'Block C', type: 'Laboratory', capacity: 60, block: 'C-Block', equipment: { computerSystems: { available: true, count: 60 }, ac: true } },
+            { id: newId(), number: 'CYBER-LAB', building: 'Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { computerSystems: { available: true, count: 60 }, smartBoard: true } },
+            { id: newId(), number: 'SEMINAR-HALL', building: 'Admin', type: 'Seminar Hall', capacity: 150, block: 'A-Block', equipment: { projector: true, audioSystem: true, ac: true } },
+        ];
+
+        const facultyPool = {
+            humanities: [
+                { id: newId(), name: 'Dr. Eleanor Vance', employeeId: 'F001', designation: 'Professor', department: 'Applied Science', specialization: ['Communication', 'Ethics'], email: 'eleanor.vance@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Prof. Marcus Holloway', employeeId: 'F002', designation: 'Assistant Professor', department: 'Applied Science', specialization: ['Sociology', 'Humanities'], email: 'marcus.holloway@university.edu', maxWorkload: 18 }
+            ],
+            de: [
+                { id: newId(), name: 'Dr. Ben Carter', employeeId: 'F003', designation: 'Associate Professor', department: 'CSE', specialization: ['Digital Electronics', 'Embedded Systems'], email: 'ben.carter@university.edu', maxWorkload: 18 },
+                { id: newId(), name: 'Prof. Aisha Khan', employeeId: 'F004', designation: 'Assistant Professor', department: 'CSE', specialization: ['Circuit Design', 'VLSI'], email: 'aisha.khan@university.edu', maxWorkload: 18 }
+            ],
+            dsa: [
+                { id: newId(), name: 'Dr. Kenji Tanaka', employeeId: 'F005', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'kenji.tanaka@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Prof. Chloe Price', employeeId: 'F006', designation: 'Associate Professor', department: 'CSE', specialization: ['Competitive Programming', 'DSA'], email: 'chloe.price@university.edu', maxWorkload: 18 }
+            ],
+            math: [
+                { id: newId(), name: 'Dr. Samuel Green', employeeId: 'F007', designation: 'Professor', department: 'Applied Science', specialization: ['Applied Mathematics', 'Calculus'], email: 'samuel.green@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Prof. Sofia Reyes', employeeId: 'F008', designation: 'Associate Professor', department: 'Applied Science', specialization: ['Linear Algebra', 'Statistics'], email: 'sofia.reyes@university.edu', maxWorkload: 18 }
+            ],
+            oops: [
+                { id: newId(), name: 'Dr. David Chen', employeeId: 'F009', designation: 'Professor', department: 'CSE', specialization: ['OOPS', 'Software Design'], email: 'david.chen@university.edu', maxWorkload: 16 },
+                { id: newId(), name: 'Prof. Maya Sharma', employeeId: 'F010', designation: 'Assistant Professor', department: 'CSE', specialization: ['Java', 'C++', 'OOPS'], email: 'maya.sharma@university.edu', maxWorkload: 18 }
+            ]
+        };
+        let newFacultyData = Object.values(facultyPool).flat();
+        const getRandomFacultyId = (type) => facultyPool[type][Math.floor(Math.random() * facultyPool[type].length)].id;
+        
+        const newSubjectsData = [];
+        const sharedSubjects = [
+            { name: 'Humanities', code: 'HU-101', type: 'humanities', department: 'Applied Science' },
+            { name: 'Mathematics-I', code: 'MA-101', type: 'math', department: 'Applied Science' }
+        ];
+
+        sharedSubjects.forEach(template => {
+            newSubjectsData.push({
+                id: newId(), name: template.name, code: template.code, department: template.department,
+                semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 4,
+                assignedFacultyId: getRandomFacultyId(template.type),
+            });
+        });
+
+        const departmentSpecificSubjects = [
+            { name: 'Digital Electronics', codePrefix: 'DE', type: 'de' },
+            { name: 'Data Structures & Algorithms', codePrefix: 'DS', type: 'dsa' },
+            { name: 'Object Oriented Programming', codePrefix: 'CS', type: 'oops' },
+        ];
+
+        ['CYS', 'BCA', 'CSE'].forEach(branch => {
+            departmentSpecificSubjects.forEach((template, index) => {
+                newSubjectsData.push({
+                    id: newId(), name: template.name, code: `${branch}-${template.codePrefix}-${101 + index}`,
+                    department: branch, semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 4,
+                    assignedFacultyId: getRandomFacultyId(template.type),
+                });
+            });
+        });
+        
+        // 3. Create default users and profiles
+        const adminProfile = { id: newId(), name: 'Admin User', employeeId: 'ADMIN01', designation: 'Professor', department: 'Administration', specialization: ['System Management'], email: 'admin@university.edu', maxWorkload: 40 };
+        const teacherProfileForUser = facultyPool.dsa[0]; // Dr. Kenji Tanaka
+        const studentClass = newClassesData.find(c => c.name === 'CSE A');
+        const studentProfile = { id: newId(), name: 'Demo Student', classId: studentClass.id, roll: '01', email: 'student@university.edu' };
+        
+        newFacultyData.push(adminProfile);
+        const newStudentsData = [studentProfile];
+
+        const usersToCreate = [
+            { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: adminProfile.id },
+            { username: teacherProfileForUser.email, password: 'teacher123', role: 'teacher', profileId: teacherProfileForUser.id },
+            { username: 'student@university.edu', password: 'student123', role: 'student', profileId: studentProfile.id },
+        ];
+        
+        const hashedUsers = await Promise.all(usersToCreate.map(async (user) => {
+            const hashedPassword = await bcrypt.hash(user.password, saltRounds);
+            return { ...user, password: hashedPassword };
+        }));
+
+        // 4. Insert new data
+        await Institution.create({ id: newId(), name: 'Smart University', academicYear: '2024-2025', semester: 'Odd', blocks: ['A-Block', 'B-Block', 'C-Block'] });
+        await Constraints.create({});
+        await Class.insertMany(newClassesData);
+        await Room.insertMany(newRoomsData);
+        await Faculty.insertMany(newFacultyData);
+        await Subject.insertMany(newSubjectsData);
+        await Student.insertMany(newStudentsData);
+        await User.insertMany(hashedUsers);
+
+        res.json({ message: 'Data has been reset successfully.' });
+
+    } catch (error) {
+        console.error("Error resetting data:", error);
+        res.status(500).json({ message: 'Failed to reset data.', error: error.message });
+    }
+});
+
 
 // FIX: Added a catch-all route to serve the SPA's index.html.
 // This is crucial for handling client-side routing on page refresh or direct navigation.

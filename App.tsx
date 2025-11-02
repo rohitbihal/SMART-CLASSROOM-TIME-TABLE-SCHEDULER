@@ -220,7 +220,13 @@ const AuthenticatedApp = () => {
                     )}
                     {user.role === 'teacher' && (
                         <Route path="/" element={<TeacherDashboardLayout />}>
-                             <Route index element={<TimetableGrid timetable={timetable} constraints={constraints} role="teacher" />} />
+                             <Route index element={
+                                <TimetableGrid 
+                                    timetable={timetable.filter(entry => entry.faculty === faculty.find(f => f.id === user.profileId)?.name)} 
+                                    constraints={constraints} 
+                                    role="teacher" 
+                                />
+                             } />
                              <Route path="attendance" element={<TeacherAttendancePage />} />
                              <Route path="ims" element={<IMSPageTeacher />} />
                              <Route path="smart-tools" element={<SmartToolsPage />} />

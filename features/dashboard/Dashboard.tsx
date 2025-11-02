@@ -105,6 +105,11 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
         await handleSendMessage(text, messageId, classProfile.id); 
         setIsChatLoading(false);
     };
+    
+    const studentTimetable = useMemo(() => {
+        if (!classProfile) return [];
+        return timetable.filter(entry => entry.className === classProfile.name);
+    }, [timetable, classProfile]);
 
     const tabs = [
         { key: 'schedule', label: 'My Schedule', icon: <SchedulerIcon className='h-5 w-5' /> },
@@ -124,7 +129,7 @@ const StudentDashboardView = ({ user, classProfile }: { user: User, classProfile
 
      const renderContent = () => {
         switch(activeTab) {
-            case 'schedule': return <TimetableGrid timetable={timetable} role="student" constraints={constraints} />;
+            case 'schedule': return <TimetableGrid timetable={studentTimetable} role="student" constraints={constraints} />;
             case 'chat': return <ChatInterface 
                 messages={chatMessages.filter(m => m.channel === 'query')} 
                 onSendMessage={handleSendMessageWrapper} 
