@@ -10,6 +10,7 @@ interface State {
   error?: Error;
 }
 
+// FIX: Changed to extend named import `Component` from React to resolve a type error where `this.props` was not being recognized.
 export class ErrorBoundary extends Component<Props, State> {
   // FIX: Replaced constructor with class property for state initialization. This is a more modern syntax and can resolve some obscure typing issues with class components.
   state: State = {
