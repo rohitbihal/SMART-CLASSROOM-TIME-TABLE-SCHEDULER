@@ -680,6 +680,8 @@ app.post('/api/chat/ask/teacher', authMiddleware, [
 // Gemini Timetable Generation
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
     // This prompt is structured to guide the AI towards a valid timetable. The JSON format is enforced by the API config.
+    const facultyMap = new Map(faculty.map(f => [f.id, f.name])); // Create a map for easy lookup.
+
     return `
       You are an expert university timetable scheduler. Your primary goal is to generate a complete, conflict-free timetable based on the provided data and constraints, satisfying all HARD RULES.
 
@@ -699,7 +701,16 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
 
       1. CLASSES: ${JSON.stringify(classes.map(({id, ...c}) => c))}
       2. FACULTY: ${JSON.stringify(faculty.map(f => ({name: f.name, department: f.department, maxWorkload: f.maxWorkload})))}
-      3. SUBJECTS: ${JSON.stringify(subjects.map(s => ({name: s.name, code: s.code, hoursPerWeek: s.hoursPerWeek, assignedFacultyId: s.assignedFacultyId, type: s.type, department: s.department, forClass: s.forClass })))}
+      3. SUBJECTS: ${JSON.stringify(subjects.map(s => ({
+          name: s.name, 
+          code: s.code, 
+          hoursPerWeek: s.hoursPerWeek, 
+          // Use faculty name instead of ID
+          assignedFaculty: facultyMap.get(s.assignedFacultyId) || 'Unassigned', 
+          type: s.type, 
+          department: s.department, 
+          forClass: s.forClass 
+      })))}
       4. ROOMS: ${JSON.stringify(rooms.map(({id, ...r}) => r))}
 
       ---

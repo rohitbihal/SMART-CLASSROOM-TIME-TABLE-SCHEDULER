@@ -1024,6 +1024,43 @@ const ConstraintsTab = (props: TimetableSchedulerProps) => {
         </div>
     );
 };
+const UnscheduledSessionsReport = ({ sessions }: { sessions: UnscheduledSession[] }) => {
+    if (sessions.length === 0) {
+        return (
+            <SectionCard title="Unscheduled Sessions Report">
+                <div className="flex items-center gap-3 text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 p-4 rounded-lg">
+                    <CheckCircleIcon className="h-6 w-6" />
+                    <p className="font-semibold">All classes were scheduled successfully!</p>
+                </div>
+            </SectionCard>
+        );
+    }
+
+    return (
+        <SectionCard title="Unscheduled Sessions Report">
+             <p className="text-sm text-text-secondary mb-4">The following sessions could not be scheduled due to conflicts or resource limitations.</p>
+            <div className="overflow-auto max-h-60">
+                <table className="w-full text-sm">
+                    <thead className="bg-bg-tertiary sticky top-0 z-10"><tr>
+                        <th className="p-2 text-left">Class</th>
+                        <th className="p-2 text-left">Subject</th>
+                        <th className="p-2 text-left">Reason for Failure</th>
+                    </tr></thead>
+                    <tbody>
+                        {sessions.map((session, index) => (
+                            <tr key={index} className="border-b border-border-primary">
+                                <td className="p-2">{session.className}</td>
+                                <td className="p-2">{session.subject}</td>
+                                <td className="p-2 text-red-500">{session.reason}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </SectionCard>
+    );
+};
+
 const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, onClear, constraints }: { onGenerate: () => void; onSave: () => void; generationResult: GenerationResult | null; isLoading: boolean; error: string | null; onClear: () => void; constraints: Constraints | null; }) => {
     const [progress, setProgress] = useState(0);
     const [progressText, setProgressText] = useState('');
@@ -1158,66 +1195,34 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
             </SectionCard>
             <ErrorDisplay message={error} />
             {generationResult && (
-                <SectionCard title="Generated Timetable Preview" actions={
-                    <div className="flex gap-2">
-                         <button onClick={() => downloadAsExcel('regular')} className="action-btn-secondary"><DownloadIcon />Regular</button>
-                         <button onClick={() => downloadAsExcel('fixed')} className="action-btn-secondary"><DownloadIcon />Fixed</button>
-                         <button onClick={onSave} className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md"><SaveIcon />Save & Publish</button>
-                         <button onClick={onClear} className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md"><DeleteIcon />Clear</button>
-                    </div>
-                }>
-                    <div className="bg-bg-primary p-2 rounded-lg flex gap-2 mb-4">
-                        <button onClick={() => setViewType('regular')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'regular' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Regular Classes</button>
-                        <button onClick={() => setViewType('fixed')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'fixed' ? 'bg-rose-500 text-white' : 'bg-transparent text-text-primary'}`}>Fixed Classes (Labs/Tutorials)</button>
-                    </div>
-                    <TimetableGrid 
-                        timetable={displayedTimetable} 
-                        constraints={constraints}
-                        role="student"
-                        viewType="class"
-                    />
-                </SectionCard>
+                <>
+                    <SectionCard title="Generated Timetable Preview" actions={
+                        <div className="flex gap-2">
+                             <button onClick={() => downloadAsExcel('regular')} className="action-btn-secondary"><DownloadIcon />Regular</button>
+                             <button onClick={() => downloadAsExcel('fixed')} className="action-btn-secondary"><DownloadIcon />Fixed</button>
+                             <button onClick={onSave} className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md"><SaveIcon />Save & Publish</button>
+                             <button onClick={onClear} className="flex items-center gap-1 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold px-3 py-1.5 rounded-md"><DeleteIcon />Clear</button>
+                        </div>
+                    }>
+                        <div className="bg-bg-primary p-2 rounded-lg flex gap-2 mb-4">
+                            <button onClick={() => setViewType('regular')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'regular' ? 'bg-accent-primary text-white' : 'bg-transparent text-text-primary'}`}>Regular Classes</button>
+                            <button onClick={() => setViewType('fixed')} className={`px-4 py-2 text-sm font-semibold rounded-md flex-1 ${viewType === 'fixed' ? 'bg-rose-500 text-white' : 'bg-transparent text-text-primary'}`}>Fixed Classes (Labs/Tutorials)</button>
+                        </div>
+                        <TimetableGrid 
+                            timetable={displayedTimetable} 
+                            constraints={constraints}
+                            role="student"
+                            viewType="class"
+                        />
+                    </SectionCard>
+                    <UnscheduledSessionsReport sessions={generationResult.unscheduledSessions} />
+                </>
             )}
         </div>
     );
 };
 
-const UnscheduledSessionsReport = ({ sessions }: { sessions: UnscheduledSession[] }) => {
-    if (sessions.length === 0) {
-        return (
-            <SectionCard title="Unscheduled Sessions Report">
-                <div className="flex items-center gap-3 text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/50 p-4 rounded-lg">
-                    <CheckCircleIcon className="h-6 w-6" />
-                    <p className="font-semibold">All classes were scheduled successfully!</p>
-                </div>
-            </SectionCard>
-        );
-    }
 
-    return (
-        <SectionCard title="Unscheduled Sessions Report">
-             <p className="text-sm text-text-secondary mb-4">The following sessions could not be scheduled due to conflicts or resource limitations.</p>
-            <div className="overflow-auto max-h-60">
-                <table className="w-full text-sm">
-                    <thead className="bg-bg-tertiary sticky top-0 z-10"><tr>
-                        <th className="p-2 text-left">Class</th>
-                        <th className="p-2 text-left">Subject</th>
-                        <th className="p-2 text-left">Reason for Failure</th>
-                    </tr></thead>
-                    <tbody>
-                        {sessions.map((session, index) => (
-                            <tr key={index} className="border-b border-border-primary">
-                                <td className="p-2">{session.className}</td>
-                                <td className="p-2">{session.subject}</td>
-                                <td className="p-2 text-red-500">{session.reason}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </SectionCard>
-    );
-};
 
 
 // NEW: ViewTab now contains analytics and availability viewer
