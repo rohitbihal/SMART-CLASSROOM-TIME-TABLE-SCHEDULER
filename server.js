@@ -924,9 +924,7 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
              throw new Error(`The AI model returned an invalid response that could not be parsed as JSON. This can happen with complex constraints. Raw response snippet: ${resultText.substring(0, 300)}...`);
         }
 
-        res.setHeader('Content-Type', 'application/json');
-        res.write(JSON.stringify(result));
-        res.end();
+        res.json(result);
 
     } catch (error) {
         console.error("Error during timetable generation:", error);
