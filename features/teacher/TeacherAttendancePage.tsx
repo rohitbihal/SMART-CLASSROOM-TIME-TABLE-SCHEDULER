@@ -18,17 +18,26 @@ const TeacherAttendancePage = () => {
         return classes.filter(c => assignedClassNames.has(c.name));
     }, [teacherProfile, subjects, classes]);
 
-    const [selectedClassId, setSelectedClassId] = useState(teacherClasses[0]?.id || '');
+    const [selectedClassId, setSelectedClassId] = useState('');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [currentRecords, setCurrentRecords] = useState<AttendanceRecord>({});
 
     const studentsInClass = useMemo(() => students.filter(s => s.classId === selectedClassId).sort((a,b) => (a.roll || '').localeCompare(b.roll || '')), [students, selectedClassId]);
-
+    
     useEffect(() => {
-        if (teacherClasses.length > 0 && !selectedClassId) {
-            setSelectedClassId(teacherClasses[0].id);
+        if (teacherClasses.length > 0) {
+            // If the currently selected class is not in the list of available classes
+            // (e.g. after a data refresh), or if no class is selected yet,
+            // default to the first available class.
+            if (!teacherClasses.some(c => c.id === selectedClassId)) {
+                setSelectedClassId(teacherClasses[0].id);
+            }
+        } else {
+            // If there are no classes, clear the selection
+            setSelectedClassId('');
         }
-    }, [teacherClasses, selectedClassId]);
+    }, [teacherClasses]);
+
 
     useEffect(() => {
         const existingRecords = attendance[selectedClassId]?.[selectedDate] || {};

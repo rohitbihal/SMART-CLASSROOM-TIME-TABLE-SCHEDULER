@@ -196,9 +196,9 @@ const studentQuerySchema = new mongoose.Schema({
     adminResponse: String,
 });
 
-const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique: true }, subjectId: String, facultyId: String, lectureNumber: Number, assignedTopic: String, taughtTopic: String, date: String, status: String, variance: Boolean });
-const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String });
-const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed] });
+const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique: true }, subjectId: String, facultyId: String, lectureNumber: Number, assignedTopic: String, taughtTopic: String, date: String, status: String, variance: Boolean }, { timestamps: true });
+const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String }, { timestamps: true });
+const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed] }, { timestamps: true });
 
 // FIX: Corrected the schema for recipients. It is an object containing a 'type' string and an 'ids' array, not a string itself.
 const appNotificationSchema = new mongoose.Schema({
@@ -217,7 +217,7 @@ const appNotificationSchema = new mongoose.Schema({
     sentDate: String,
     status: String,
     scheduledFor: String
-});
+}, { timestamps: true });
 
 // --- Mongoose Models ---
 const Class = mongoose.model('Class', classSchema);
@@ -233,6 +233,10 @@ const ChatMessage = mongoose.model('ChatMessage', chatMessageSchema);
 const Institution = mongoose.model('Institution', institutionSchema);
 const TeacherRequest = mongoose.model('TeacherRequest', teacherRequestSchema);
 const StudentQuery = mongoose.model('StudentQuery', studentQuerySchema);
+const SyllabusProgress = mongoose.model('SyllabusProgress', syllabusProgressSchema);
+const CalendarEvent = mongoose.model('CalendarEvent', calendarEventSchema);
+const Meeting = mongoose.model('Meeting', meetingSchema);
+const AppNotification = mongoose.model('AppNotification', appNotificationSchema);
 
 // --- Middleware ---
 const authMiddleware = (req, res, next) => {
@@ -325,6 +329,10 @@ app.use('/api/subject', createCrudRoutes(Subject, 'subject'));
 app.use('/api/room', createCrudRoutes(Room, 'room'));
 app.use('/api/student', createCrudRoutes(Student, 'student'));
 app.use('/api/institution', createCrudRoutes(Institution, 'institution'));
+app.use('/api/meetings', createCrudRoutes(Meeting, 'meeting'));
+app.use('/api/app-notifications', createCrudRoutes(AppNotification, 'app notification'));
+app.use('/api/calendar-events', createCrudRoutes(CalendarEvent, 'calendar event'));
+
 
 // Teacher Availability Route
 app.put('/api/teacher/availability', authMiddleware, async (req, res) => {
@@ -530,6 +538,28 @@ app.get('/api/chat/updates', authMiddleware, async (req, res) => {
         res.json(newMessages);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching chat updates', error: error.message });
+    }
+});
+
+// NEW: Endpoint for real-time meeting updates
+app.get('/api/updates/meetings', authMiddleware, async (req, res) => {
+    try {
+        const since = req.query.since ? new Date(parseInt(req.query.since, 10)) : new Date(0);
+        const newMeetings = await Meeting.find({ updatedAt: { $gt: since } }).sort({ updatedAt: 1 });
+        res.json(newMeetings);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching meeting updates', error: error.message });
+    }
+});
+
+// NEW: Endpoint for real-time notification updates
+app.get('/api/updates/notifications', authMiddleware, async (req, res) => {
+    try {
+        const since = req.query.since ? new Date(parseInt(req.query.since, 10)) : new Date(0);
+        const newNotifications = await AppNotification.find({ createdAt: { $gt: since } }).sort({ createdAt: 1 });
+        res.json(newNotifications);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching notification updates', error: error.message });
     }
 });
 
@@ -960,12 +990,13 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         const [
             classes, faculty, subjects, rooms, students, users,
             constraints, timetable, attendance, chatMessages, institutions,
-            teacherRequests, studentQueries
+            teacherRequests, studentQueries, syllabusProgress, meetings, calendarEvents, appNotifications
         ] = await Promise.all([
             Class.find(), Faculty.find(), Subject.find(), Room.find(), Student.find(), User.find(),
             Constraints.findOne({ identifier: 'global_constraints' }),
             TimetableEntry.find(), Attendance.find(), ChatMessage.find().sort({ timestamp: -1 }).limit(200),
-            Institution.find(), TeacherRequest.find(), StudentQuery.find()
+            Institution.find(), TeacherRequest.find(), StudentQuery.find(),
+            SyllabusProgress.find(), Meeting.find(), CalendarEvent.find(), AppNotification.find()
         ]);
 
         const attendanceObject = attendance.reduce((acc, curr) => {
@@ -980,7 +1011,7 @@ app.get('/api/all-data', authMiddleware, async (req, res) => {
         res.json({
             classes, faculty, subjects, rooms, students, users,
             constraints, timetable, attendance: attendanceObject, chatMessages: chatMessages.reverse(),
-            institutions, teacherRequests, studentQueries
+            institutions, teacherRequests, studentQueries, syllabusProgress, meetings, calendarEvents, appNotifications
         });
     } catch (error) {
         res.status(500).json({ message: 'Error fetching all data', error: error.message });

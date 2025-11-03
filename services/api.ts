@@ -88,7 +88,7 @@ export const getPaginatedUsers = async (role: 'teacher' | 'student', page: numbe
 }
 
 // --- DATA MUTATION ---
-type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution';
+type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events';
 export const saveEntity = async <T>(type: EntityType, data: T & { id?: string }): Promise<T> => {
     const isAdding = !data.id;
     const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;
@@ -177,6 +177,24 @@ export const fetchChatUpdates = async (since: number): Promise<ChatMessage[]> =>
     if (!response.ok) {
         // Don't throw for polling errors to avoid interrupting the user experience. Just log it.
         console.error('Chat poll failed:', await response.text());
+        return [];
+    }
+    return response.json();
+};
+
+export const fetchMeetingUpdates = async (since: number): Promise<Meeting[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/updates/meetings?since=${since}`);
+    if (!response.ok) {
+        console.error('Meeting poll failed:', await response.text());
+        return [];
+    }
+    return response.json();
+};
+
+export const fetchNotificationUpdates = async (since: number): Promise<AppNotification[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/updates/notifications?since=${since}`);
+    if (!response.ok) {
+        console.error('Notification poll failed:', await response.text());
         return [];
     }
     return response.json();

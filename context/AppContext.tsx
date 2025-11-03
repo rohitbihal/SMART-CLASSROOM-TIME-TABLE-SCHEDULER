@@ -43,8 +43,8 @@ interface AppContextType {
     calendarEvents: CalendarEvent[];
 
     // Data Handlers
-    handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => Promise<any>;
-    handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => Promise<void>;
+    handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', data: any) => Promise<any>;
+    handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', id: string) => Promise<void>;
     handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
     handleUpdateFacultyAvailability: (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => Promise<void>;
     handleUpdateTeacherAvailability: (facultyId: string, availability: { [day: string]: string[] }) => Promise<void>;
@@ -64,7 +64,7 @@ interface AppContextType {
     handleUniversalImport: (fileData: string, mimeType: string) => Promise<void>;
     
     // NEW Handlers for new modules
-    handleCreateMeeting: (meeting: Omit<Meeting, 'id'>) => Promise<void>;
+    handleCreateMeeting: (meeting: Omit<Meeting, 'id' | 'attendance'>) => Promise<void>;
     handleCreateCalendarEvent: (event: Omit<CalendarEvent, 'id'>) => Promise<void>;
     handleSendNotification: (notification: Omit<AppNotification, 'id' | 'sentDate' | 'status'>) => Promise<void>;
     handleAddCustomConstraint: (constraint: Omit<CustomConstraint, 'id'>) => Promise<void>;
@@ -161,8 +161,11 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     
     const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-    // --- Real-time Chat Polling ---
+    // --- Real-time Polling ---
     const lastMessageTimestamp = useRef(0);
+    const lastMeetingTimestamp = useRef(0);
+    const lastNotificationTimestamp = useRef(0);
+
 
     useEffect(() => {
         if (chatMessages.length > 0) {
@@ -172,12 +175,32 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
             }
         }
     }, [chatMessages]);
+    
+    useEffect(() => {
+        if (meetings.length > 0) {
+            const maxTimestamp = Math.max(...meetings.map(m => m.updatedAt ? new Date(m.updatedAt).getTime() : 0));
+            if (maxTimestamp > lastMeetingTimestamp.current) {
+                lastMeetingTimestamp.current = maxTimestamp;
+            }
+        }
+    }, [meetings]);
+
+    useEffect(() => {
+        if (appNotifications.length > 0) {
+            const maxTimestamp = Math.max(...appNotifications.map(n => n.createdAt ? new Date(n.createdAt).getTime() : 0));
+            if (maxTimestamp > lastNotificationTimestamp.current) {
+                lastNotificationTimestamp.current = maxTimestamp;
+            }
+        }
+    }, [appNotifications]);
+
 
     useEffect(() => {
         if (!token) return;
 
         const poll = async () => {
             try {
+                // Chat updates
                 const newMessages = await api.fetchChatUpdates(lastMessageTimestamp.current);
                 if (newMessages.length > 0) {
                     setChatMessages(prev => {
@@ -189,26 +212,57 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
                         return prev;
                     });
                 }
+                
+                // Meeting updates
+                const newMeetings = await api.fetchMeetingUpdates(lastMeetingTimestamp.current);
+                if (newMeetings.length > 0) {
+                    setMeetings(prev => {
+                        const meetingMap = new Map(prev.map(m => [m.id, m]));
+                        newMeetings.forEach(m => meetingMap.set(m.id, m));
+                        return Array.from(meetingMap.values()).sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+                    });
+                }
+
+                // Notification updates
+                const newNotifications = await api.fetchNotificationUpdates(lastNotificationTimestamp.current);
+                if (newNotifications.length > 0) {
+                    setAppNotifications(prev => {
+                        const notifIds = new Set(prev.map(n => n.id));
+                        const uniqueNew = newNotifications.filter(n => !notifIds.has(n.id));
+                         if (uniqueNew.length > 0) {
+                            return [...prev, ...uniqueNew].sort((a,b) => new Date(b.sentDate).getTime() - new Date(a.sentDate).getTime());
+                        }
+                        return prev;
+                    });
+                }
+
             } catch (error) {
                 // Polling errors are logged by the API service, so we don't need to throw here
             }
         };
 
-        const intervalId = setInterval(poll, 3000); // Poll every 3 seconds
-        return () => clearInterval(intervalId);
+        const chatIntervalId = setInterval(poll, 3000); // Poll chat more frequently
+        const updatesIntervalId = setInterval(poll, 5000); // Poll other updates less frequently
+
+        return () => {
+            clearInterval(chatIntervalId);
+            clearInterval(updatesIntervalId);
+        };
     }, [token]);
 
 
-    const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => {
+    const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', data: any) => {
         const savedItem = await api.saveEntity(type, data);
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions }[type];
+        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions, meetings: setMeetings, 'app-notifications': setAppNotifications, 'calendar-events': setCalendarEvents };
+        const setter = setterMap[type];
         setter(prev => !data.id ? [...prev, savedItem] : prev.map(item => item.id === savedItem.id ? savedItem : item));
         return savedItem;
     }, []);
 
-    const handleDeleteEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', id: string) => {
+    const handleDeleteEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', id: string) => {
         await api.deleteEntity(type, id);
-        const setter = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions }[type];
+        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions, meetings: setMeetings, 'app-notifications': setAppNotifications, 'calendar-events': setCalendarEvents };
+        const setter = setterMap[type];
         setter(prev => prev.filter(item => item.id !== id));
     }, []);
 
@@ -390,16 +444,19 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
 
 
     // NEW Handlers
-    const handleCreateMeeting = useCallback(async (meeting: Omit<Meeting, 'id'>) => {
-        const newMeeting = { ...meeting, id: `meet-${Date.now()}`}; // Mock creation
+    const handleCreateMeeting = useCallback(async (meeting: Omit<Meeting, 'id' | 'attendance'>) => {
+        // FIX: Cast the result from the API to the full `Meeting` type. The API returns the complete object with an ID.
+        const newMeeting = await api.saveEntity('meetings', meeting) as Meeting;
         setMeetings(prev => [...prev, newMeeting]);
     }, []);
     const handleCreateCalendarEvent = useCallback(async (event: Omit<CalendarEvent, 'id'>) => {
-        const newEvent = { ...event, id: `calevent-${Date.now()}`};
+        // FIX: Cast the result from the API to the full `CalendarEvent` type. The API returns the complete object with an ID.
+        const newEvent = await api.saveEntity('calendar-events', event) as CalendarEvent;
         setCalendarEvents(prev => [...prev, newEvent]);
     }, []);
     const handleSendNotification = useCallback(async (notification: Omit<AppNotification, 'id' | 'sentDate' | 'status'>) => {
-        const newNotification = { ...notification, id: `appnotif-${Date.now()}`, sentDate: new Date().toISOString(), status: 'Sent' as const };
+        // FIX: Cast the result from the API to the full `AppNotification` type. The API returns the complete object with an ID.
+        const newNotification = await api.saveEntity('app-notifications', { ...notification, sentDate: new Date().toISOString(), status: 'Sent' }) as AppNotification;
         setAppNotifications(prev => [...prev, newNotification]);
     }, []);
 

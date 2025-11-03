@@ -319,6 +319,8 @@ export interface AppNotification {
     sentDate: string;
     status: 'Sent' | 'Delivered' | 'Read' | 'Failed';
     scheduledFor?: string; // NEW for scheduling
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface StudentAttendance {
@@ -400,7 +402,10 @@ export interface Meeting {
     end: string;
     organizerId: string;
     participants: { type: 'faculty' | 'student', id: string }[];
-    attendance: { participantId: string; status: 'Present' | 'Absent' | 'Excused' }[];
+// FIX: Made the `attendance` property optional to align with the server schema, as it's not present upon creation.
+    attendance?: { participantId: string; status: 'Present' | 'Absent' | 'Excused' }[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 

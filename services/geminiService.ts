@@ -57,15 +57,21 @@ export const generateTimetable = async (
         resultJson += decoder.decode(value, { stream: true });
     }
     
-    // Once streaming is complete, parse the full JSON string
-    const generationResult = JSON.parse(resultJson);
-    
-    if (!generationResult || !Array.isArray(generationResult.timetable) || !Array.isArray(generationResult.unscheduledSessions)) {
-      console.error("Backend returned invalid format for generation result:", generationResult);
-      throw new Error("The server returned an invalid data format for the timetable generation result.");
+    try {
+        // Once streaming is complete, parse the full JSON string
+        const generationResult = JSON.parse(resultJson);
+        
+        if (!generationResult || !Array.isArray(generationResult.timetable) || !Array.isArray(generationResult.unscheduledSessions)) {
+          console.error("Backend returned invalid format for generation result:", generationResult);
+          throw new Error("The server returned an invalid data format for the timetable generation result.");
+        }
+        
+        return generationResult;
+    } catch (parseError) {
+        console.error("Failed to parse JSON response from AI:", parseError);
+        console.error("Raw AI response:", resultJson);
+        throw new Error(`The AI model returned an invalid response that could not be parsed as JSON. This can happen with complex constraints. Raw response snippet: ${resultJson.substring(0, 300)}...`);
     }
-    
-    return generationResult;
     
   } catch (error) {
     console.error("Error during timetable generation request:", error);
