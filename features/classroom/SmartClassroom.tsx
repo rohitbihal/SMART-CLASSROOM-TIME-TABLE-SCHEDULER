@@ -365,7 +365,7 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
 };
 
 export const UserManagementTab = () => {
-    const { users, faculty, students, onSaveUser, onDeleteUser } = useOutletContext<SmartClassroomProps>();
+    const { users, faculty, students, classes, onSaveUser, onDeleteUser } = useOutletContext<SmartClassroomProps>();
     const { setFeedback } = useOutletContext<ReturnType<typeof useSmartClassroomLayout>>();
 
     const [userType, setUserType] = useState<'teacher' | 'student'>('teacher');
@@ -378,14 +378,25 @@ export const UserManagementTab = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const selectAllUsersCheckboxRef = useRef<HTMLInputElement>(null);
+    const [selectedClassIdForUsers, setSelectedClassIdForUsers] = useState(classes[0]?.id || '');
 
     const profileMap = useMemo(() => { const map = new Map<string, { name: string, contactNumber?: string }>(); faculty.forEach(f => map.set(f.id, { name: f.name, contactNumber: f.contactNumber })); students.forEach(s => map.set(s.id, { name: s.name, contactNumber: s.contactNumber })); return map; }, [faculty, students]);
-    const filteredUsers = useMemo(() => users.filter(u => u.role === userType && (u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))), [users, searchTerm, profileMap, userType]);
+    
+    const filteredUsers = useMemo(() => {
+        let usersOfRole = users.filter(u => u.role === userType);
+
+        if (userType === 'student' && selectedClassIdForUsers) {
+            const studentIdsInClass = new Set(students.filter(s => s.classId === selectedClassIdForUsers).map(s => s.id));
+            usersOfRole = usersOfRole.filter(u => u.profileId && studentIdsInClass.has(u.profileId));
+        }
+
+        return usersOfRole.filter(u => u.username.toLowerCase().includes(searchTerm.toLowerCase()) || (profileMap.get(u.profileId || '')?.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [users, userType, selectedClassIdForUsers, students, searchTerm, profileMap]);
     
     const allUserIdsInView = useMemo(() => filteredUsers.map(u => u._id!).filter(Boolean), [filteredUsers]);
     const selectedUserIdsInView = useMemo(() => selectedUsers.filter(id => allUserIdsInView.includes(id)), [selectedUsers, allUserIdsInView]);
     
-    useEffect(() => { setSelectedUsers([]) }, [userType]);
+    useEffect(() => { setSelectedUsers([]) }, [userType, selectedClassIdForUsers]);
 
     useEffect(() => {
         if (selectAllUsersCheckboxRef.current) {
@@ -492,6 +503,13 @@ export const UserManagementTab = () => {
                           <UserTypeButton type="teacher" label="Teachers" icon={<TeacherIcon className="h-5 w-5" />} />
                           <UserTypeButton type="student" label="Students" icon={<StudentIcon className="h-5 w-5" />} />
                       </div>
+                      {userType === 'student' && (
+                          <div className="flex-1">
+                              <SelectInput id="user-class-selector" value={selectedClassIdForUsers} onChange={e => setSelectedClassIdForUsers(e.target.value)} disabled={isLoading}>
+                                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                              </SelectInput>
+                          </div>
+                      )}
                       <div className="relative flex-grow">
                           <label htmlFor="user-search" className="sr-only">Search by name or email</label>
                           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />

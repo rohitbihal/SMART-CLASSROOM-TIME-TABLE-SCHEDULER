@@ -53,7 +53,7 @@ const QueryChat = ({ author, initialMessages }: { author: string, initialMessage
 
 
 const TeacherQueryDetailModal = ({ query, facultyName, isOpen, onClose, onStatusChange }: { query: TeacherQuery; facultyName: string; isOpen: boolean; onClose: () => void; onStatusChange: (id: string, status: TeacherStatus, response: string) => void; }) => {
-    const [adminResponse, setAdminResponse] = useState('');
+    const [adminResponse, setAdminResponse] = useState(query.adminResponse || '');
     if (!isOpen) return null;
 
     const handleStatusUpdate = (status: TeacherStatus) => {
@@ -77,7 +77,7 @@ const TeacherQueryDetailModal = ({ query, facultyName, isOpen, onClose, onStatus
                     <p className="font-semibold">Reason</p>
                     <p>{query.reason}</p>
                 </div>
-                <QueryChat author={facultyName} initialMessages={[{author: facultyName, text: query.reason}, {author: 'Admin', text: 'Acknowledged. Looking into this.'}]} />
+                <QueryChat author={facultyName} initialMessages={[{author: facultyName, text: query.reason}, ...(query.adminResponse ? [{author: 'Admin', text: query.adminResponse}] : [])]} />
                 <FormField label="Admin Response / Final Comments" htmlFor="admin-response">
                     <textarea id="admin-response" value={adminResponse} onChange={e => setAdminResponse(e.target.value)} rows={4} className="input-base" placeholder="Add your comments here..."></textarea>
                 </FormField>
@@ -111,7 +111,7 @@ const StudentQueryDetailModal = ({ query, studentName, isOpen, onClose, onStatus
                     <p className="font-semibold">Query Details</p>
                     <p>{query.details}</p>
                 </div>
-                <QueryChat author={studentName} initialMessages={[{author: studentName, text: query.details}]} />
+                <QueryChat author={studentName} initialMessages={[{author: studentName, text: query.details}, ...(query.adminResponse ? [{author: 'Admin', text: query.adminResponse}] : [])]} />
                 <FormField label="Admin Response / Comments" htmlFor="admin-response-student">
                     <textarea id="admin-response-student" value={adminResponse} onChange={e => setAdminResponse(e.target.value)} rows={4} className="input-base" placeholder="Add your comments here..."></textarea>
                 </FormField>
@@ -127,7 +127,7 @@ const StudentQueryDetailModal = ({ query, studentName, isOpen, onClose, onStatus
 
 
 const QueryPage = () => {
-    const { teacherRequests, studentQueries, faculty, students } = useAppContext();
+    const { teacherRequests, studentQueries, faculty, students, handleUpdateTeacherQuery, handleUpdateStudentQuery } = useAppContext();
     const [activeTab, setActiveTab] = useState('teacher');
 
     const [selectedTeacherQuery, setSelectedTeacherQuery] = useState<TeacherQuery | null>(null);
@@ -166,14 +166,22 @@ const QueryPage = () => {
     }, [studentQueries, filters, studentMap]);
 
     
-    const handleTeacherStatusChange = (id: string, status: TeacherStatus, response: string) => {
-        console.log(`Updating teacher query ${id} to status ${status} with response: "${response}"`);
-        alert(`Teacher Query status updated to ${status}. (This is a mock action)`);
+    const handleTeacherStatusChange = async (id: string, status: TeacherStatus, response: string) => {
+        try {
+            await handleUpdateTeacherQuery(id, status, response);
+        } catch (error) {
+            console.error("Failed to update teacher query:", error);
+            alert("Failed to update query status.");
+        }
     };
 
-    const handleStudentStatusChange = (id: string, status: StudentStatus, response: string) => {
-        console.log(`Updating student query ${id} to status ${status} with response: "${response}"`);
-        alert(`Student Query status updated to ${status}. (This is a mock action)`);
+    const handleStudentStatusChange = async (id: string, status: StudentStatus, response: string) => {
+        try {
+            await handleUpdateStudentQuery(id, status, response);
+        } catch (error) {
+            console.error("Failed to update student query:", error);
+            alert("Failed to update query status.");
+        }
     };
 
     const teacherQueryStats = useMemo(() => ({
@@ -193,20 +201,24 @@ const QueryPage = () => {
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold">Query Management</h1>
-            <TeacherQueryDetailModal 
-                isOpen={!!selectedTeacherQuery}
-                onClose={() => setSelectedTeacherQuery(null)}
-                query={selectedTeacherQuery!}
-                facultyName={facultyMap.get(selectedTeacherQuery?.facultyId || '') || 'Unknown'}
-                onStatusChange={handleTeacherStatusChange}
-            />
-             <StudentQueryDetailModal 
-                isOpen={!!selectedStudentQuery}
-                onClose={() => setSelectedStudentQuery(null)}
-                query={selectedStudentQuery!}
-                studentName={studentMap.get(selectedStudentQuery?.studentId || '') || 'Unknown'}
-                onStatusChange={handleStudentStatusChange}
-            />
+            {selectedTeacherQuery && (
+                <TeacherQueryDetailModal 
+                    isOpen={!!selectedTeacherQuery}
+                    onClose={() => setSelectedTeacherQuery(null)}
+                    query={selectedTeacherQuery}
+                    facultyName={facultyMap.get(selectedTeacherQuery?.facultyId || '') || 'Unknown'}
+                    onStatusChange={handleTeacherStatusChange}
+                />
+            )}
+            {selectedStudentQuery && (
+                 <StudentQueryDetailModal 
+                    isOpen={!!selectedStudentQuery}
+                    onClose={() => setSelectedStudentQuery(null)}
+                    query={selectedStudentQuery}
+                    studentName={studentMap.get(selectedStudentQuery?.studentId || '') || 'Unknown'}
+                    onStatusChange={handleStudentStatusChange}
+                />
+            )}
             <SectionCard title="Query Dashboard">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                     <div className="p-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg"><p className="text-2xl font-bold">{teacherQueryStats.total + studentQueryStats.total}</p><p>Total Queries</p></div>

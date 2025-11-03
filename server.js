@@ -183,6 +183,7 @@ const teacherRequestSchema = new mongoose.Schema({
     status: { type: String, default: 'Pending' },
     submittedDate: { type: String, default: () => new Date().toISOString() },
     priority: { type: String, default: 'Normal' },
+    adminResponse: String,
 });
 
 const studentQuerySchema = new mongoose.Schema({
@@ -198,7 +199,7 @@ const studentQuerySchema = new mongoose.Schema({
 
 const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique: true }, subjectId: String, facultyId: String, lectureNumber: Number, assignedTopic: String, taughtTopic: String, date: String, status: String, variance: Boolean }, { timestamps: true });
 const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String }, { timestamps: true });
-const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed] }, { timestamps: true });
+const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed], attendance: [mongoose.Schema.Types.Mixed] }, { timestamps: true });
 
 // FIX: Corrected the schema for recipients. It is an object containing a 'type' string and an 'ids' array, not a string itself.
 const appNotificationSchema = new mongoose.Schema({
@@ -398,6 +399,25 @@ app.post('/api/teacher/requests', authMiddleware, async (req, res) => {
     }
 });
 
+app.put('/api/teacher/queries/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    try {
+        const { status, adminResponse } = req.body;
+        const updatedQuery = await TeacherRequest.findOneAndUpdate(
+            { id: req.params.id },
+            { status, adminResponse },
+            { new: true }
+        );
+        if (!updatedQuery) return res.status(404).json({ message: 'Query not found' });
+        res.json(updatedQuery);
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating teacher query', error: error.message });
+    }
+});
+
+
 // NEW: Endpoint for submitting student queries
 app.post('/api/student/queries', authMiddleware, async (req, res) => {
     if (req.user.role !== 'student') {
@@ -415,6 +435,25 @@ app.post('/api/student/queries', authMiddleware, async (req, res) => {
         res.status(400).json({ message: 'Error submitting query', error: error.message });
     }
 });
+
+app.put('/api/student/queries/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    try {
+        const { status, adminResponse } = req.body;
+        const updatedQuery = await StudentQuery.findOneAndUpdate(
+            { id: req.params.id },
+            { status, adminResponse },
+            { new: true }
+        );
+        if (!updatedQuery) return res.status(404).json({ message: 'Query not found' });
+        res.json(updatedQuery);
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating student query', error: error.message });
+    }
+});
+
 
 // NEW: Endpoint for saving attendance
 app.put('/api/attendance/class', authMiddleware, async (req, res) => {
@@ -721,11 +760,21 @@ app.post('/api/chat/ask/teacher', authMiddleware, [
 
 // Gemini Timetable Generation
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-    // This prompt is structured to guide the AI towards a valid timetable. The JSON format is enforced by the API config.
-    const facultyMap = new Map(faculty.map(f => [f.id, f.name])); // Create a map for easy lookup.
+    const facultyMap = new Map(faculty.map(f => [f.id, f.name]));
+    const classMap = new Map(classes.map(c => [c.id, c.name]));
+    const subjectMap = new Map(subjects.map(s => [s.id, s.name]));
+    const roomMap = new Map(rooms.map(r => [r.id, r.number]));
+
+    const resolvedFixedClasses = (constraints.fixedClasses || []).map(fc => ({
+        className: classMap.get(fc.classId) || 'Unknown Class',
+        subjectName: subjectMap.get(fc.subjectId) || 'Unknown Subject',
+        day: fc.day,
+        time: fc.time,
+        roomNumber: fc.roomId ? (roomMap.get(fc.roomId) || 'Unknown Room') : 'Any suitable',
+    }));
 
     return `
-      You are an expert university timetable scheduler. Your primary goal is to generate a complete, conflict-free timetable based on the provided data and constraints, satisfying all HARD RULES.
+      You are an expert university timetable scheduler. Your primary goal is to generate a complete, conflict-free timetable based on the provided data and constraints, satisfying all HARD RULES. If you cannot schedule a session, you MUST add it to the "unscheduledSessions" array with a clear, specific reason for the failure (e.g., 'No available room with required capacity', 'Faculty Dr. Smith is unavailable at all possible times'). Do not return an empty "timetable" array unless it's genuinely impossible to schedule any session at all.
 
       Your output must be a JSON object containing a "timetable" array and an "unscheduledSessions" array.
       - "timetable": An array of scheduled sessions.
@@ -747,7 +796,6 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
           name: s.name, 
           code: s.code, 
           hoursPerWeek: s.hoursPerWeek, 
-          // Use faculty name instead of ID
           assignedFaculty: facultyMap.get(s.assignedFacultyId) || 'Unassigned', 
           type: s.type, 
           department: s.department, 
@@ -766,7 +814,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       - **Subject Relevance Rule:** Each subject has a "forClass" property. You MUST schedule a subject ONLY for the class name specified in its "forClass" property.
       - Schedule exactly 'hoursPerWeek' sessions for each subject.
       - Lab subjects MUST be assigned to 'Laboratory' type rooms. Theory subjects to 'Classroom'.
-      - Fixed/Pinned Classes: These are pre-scheduled and MUST be placed exactly as specified: ${JSON.stringify(constraints.fixedClasses || [])}.
+      - Fixed/Pinned Classes: These are pre-scheduled and non-negotiable. They MUST be placed exactly as specified. This means the specified class, its assigned faculty for the subject, and its specified room (if any) are all occupied during that time slot and cannot be used for any other session. Data: ${JSON.stringify(resolvedFixedClasses)}.
       - Faculty Unavailability: This faculty is unavailable at these specific times: ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, day: u.day, time: u.timeSlot }))))}
       - Max Concurrent Classes per Department: Do not schedule more than the specified number of classes simultaneously for any given department: ${JSON.stringify(constraints.maxConcurrentClassesPerDept || {})}
 
@@ -774,6 +822,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
 
       - Fulfilling all hard constraints is your most important task. If a perfect schedule satisfying all soft goals is not possible, create a valid schedule that meets all hard rules, even if it's not ideal.
       - Distribute subjects for a class throughout the week. A 4-hour subject should ideally be on 3-4 different days, not just 1 or 2.
+      - Schedule Distribution: For each class/section, aim to schedule a balanced number of lectures each day. If a day has 8 available slots, try to schedule at least 4 lectures for each class to ensure a full academic day.
       - Prioritize compact schedules: Fill morning slots first and minimize gaps in a section's schedule, especially at the start or end of the day.
       - Max Consecutive Classes (Global): Try not to schedule more than ${constraints.maxConsecutiveClasses} classes in a row for any section.
       - Faculty Preferences:
@@ -1123,17 +1172,34 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
         // 3. Create default users and profiles
         const adminProfile = { id: newId(), name: 'Admin User', employeeId: 'ADMIN01', designation: 'Professor', department: 'Administration', specialization: ['System Management'], email: 'admin@university.edu', maxWorkload: 40 };
         const teacherProfileForUser = facultyPool.dsa[0]; // Dr. Kenji Tanaka
-        const studentClass = newClassesData.find(c => c.name === 'CSE A');
-        const studentProfile = { id: newId(), name: 'Demo Student', classId: studentClass.id, roll: '01', email: 'student@university.edu' };
+        
+        const newStudentsData = [];
+        newClassesData.forEach(cls => {
+            for (let i = 1; i <= 5; i++) {
+                const studentId = newId();
+                const studentName = `${cls.name} Student ${i}`;
+                const studentEmail = `${cls.name.replace(' ', '').toLowerCase()}.${i}@university.edu`;
+                newStudentsData.push({ id: studentId, name: studentName, classId: cls.id, roll: String(i), email: studentEmail });
+            }
+        });
         
         newFacultyData.push(adminProfile);
-        const newStudentsData = [studentProfile];
 
         const usersToCreate = [
             { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: adminProfile.id },
             { username: teacherProfileForUser.email, password: 'teacher123', role: 'teacher', profileId: teacherProfileForUser.id },
-            { username: 'student@university.edu', password: 'student123', role: 'student', profileId: studentProfile.id },
         ];
+        
+        const demoStudent = newStudentsData.find(s => s.name === 'CSE A Student 1');
+        if (demoStudent) {
+            demoStudent.email = 'student@university.edu'; // Overwrite email for easy login
+            usersToCreate.push({
+                username: 'student@university.edu',
+                password: 'student123',
+                role: 'student',
+                profileId: demoStudent.id,
+            });
+        }
         
         const hashedUsers = await Promise.all(usersToCreate.map(async (user) => {
             const hashedPassword = await bcrypt.hash(user.password, saltRounds);

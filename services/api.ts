@@ -1,5 +1,6 @@
 
 
+
 // FIX: Add ReassignmentSuggestion to imports and remove duplicate StudentQuery
 import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification, StudentQuery, ReassignmentPayload, ReassignmentSuggestion } from '../types';
 import { logger } from './logger';
@@ -256,10 +257,28 @@ export const submitTeacherRequest = async (requestData: Omit<TeacherQuery, 'id' 
     return response.json();
 };
 
+export const updateTeacherQuery = async (id: string, status: TeacherQuery['status'], adminResponse: string): Promise<TeacherQuery> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/teacher/queries/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, adminResponse })
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
 export const submitStudentQuery = async (queryData: Omit<StudentQuery, 'id' | 'studentId' | 'status' | 'submittedDate'>): Promise<StudentQuery> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/student/queries`, {
         method: 'POST',
         body: JSON.stringify(queryData)
+    });
+    if (!response.ok) throw await handleApiError(response);
+    return response.json();
+};
+
+export const updateStudentQuery = async (id: string, status: StudentQuery['status'], adminResponse: string): Promise<StudentQuery> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/student/queries/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, adminResponse })
     });
     if (!response.ok) throw await handleApiError(response);
     return response.json();

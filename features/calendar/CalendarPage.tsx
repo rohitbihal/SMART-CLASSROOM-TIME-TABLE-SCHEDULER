@@ -52,10 +52,25 @@ export const CalendarPage = () => {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
-    const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-    const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    const handlePrev = () => {
+        if (view === 'month') {
+            setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+        } else {
+            const newDate = new Date(currentDate);
+            newDate.setDate(newDate.getDate() - 7);
+            setCurrentDate(newDate);
+        }
+    };
+    const handleNext = () => {
+        if (view === 'month') {
+            setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+        } else {
+            const newDate = new Date(currentDate);
+            newDate.setDate(newDate.getDate() + 7);
+            setCurrentDate(newDate);
+        }
+    };
 
     const openAddEventModal = (date: Date) => {
         setSelectedDate(date);
@@ -69,6 +84,24 @@ export const CalendarPage = () => {
 
         for (let i = 0; i < 42; i++) {
             const day = new Date(startDate);
+            day.setDate(day.getDate() + i);
+            const eventsForDay = calendarEvents.filter(e => {
+                const eventStart = new Date(e.start);
+                const eventEnd = new Date(e.end);
+                return day >= new Date(eventStart.toDateString()) && day <= new Date(eventEnd.toDateString());
+            });
+            grid.push({ day, events: eventsForDay });
+        }
+        return grid;
+    }, [currentDate, calendarEvents, firstDayOfMonth]);
+
+    const weeklyGrid = useMemo(() => {
+        const grid = [];
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(startOfWeek);
             day.setDate(day.getDate() + i);
             const eventsForDay = calendarEvents.filter(e => {
                 const eventStart = new Date(e.start);
@@ -95,7 +128,32 @@ export const CalendarPage = () => {
         </div>
     );
 
-    const renderWeekView = () => <div className="text-center p-12">Weekly view coming soon!</div>;
+    const renderWeekView = () => (
+        <div className="grid grid-cols-1 md:grid-cols-7">
+            {weeklyGrid.map(({ day, events }) => (
+                <div key={day.toISOString()} className="border border-border-primary p-2 min-h-[300px]">
+                    <div className="text-center font-bold pb-2 border-b border-border-primary">
+                        <p>{daysOfWeek[day.getDay()]}</p>
+                        <p className="text-2xl">{day.getDate()}</p>
+                    </div>
+                    <div className="space-y-1 mt-2">
+                        {events.map(event => <EventPill key={event.id} event={event} />)}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+    
+    const getHeaderText = () => {
+        if (view === 'month') {
+            return currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        }
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 6);
+        return `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+    };
 
 
     return (
@@ -105,9 +163,9 @@ export const CalendarPage = () => {
             <SectionCard title="Calendar" actions={
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <button onClick={handlePrevMonth} className="p-2 rounded-md hover:bg-bg-tertiary">&lt;</button>
-                        <h3 className="font-bold w-32 text-center">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
-                        <button onClick={handleNextMonth} className="p-2 rounded-md hover:bg-bg-tertiary">&gt;</button>
+                        <button onClick={handlePrev} className="p-2 rounded-md hover:bg-bg-tertiary">&lt;</button>
+                        <h3 className="font-bold w-48 text-center">{getHeaderText()}</h3>
+                        <button onClick={handleNext} className="p-2 rounded-md hover:bg-bg-tertiary">&gt;</button>
                     </div>
                     <div className="bg-bg-tertiary p-1 rounded-lg">
                         <button onClick={() => setView('month')} className={`px-3 py-1 text-sm rounded-md ${view === 'month' ? 'bg-bg-secondary shadow' : ''}`}>Month</button>

@@ -49,7 +49,9 @@ interface AppContextType {
     handleUpdateFacultyAvailability: (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => Promise<void>;
     handleUpdateTeacherAvailability: (facultyId: string, availability: { [day: string]: string[] }) => Promise<void>;
     handleSubmitTeacherRequest: (requestData: Omit<TeacherQuery, 'id' | 'facultyId' | 'status' | 'submittedDate'>) => Promise<void>;
+    handleUpdateTeacherQuery: (id: string, status: TeacherQuery['status'], adminResponse: string) => Promise<void>;
     handleSubmitStudentQuery: (queryData: Omit<StudentQuery, 'id' | 'studentId' | 'status' | 'submittedDate'>) => Promise<void>;
+    handleUpdateStudentQuery: (id: string, status: StudentQuery['status'], adminResponse: string) => Promise<void>;
     handleSaveTimetable: (newTimetable: TimetableEntry[]) => Promise<void>;
     handleSaveClassAttendance: (classId: string, date: string, records: AttendanceRecord) => Promise<void>;
     handleSendMessage: (messageText: string, messageId: string, classId: string) => Promise<void>;
@@ -109,7 +111,10 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
 
     const fetchData = useCallback(async () => {
         if (!token) { setAppState('ready'); return; }
-        setAppState('loading');
+        // Don't set loading for background polls
+        if (appState !== 'ready') {
+            setAppState('loading');
+        }
         try {
             const data = await api.fetchAllData();
             setClasses(data.classes || []);
@@ -141,11 +146,11 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         } finally {
             setAppState('ready');
         }
-    }, [token]);
+    }, [token, appState]);
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [token]); // Run only when token changes initially
 
     const login = (loggedInUser: User, authToken: string) => {
         sessionStorage.setItem('user', JSON.stringify(loggedInUser));
@@ -241,14 +246,23 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
             }
         };
 
-        const chatIntervalId = setInterval(poll, 3000); // Poll chat more frequently
-        const updatesIntervalId = setInterval(poll, 5000); // Poll other updates less frequently
+        const intervalId = setInterval(poll, 5000); 
 
         return () => {
-            clearInterval(chatIntervalId);
-            clearInterval(updatesIntervalId);
+            clearInterval(intervalId);
         };
     }, [token]);
+    
+    // NEW: General data poller for non-admin users to get timetable updates etc.
+    useEffect(() => {
+        if (user && user.role !== 'admin' && token) {
+            const intervalId = setInterval(() => {
+                fetchData();
+            }, 30000); // Poll every 30 seconds
+
+            return () => clearInterval(intervalId);
+        }
+    }, [user, token, fetchData]);
 
 
     const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', data: any) => {
@@ -315,9 +329,19 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         setTeacherRequests(prev => [...prev, newRequest]);
     }, []);
 
+    const handleUpdateTeacherQuery = useCallback(async (id: string, status: TeacherQuery['status'], adminResponse: string) => {
+        const updatedQuery = await api.updateTeacherQuery(id, status, adminResponse);
+        setTeacherRequests(prev => prev.map(q => q.id === id ? updatedQuery : q));
+    }, []);
+
     const handleSubmitStudentQuery = useCallback(async (queryData: Omit<StudentQuery, 'id' | 'studentId' | 'status' | 'submittedDate'>) => {
         const newQuery = await api.submitStudentQuery(queryData);
         setStudentQueries(prev => [...prev, newQuery]);
+    }, []);
+
+    const handleUpdateStudentQuery = useCallback(async (id: string, status: StudentQuery['status'], adminResponse: string) => {
+        const updatedQuery = await api.updateStudentQuery(id, status, adminResponse);
+        setStudentQueries(prev => prev.map(q => q.id === id ? updatedQuery : q));
     }, []);
 
     const handleSaveTimetable = useCallback(async (newTimetable: TimetableEntry[]) => {
@@ -466,13 +490,13 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         studentAttendance, exams, notifications, appNotifications,
         syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleSubmitStudentQuery, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleUpdateTeacherQuery, handleSubmitStudentQuery, handleUpdateStudentQuery, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport,
         handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     }), [
         user, token, appState, theme, classes, faculty, subjects, rooms, students, users, constraints, timetable, attendance, chatMessages, institutions, teacherRequests, studentQueries,
         studentAttendance, exams, notifications, appNotifications, syllabusProgress, meetings, calendarEvents,
         handleSaveEntity, handleDeleteEntity, handleUpdateConstraints, handleUpdateFacultyAvailability, handleSaveTimetable, handleSaveClassAttendance,
-        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleSubmitStudentQuery, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport, login, logout, toggleTheme,
+        handleSendMessage, handleAdminSendMessage, handleAdminAskAsStudent, handleResetData, handleSaveUser, handleDeleteUser, getFacultyProfile, handleUpdateTeacherAvailability, handleSubmitTeacherRequest, handleUpdateTeacherQuery, handleSubmitStudentQuery, handleUpdateStudentQuery, handleTeacherAskAI, handleSendHumanMessage, handleUniversalImport, login, logout, toggleTheme,
         handleCreateMeeting, handleCreateCalendarEvent, handleSendNotification, handleAddCustomConstraint, handleUpdateCustomConstraint, handleDeleteCustomConstraint
     ]);
 
