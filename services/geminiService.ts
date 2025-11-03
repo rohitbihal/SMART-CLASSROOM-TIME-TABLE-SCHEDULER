@@ -1,4 +1,5 @@
 
+
 import { Class, Faculty, Subject, Room, Constraints, TimetableEntry, GenerationResult } from '../types';
 
 // NOTE: The base URL for the backend server.
@@ -29,19 +30,17 @@ export const generateTimetable = async (
     });
 
     if (!response.ok) {
-        let errorMsg = `Server responded with status: ${response.status}`;
-        // Read the full response body as text first to avoid "body stream already read" errors.
-        const responseText = await response.text();
+        const responseText = await response.text(); // Read body once to prevent stream errors.
+        let errorDetails: string;
         try {
-            // Attempt to parse the text as JSON, which is the expected error format from our API.
-            const errorData = JSON.parse(responseText);
-            errorMsg = errorData.details || errorData.message || JSON.stringify(errorData);
+            // Try to parse as JSON for structured API errors.
+            const errorJson = JSON.parse(responseText);
+            errorDetails = errorJson.details || errorJson.message || responseText;
         } catch (e) {
-            // If parsing fails, the error response was not JSON (e.g., an HTML error page from a proxy).
-            // Use the raw text as the error message. Truncate for readability.
-            errorMsg = responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '');
+            // Fallback to raw text if it's not JSON (e.g., an HTML error page from a gateway).
+            errorDetails = responseText;
         }
-        throw new Error(`The server encountered an issue: ${errorMsg}`);
+        throw new Error(`The server encountered an issue: ${errorDetails}`);
     }
 
     // Handle streaming response to avoid timeouts
