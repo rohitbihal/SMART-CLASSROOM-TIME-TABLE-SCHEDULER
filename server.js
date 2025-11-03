@@ -381,6 +381,198 @@ app.post('/api/timetable', authMiddleware, async (req, res) => {
     }
 });
 
+// --- Chat API ---
+
+// Helper prompt generators for AI chats
+const generateStudentQAPrompt = (question, student, studentClass, timetable, subjects) => {
+    return `You are a helpful and friendly university campus AI assistant. Your name is Campus AI.
+    You are answering a question from a student.
+    
+    Student Name: ${student.name}
+    Student Class: ${studentClass.name}
+    Student's question: "${question}"
+
+    Use the following information to answer the student's question. Be concise and helpful. If you don't have enough information, say "I don't have that information, you may want to ask your teacher or an administrator."
+
+    Student's Timetable: ${JSON.stringify(timetable)}
+    Subjects for the student's department: ${JSON.stringify(subjects)}
+
+    Answer the question now.
+    `;
+};
+
+const generateTeacherQAPrompt = (question, teacher, subjects) => {
+    return `You are a helpful AI assistant for university teachers. Your name is Campus AI.
+    You are answering a question from a teacher. Your capabilities include finding educational resources from the web, helping draft lesson plans, explaining complex topics, and providing ideas for assignments.
+
+    Teacher Name: ${teacher.name}
+    Teacher Department: ${teacher.department}
+    Teacher's question: "${question}"
+
+    For context, here are the subjects this teacher is assigned: ${JSON.stringify(subjects.map(s => s.name))}
+
+    Use Google Search to find relevant, up-to-date information and resources if the question is about external topics. Always provide the source URLs in your response.
+
+    Answer the question now.
+    `;
+};
+
+// Endpoint for human-to-human chat messages (fixes the main bug)
+app.post('/api/chat/message', authMiddleware, [
+    body('channel').isString().notEmpty(),
+    body('text').isString().notEmpty(),
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+        const { channel, text } = req.body;
+        const { username, profileId, role } = req.user;
+        const classIdFromChannel = channel.startsWith('class-') ? channel.split('-')[1] : '';
+
+        const newMessage = new ChatMessage({
+            id: new mongoose.Types.ObjectId().toString(),
+            author: username,
+            authorId: profileId,
+            role,
+            text,
+            timestamp: Date.now(),
+            channel,
+            classId: classIdFromChannel,
+        });
+
+        await newMessage.save();
+        res.status(201).json(newMessage);
+    } catch (error) {
+        console.error("Error sending chat message:", error);
+        res.status(500).json({ message: "Server error while sending message." });
+    }
+});
+
+// Endpoint for admin announcements
+app.post('/api/chat/send', authMiddleware, [
+    body('classId').isString().notEmpty(),
+    body('text').isString().notEmpty(),
+], async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    try {
+        const { classId, text } = req.body;
+        const newMessage = new ChatMessage({
+            id: new mongoose.Types.ObjectId().toString(),
+            author: `Admin (${req.user.username})`,
+            authorId: req.user.profileId,
+            role: 'admin',
+            text,
+            timestamp: Date.now(),
+            channel: `admin-chat-${classId}`,
+            classId: classId,
+        });
+        await newMessage.save();
+        res.status(201).json(newMessage);
+    } catch (error) {
+        res.status(500).json({ message: "Server error while sending message." });
+    }
+});
+
+// Endpoint for student asking Campus AI
+app.post('/api/chat/ask', authMiddleware, [
+    body('messageText').isString().notEmpty(),
+    body('classId').isString().notEmpty(),
+    body('messageId').isString().notEmpty(),
+], async (req, res) => {
+    if (!process.env.API_KEY) { return res.status(500).json({ message: 'AI features are not configured.' }); }
+    try {
+        const { messageText, classId, messageId } = req.body;
+        const student = await Student.findOne({ id: req.user.profileId });
+        const studentClass = await Class.findOne({ id: classId });
+        if (!student || !studentClass) return res.status(404).json({ message: 'Student or class profile not found.' });
+        
+        const studentTimetable = await TimetableEntry.find({ className: studentClass.name });
+        const departmentSubjects = await Subject.find({ department: studentClass.branch });
+        const prompt = generateStudentQAPrompt(messageText, student, studentClass, studentTimetable, departmentSubjects);
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+
+        const aiMessage = new ChatMessage({
+            id: `ai-msg-${messageId}`, author: 'Campus AI', role: 'admin', text: response.text,
+            timestamp: Date.now(), classId: classId, channel: 'query'
+        });
+        await aiMessage.save();
+        res.status(201).json(aiMessage);
+    } catch(error) {
+        res.status(500).json({ message: "The AI assistant is currently unavailable." });
+    }
+});
+
+// Endpoint for admin testing AI as a student
+app.post('/api/chat/admin-ask-as-student', authMiddleware, [
+    body('studentId').isString().notEmpty(), body('messageText').isString().notEmpty(),
+], async (req, res) => {
+    if (req.user.role !== 'admin') { return res.status(403).json({ message: 'Forbidden' }); }
+    if (!process.env.API_KEY) { return res.status(500).json({ message: 'AI features are not configured.' }); }
+    
+    try {
+        const { studentId, messageText } = req.body;
+        const student = await Student.findOne({ id: studentId });
+        if (!student) return res.status(404).json({ message: 'Student profile not found.' });
+        const studentClass = await Class.findOne({ id: student.classId });
+        if (!studentClass) return res.status(404).json({ message: 'Class for student not found.' });
+
+        const studentTimetable = await TimetableEntry.find({ className: studentClass.name });
+        const departmentSubjects = await Subject.find({ department: studentClass.branch });
+        const prompt = generateStudentQAPrompt(messageText, student, studentClass, studentTimetable, departmentSubjects);
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+
+        const aiResponse = {
+            id: `ai-test-${Date.now()}`, author: 'Campus AI (Test)', role: 'admin', text: response.text,
+            timestamp: Date.now(), classId: '', channel: 'admin-test'
+        };
+        res.status(200).json(aiResponse);
+    } catch(error) {
+        res.status(500).json({ message: "The AI assistant is currently unavailable for testing." });
+    }
+});
+
+// Endpoint for teacher asking Campus AI
+app.post('/api/chat/ask/teacher', authMiddleware, [
+    body('messageText').isString().notEmpty(), body('messageId').isString().notEmpty(),
+], async (req, res) => {
+    if (req.user.role !== 'teacher') { return res.status(403).json({ message: 'Forbidden' }); }
+    if (!process.env.API_KEY) { return res.status(500).json({ message: 'AI features are not configured.' }); }
+
+    try {
+        const { messageText, messageId } = req.body;
+        const teacher = await Faculty.findOne({ id: req.user.profileId });
+        if (!teacher) { return res.status(404).json({ message: 'Teacher profile not found.' }); }
+
+        const assignedSubjects = await Subject.find({ assignedFacultyId: teacher.id });
+        const prompt = generateTeacherQAPrompt(messageText, teacher, assignedSubjects);
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash', contents: prompt, config: { tools: [{googleSearch: {}}] }
+        });
+
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const channelId = `teacher-ai-${req.user.profileId}`;
+        const aiMessage = new ChatMessage({
+            id: `ai-msg-${messageId}`, author: 'Campus AI', role: 'admin', text: response.text,
+            timestamp: Date.now(), classId: channelId, channel: channelId, groundingChunks: groundingChunks
+        });
+        await aiMessage.save();
+        res.status(201).json(aiMessage);
+    } catch(error) {
+        res.status(500).json({ message: "The AI assistant is currently unavailable." });
+    }
+});
+
 // Gemini Timetable Generation
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
     // This prompt is highly structured to guide the AI towards a valid JSON output.

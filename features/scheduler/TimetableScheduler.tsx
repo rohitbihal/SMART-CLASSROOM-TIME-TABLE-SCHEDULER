@@ -104,8 +104,8 @@ const FacultyForm = ({ initialData, onSave }: { initialData: Faculty | null; onS
         </form>
     );
 };
-const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | null; onSave: (data: any) => Promise<void>; faculty: Faculty[]; }) => {
-    const [data, setData] = useState(initialData || { id: '', name: '', code: '', department: '', semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: '' });
+const SubjectForm = ({ initialData, onSave, faculty, classes }: { initialData: Subject | null; onSave: (data: any) => Promise<void>; faculty: Faculty[]; classes: Class[]; }) => {
+    const [data, setData] = useState(initialData || { id: '', name: '', code: '', department: '', semester: 1, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: '', forClass: '' });
     const departments = useMemo(() => [...new Set(faculty.map(f => f.department))], [faculty]);
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setData({ ...data, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value, 10) : e.target.value });
     const formId = initialData?.id || 'new-subject';
@@ -125,6 +125,12 @@ const SubjectForm = ({ initialData, onSave, faculty }: { initialData: Subject | 
                         <option value="Theory">Theory</option>
                         <option value="Lab">Lab</option>
                         <option value="Tutorial">Tutorial</option>
+                    </SelectInput>
+                </FormField>
+                <FormField label="For Class" htmlFor={`${formId}-forClass`}>
+                    <SelectInput id={`${formId}-forClass`} name="forClass" value={data.forClass} onChange={handleChange} required>
+                        <option value="" disabled>Select Class...</option>
+                        {classes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </SelectInput>
                 </FormField>
                 <FormField label="Semester" htmlFor={`${formId}-semester`}><TextInput type="number" id={`${formId}-semester`} name="semester" value={data.semester} onChange={handleChange} required min={1} /></FormField>
@@ -447,12 +453,12 @@ const SetupTab = ({ institutions, classes, faculty, subjects, rooms, onSaveEntit
                 </SectionCard>
                 <SectionCard title="Subjects" actions={renderSectionActions('subject', 'Subject')}>
                     <SearchInput value={search.subject} onChange={v => handleSearch('subject', v)} placeholder="Search subjects..." label="Search Subjects" id="search-subject" />
-                    <DataTable headers={["Name", "Code", "Dept", "Sem", "Type", "Credits", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
+                    <DataTable headers={["Name", "Code", "For Class", "Sem", "Type", "Credits", "Faculty", "Actions"]} data={filtered.subject} renderRow={(s: Subject) => (
                         <tr key={s.id} className="border-b dark:border-slate-700">
                             <td className="px-4 py-3"><input type="checkbox" className="h-4 w-4" checked={selectedItems.subject.includes(s.id)} onChange={() => onToggleSelect('subject', s.id)} /></td>
                             <td className="px-6 py-3 font-medium">{s.name}</td>
                             <td className="px-6 py-3">{s.code}</td>
-                            <td className="px-6 py-3">{s.department}</td>
+                            <td className="px-6 py-3">{s.forClass}</td>
                             <td className="px-6 py-3">{s.semester}</td>
                             <td className="px-6 py-3">{s.type}</td>
                             <td className="px-6 py-3">{s.credits}</td>
@@ -1867,7 +1873,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
             </main>
             {modal && FormComponent && (
                 <Modal isOpen={!!modal} onClose={() => setModal(null)} title={`${modal.mode === 'add' ? 'Add' : 'Edit'} ${modal.type}`} error={pageError} size={modalSize}>
-                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={activeBlocks} />
+                    <FormComponent initialData={modal.data} onSave={(data: Entity) => handleSave(modal.type, data)} faculty={faculty} blocks={activeBlocks} classes={classes} />
                 </Modal>
             )}
              <DataManagementModal isOpen={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={handleUniversalImport} />

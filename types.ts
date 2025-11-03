@@ -44,6 +44,7 @@ export interface Subject {
   type: 'Theory' | 'Lab' | 'Tutorial'; // UPDATED
   hoursPerWeek: number;
   assignedFacultyId: string;
+  forClass: string;
 }
 
 // NEW: Equipment type for rooms
