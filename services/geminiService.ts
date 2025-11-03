@@ -1,6 +1,4 @@
 
-
-
 import { Class, Faculty, Subject, Room, Constraints, TimetableEntry, GenerationResult } from '../types';
 
 // NOTE: The base URL for the backend server.
@@ -32,13 +30,16 @@ export const generateTimetable = async (
 
     if (!response.ok) {
         let errorMsg = `Server responded with status: ${response.status}`;
+        // Read the full response body as text first to avoid "body stream already read" errors.
+        const responseText = await response.text();
         try {
-            // Try to parse a structured error message from the server
-            const errorData = await response.json();
-            errorMsg = errorData.message || JSON.stringify(errorData);
+            // Attempt to parse the text as JSON, which is the expected error format from our API.
+            const errorData = JSON.parse(responseText);
+            errorMsg = errorData.details || errorData.message || JSON.stringify(errorData);
         } catch (e) {
-            // If response is not JSON, it might be an HTML error page. Use the raw text.
-            errorMsg = await response.text();
+            // If parsing fails, the error response was not JSON (e.g., an HTML error page from a proxy).
+            // Use the raw text as the error message. Truncate for readability.
+            errorMsg = responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '');
         }
         throw new Error(`The server encountered an issue: ${errorMsg}`);
     }

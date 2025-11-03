@@ -1,3 +1,4 @@
+
 // FIX: Add ReassignmentSuggestion to imports and remove duplicate StudentQuery
 import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification, StudentQuery, ReassignmentPayload, ReassignmentSuggestion } from '../types';
 import { logger } from './logger';
@@ -5,13 +6,14 @@ import { logger } from './logger';
 const API_BASE_URL = '/api';
 
 const handleApiError = async (response: Response): Promise<ErrorResponse> => {
+    const responseText = await response.text();
     try {
-        const errorData = await response.json();
+        const errorData = JSON.parse(responseText);
         const message = errorData.message || 'The server returned an unspecified error.';
         logger.error(new Error(message), { status: response.status, errorData });
         return { message, code: response.status.toString(), details: errorData.errors };
     } catch {
-        const message = `Server responded with status: ${response.status}`;
+        const message = responseText.substring(0, 500) || `Server responded with status: ${response.status}`;
         logger.error(new Error(message), { status: response.status });
         return { message, code: response.status.toString() };
     }
