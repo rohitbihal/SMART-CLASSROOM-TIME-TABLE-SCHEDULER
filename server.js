@@ -1081,12 +1081,12 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
         ]);
         
         const newInstitutions = [
-            { id: 'inst1', name: 'Global University of Technology', academicYear: '2024-2025', semester: 'Odd', session: 'Regular', blocks: ['A-Block (CSE)', 'B-Block (ECE)', 'C-Block (ME)', 'D-Block (Labs & Admin)'] }
+            { id: 'inst1', name: 'Global University of Technology', academicYear: '2024-2025', semester: 'Odd', session: 'Regular', blocks: ['A-Block (CSE)', 'B-Block (ECE)', 'C-Block (ME)', 'D-Block (Labs & Admin)', 'E-Block (CYS & BCA)'] }
         ];
         
         const newFaculty = [
             { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Algorithms', 'Data Structures', 'AI'], email: 'rajesh.kumar@university.edu', contactNumber: '9876543210', maxWorkload: 10 },
-            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 12 },
+            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems', 'OOPS'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 12 },
             { id: 'f3', name: 'Dr. Amit Singh', employeeId: 'T003', designation: 'Assistant Professor', department: 'ECE', specialization: ['VLSI', 'Signal Processing'], email: 'amit.singh@university.edu', contactNumber: '9876543212', maxWorkload: 14 },
             { id: 'f4', name: 'Dr. Sneha Reddy', employeeId: 'T004', designation: 'Professor', department: 'ME', specialization: ['Thermodynamics', 'Fluid Mechanics'], email: 'sneha.reddy@university.edu', contactNumber: '9876543213', maxWorkload: 11 },
             { id: 'f5', name: 'Mr. Vikram Verma', employeeId: 'T005', designation: 'Lecturer', department: 'CSE', specialization: ['Web Development', 'Java'], email: 'vikram.verma@university.edu', contactNumber: '9876543214', maxWorkload: 16 },
@@ -1099,6 +1099,10 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { id: 'f12', name: 'Ms. Rina Singh', employeeId: 'T012', designation: 'Assistant Professor', department: 'CSE', specialization: ['Compiler Design', 'Theory of Computation'], email: 'rina.singh@university.edu', contactNumber: '9876543221', maxWorkload: 14 },
             { id: 'f13', name: 'Dr. Anil Kumar', employeeId: 'T013', designation: 'Professor', department: 'ECE', specialization: ['Digital Communication', 'Wireless Networks'], email: 'anil.kumar@university.edu', contactNumber: '9876543222', maxWorkload: 10 },
             { id: 'f14', name: 'Mr. Rajesh Menon', employeeId: 'T014', designation: 'Lecturer', department: 'ME', specialization: ['Manufacturing Processes', 'CAD/CAM'], email: 'rajesh.menon@university.edu', contactNumber: '9876543223', maxWorkload: 16 },
+            { id: 'f15', name: 'Dr. Neha Sharma', employeeId: 'T015', designation: 'Assistant Professor', department: 'CYS', specialization: ['DSA', 'OOPS', 'Cybersecurity'], email: 'neha.sharma@university.edu', contactNumber: '9876543224', maxWorkload: 14 },
+            { id: 'f16', name: 'Dr. Rohan Mehra', employeeId: 'T016', designation: 'Assistant Professor', department: 'BCA', specialization: ['Digital Electronics', 'Computer Architecture'], email: 'rohan.mehra@university.edu', contactNumber: '9876543225', maxWorkload: 14 },
+            { id: 'f17', name: 'Dr. Alok Nath', employeeId: 'T017', designation: 'Professor', department: 'Math', specialization: ['Applied Mathematics', 'Discrete Mathematics'], email: 'alok.nath@university.edu', contactNumber: '9876543226', maxWorkload: 10 },
+            { id: 'f18', name: 'Mr. Kumar Sanu', employeeId: 'T018', designation: 'Lecturer', department: 'CSE', specialization: ['Digital Electronics'], email: 'kumar.sanu@university.edu', contactNumber: '9876543227', maxWorkload: 16 },
         ];
         
         const newClasses = [
@@ -1108,6 +1112,12 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { id: 'c4', name: 'ME-2-A', branch: 'ME', year: 2, section: 'A', studentCount: 50, block: 'C-Block (ME)' },
             { id: 'c5', name: 'CSE-1-A', branch: 'CSE', year: 1, section: 'A', studentCount: 65, block: 'A-Block (CSE)' },
             { id: 'c6', name: 'CSE-2-A', branch: 'CSE', year: 2, section: 'A', studentCount: 62, block: 'A-Block (CSE)' },
+            { id: 'c7', name: 'CYS-1-A', branch: 'CYS', year: 1, section: 'A', studentCount: 60, block: 'E-Block (CYS & BCA)' },
+            { id: 'c8', name: 'CYS-1-B', branch: 'CYS', year: 1, section: 'B', studentCount: 60, block: 'E-Block (CYS & BCA)' },
+            { id: 'c9', name: 'BCA-1-A', branch: 'BCA', year: 1, section: 'A', studentCount: 60, block: 'E-Block (CYS & BCA)' },
+            { id: 'c10', name: 'BCA-1-B', branch: 'BCA', year: 1, section: 'B', studentCount: 60, block: 'E-Block (CYS & BCA)' },
+            { id: 'c11', name: 'CSE-3-C', branch: 'CSE', year: 3, section: 'C', studentCount: 60, block: 'A-Block (CSE)' },
+            { id: 'c12', name: 'CSE-3-D', branch: 'CSE', year: 3, section: 'D', studentCount: 60, block: 'A-Block (CSE)' },
         ];
         
         const newSubjects = [
@@ -1133,6 +1143,13 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { id: 's16', name: 'Digital Logic Design', code: 'CS201', department: 'CSE', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f2', forClass: 'CSE-2-A' },
             // Common
             { id: 's17', name: 'Professional Ethics', code: 'HU301', department: 'Humanities', semester: 5, credits: 2, type: 'Theory', hoursPerWeek: 2, assignedFacultyId: 'f10', forClass: 'CSE-3-A' },
+            // NEW Subjects for new classes
+            { id: 's20', name: 'Data Structures & Algo', code: 'CY101', department: 'CYS', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f15', forClass: 'CYS-1-A' },
+            { id: 's21', name: 'Object Oriented Programming', code: 'CY102', department: 'CYS', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f15', forClass: 'CYS-1-B' },
+            { id: 's22', name: 'Discrete Mathematics', code: 'BC101', department: 'BCA', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f17', forClass: 'BCA-1-A' },
+            { id: 's23', name: 'Digital Electronics', code: 'BC102', department: 'BCA', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f16', forClass: 'BCA-1-B' },
+            { id: 's24', name: 'Data Structures', code: 'CS301-C', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1', forClass: 'CSE-3-C' },
+            { id: 's25', name: 'Object Oriented Programming', code: 'CS307-D', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-D' },
         ];
         
         const newRooms = [
@@ -1143,6 +1160,12 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { id: 'r5', number: 'C-G01', building: 'Mechanical Block', type: 'Classroom', capacity: 70, block: 'C-Block (ME)', equipment: { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
             { id: 'r6', number: 'D-Sem-Hall', building: 'Lab Block D', type: 'Seminar Hall', capacity: 150, block: 'D-Block (Labs & Admin)', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
             { id: 'r7', number: 'D-Lab-2 (ECE)', building: 'Lab Block D', type: 'Laboratory', capacity: 55, block: 'D-Block (Labs & Admin)', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 55 }, audioSystem: false, whiteboard: true } },
+            { id: 'r8', number: 'E-101', building: 'Academic Block E', type: 'Classroom', capacity: 70, block: 'E-Block (CYS & BCA)', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r9', number: 'E-102', building: 'Academic Block E', type: 'Classroom', capacity: 70, block: 'E-Block (CYS & BCA)', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r10', number: 'E-201', building: 'Academic Block E', type: 'Classroom', capacity: 70, block: 'E-Block (CYS & BCA)', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r11', number: 'E-202', building: 'Academic Block E', type: 'Classroom', capacity: 70, block: 'E-Block (CYS & BCA)', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+            { id: 'r12', number: 'A-103', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block (CSE)', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+            { id: 'r13', number: 'A-104', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block (CSE)', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
         ];
         
         const newStudents = [];
@@ -1175,6 +1198,7 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { username: 'student21@university.edu', password: await bcrypt.hash('student456', 10), role: 'student', profileId: 'st21' }, // Student CSE-3-B-1
             { username: 'suresh.gupta@university.edu', password: await bcrypt.hash('teacher111', 10), role: 'teacher', profileId: 'f11' },
             { username: 'rina.singh@university.edu', password: await bcrypt.hash('teacher222', 10), role: 'teacher', profileId: 'f12' },
+            { username: 'neha.sharma@university.edu', password: await bcrypt.hash('teacher333', 10), role: 'teacher', profileId: 'f15' },
         ];
 
         const newTimetable = [
@@ -1201,6 +1225,13 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { day: 'tuesday', time: '12:00-12:50', subject: 'Web Development Lab', faculty: 'Mr. Vikram Verma', room: 'D-Lab-1 (CS)', type: 'Lab', className: 'CSE-3-A', classType: 'fixed' },
             { day: 'tuesday', time: '01:35-02:25', subject: 'Robotics', faculty: 'Mr. Rohan Patel', room: 'C-G01', type: 'Theory', className: 'ME-2-A', classType: 'regular' },
             { day: 'tuesday', time: '02:25-03:15', subject: 'Embedded Systems', faculty: 'Mr. Sanjay Rao', room: 'B-201', type: 'Theory', className: 'ECE-3-A', classType: 'regular' },
+            // Wednesday - New entries
+            { day: 'wednesday', time: '09:30-10:20', subject: 'Data Structures & Algo', faculty: 'Dr. Neha Sharma', room: 'E-101', type: 'Theory', className: 'CYS-1-A', classType: 'regular' },
+            { day: 'wednesday', time: '10:20-11:10', subject: 'Object Oriented Programming', faculty: 'Dr. Neha Sharma', room: 'E-102', type: 'Theory', className: 'CYS-1-B', classType: 'regular' },
+            { day: 'wednesday', time: '09:30-10:20', subject: 'Discrete Mathematics', faculty: 'Dr. Alok Nath', room: 'E-201', type: 'Theory', className: 'BCA-1-A', classType: 'regular' },
+            { day: 'wednesday', time: '10:20-11:10', subject: 'Digital Electronics', faculty: 'Dr. Rohan Mehra', room: 'E-202', type: 'Theory', className: 'BCA-1-B', classType: 'regular' },
+            { day: 'wednesday', time: '11:10-12:00', subject: 'Data Structures', faculty: 'Dr. Rajesh Kumar', room: 'A-103', type: 'Theory', className: 'CSE-3-C', classType: 'regular' },
+            { day: 'wednesday', time: '12:00-12:50', subject: 'Object Oriented Programming', faculty: 'Dr. Priya Sharma', room: 'A-104', type: 'Theory', className: 'CSE-3-D', classType: 'regular' },
         ];
 
         const newAttendance = [
