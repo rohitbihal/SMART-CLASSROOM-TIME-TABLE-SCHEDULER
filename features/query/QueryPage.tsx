@@ -145,7 +145,7 @@ const QueryPage = () => {
     const studentMap = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
 
     const filteredTeacherQueries = useMemo(() => {
-        return teacherRequests
+        return (teacherRequests || [])
             .filter(q => filters.status === 'all' || q.status === filters.status)
             .filter(q => filters.priority === 'all' || q.priority === filters.priority)
             .filter(q => {

@@ -521,6 +521,18 @@ const generateTeacherQAPrompt = (question, teacher, subjects) => {
     `;
 };
 
+// NEW: Endpoint for real-time chat polling
+app.get('/api/chat/updates', authMiddleware, async (req, res) => {
+    try {
+        const since = parseInt(req.query.since, 10) || 0;
+        // Fetch messages newer than the timestamp
+        const newMessages = await ChatMessage.find({ timestamp: { $gt: since } }).sort({ timestamp: 1 });
+        res.json(newMessages);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching chat updates', error: error.message });
+    }
+});
+
 // Endpoint for human-to-human chat messages (fixes the main bug)
 app.post('/api/chat/message', authMiddleware, [
     body('channel').isString().notEmpty(),

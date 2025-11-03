@@ -1795,6 +1795,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const handleGenerate = useCallback(async () => {
         setIsGenerating(true);
         setGenerationError(null);
+        setGenerationResult(null);
         try {
             if (!constraints) throw new Error("Constraints are not loaded.");
             const result = await generateTimetable(classes, faculty, subjects, rooms, constraints, token);

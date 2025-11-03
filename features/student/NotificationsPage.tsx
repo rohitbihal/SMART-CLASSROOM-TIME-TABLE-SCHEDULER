@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SectionCard } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { StudentDashboardNotification, AppNotification } from '../../types';
@@ -9,7 +9,13 @@ type CombinedNotification = (StudentDashboardNotification & { sourceType: 'perso
 
 
 export const NotificationsPage = () => {
-    const { notifications: personalNotifications, appNotifications, user } = useAppContext();
+    const { notifications: personalNotifications, appNotifications, user, students, classes } = useAppContext();
+
+    const studentProfile = useMemo(() => students.find(s => s.id === user?.profileId), [students, user]);
+    const studentClassId = useMemo(() => {
+        const classProfile = classes.find(c => c.id === studentProfile?.classId);
+        return classProfile?.id;
+    }, [classes, studentProfile]);
 
     const combinedNotifications = useMemo(() => {
         const studentNotifications: CombinedNotification[] = personalNotifications.map(n => ({ ...n, sourceType: 'personal' }));
@@ -19,16 +25,23 @@ export const NotificationsPage = () => {
                 if (n.recipients.type === 'Students' || n.recipients.type === 'Both') {
                     return true;
                 }
-                // In a real app with class data, you'd check specific class IDs here
+                // Check for specific class notifications
+                if (n.recipients.type === 'Specific' && studentClassId) {
+                    return n.recipients.ids?.includes(studentClassId);
+                }
                 return false;
             })
             .map(n => ({ ...n, sourceType: 'global', timestamp: n.sentDate }));
 
         return [...studentNotifications, ...globalNotifications].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    }, [personalNotifications, appNotifications, user]);
+    }, [personalNotifications, appNotifications, user, studentClassId]);
     
-    const [notifications, setNotifications] = useState(combinedNotifications);
+    const [notifications, setNotifications] = useState<CombinedNotification[]>([]);
+
+    useEffect(() => {
+        setNotifications(combinedNotifications);
+    }, [combinedNotifications]);
 
 
     const handleMarkAsRead = (id: string) => {

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback, useContext, useMemo } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
 import { User, Class, Faculty, Subject, Room, Student, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentQuery, Exam, StudentDashboardNotification, StudentAttendance, AppNotification, SyllabusProgress, Meeting, CalendarEvent, CustomConstraint } from '../types';
 import * as api from '../services/api';
 import { logger } from '../services/logger';
@@ -160,6 +160,44 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     };
     
     const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
+    // --- Real-time Chat Polling ---
+    const lastMessageTimestamp = useRef(0);
+
+    useEffect(() => {
+        if (chatMessages.length > 0) {
+            const maxTimestamp = Math.max(...chatMessages.map(m => m.timestamp));
+            if (maxTimestamp > lastMessageTimestamp.current) {
+                lastMessageTimestamp.current = maxTimestamp;
+            }
+        }
+    }, [chatMessages]);
+
+    useEffect(() => {
+        if (!token) return;
+
+        const poll = async () => {
+            try {
+                const newMessages = await api.fetchChatUpdates(lastMessageTimestamp.current);
+                if (newMessages.length > 0) {
+                    setChatMessages(prev => {
+                        const existingIds = new Set(prev.map(m => m.id));
+                        const uniqueNewMessages = newMessages.filter(m => !existingIds.has(m.id));
+                        if (uniqueNewMessages.length > 0) {
+                            return [...prev, ...uniqueNewMessages].sort((a, b) => a.timestamp - b.timestamp);
+                        }
+                        return prev;
+                    });
+                }
+            } catch (error) {
+                // Polling errors are logged by the API service, so we don't need to throw here
+            }
+        };
+
+        const intervalId = setInterval(poll, 3000); // Poll every 3 seconds
+        return () => clearInterval(intervalId);
+    }, [token]);
+
 
     const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution', data: any) => {
         const savedItem = await api.saveEntity(type, data);

@@ -7,7 +7,21 @@ import { NotificationsIcon } from '../../components/Icons';
 type CombinedNotification = (AppNotification & { sourceType: 'global' });
 
 const NotificationsPage = () => {
-    const { appNotifications, user } = useAppContext();
+    const { appNotifications, user, faculty, subjects, classes } = useAppContext();
+
+    const teacherProfile = useMemo(() => faculty.find(f => f.id === user?.profileId), [faculty, user]);
+
+    const assignedClassIds = useMemo(() => {
+        if (!teacherProfile) return new Set<string>();
+
+        const assignedClassNames = new Set(
+            subjects.filter(s => s.assignedFacultyId === teacherProfile.id).map(s => s.forClass)
+        );
+
+        return new Set(
+            classes.filter(c => assignedClassNames.has(c.name)).map(c => c.id)
+        );
+    }, [teacherProfile, subjects, classes]);
 
     const combinedNotifications = useMemo(() => {
         const globalNotifications: CombinedNotification[] = appNotifications
@@ -15,14 +29,17 @@ const NotificationsPage = () => {
                 if (n.recipients.type === 'Teachers' || n.recipients.type === 'Both') {
                     return true;
                 }
-                // Placeholder for more specific filtering logic if needed
+                if (n.recipients.type === 'Specific') {
+                    // Show notification if it's for any of the classes the teacher is assigned to
+                    return n.recipients.ids?.some(id => assignedClassIds.has(id));
+                }
                 return false;
             })
             .map(n => ({ ...n, sourceType: 'global' }));
 
         return [...globalNotifications].sort((a, b) => new Date(b.sentDate).getTime() - new Date(a.sentDate).getTime());
 
-    }, [appNotifications, user]);
+    }, [appNotifications, assignedClassIds]);
 
     return (
         <SectionCard title="Notifications & Announcements">

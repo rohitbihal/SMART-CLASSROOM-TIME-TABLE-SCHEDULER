@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 // FIX: Imported shared components from the correct path.
 import { SectionCard, Modal, FormField, SelectInput, TextInput } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
@@ -16,6 +16,21 @@ const MeetingForm = ({ isOpen, onClose, onCreateMeeting }: { isOpen: boolean, on
     const [selectedFaculty, setSelectedFaculty] = useState<string[]>([]);
     const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
     
+    useEffect(() => {
+        if (form.platform !== 'Offline' && !form.meetingLink) {
+            const platforms = {
+                'Google Meet': 'https://meet.google.com/',
+                'Zoom': 'https://zoom.us/j/',
+                'MS Teams': 'https://teams.microsoft.com/l/meetup-join/'
+            };
+            const randomId = Math.random().toString(36).substring(2, 12);
+            const baseUrl = platforms[form.platform as keyof typeof platforms] || 'https://example.com/meet/';
+            setForm(prev => ({ ...prev, meetingLink: `${baseUrl}${randomId}` }));
+        } else if (form.platform === 'Offline') {
+            setForm(prev => ({ ...prev, meetingLink: '' }));
+        }
+    }, [form.platform]);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const participants = [

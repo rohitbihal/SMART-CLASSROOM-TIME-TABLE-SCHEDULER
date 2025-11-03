@@ -172,6 +172,16 @@ export const suggestReassignment = async (payload: { classes: Class[], faculty: 
 };
 
 // --- CHAT API ---
+export const fetchChatUpdates = async (since: number): Promise<ChatMessage[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/chat/updates?since=${since}`);
+    if (!response.ok) {
+        // Don't throw for polling errors to avoid interrupting the user experience. Just log it.
+        console.error('Chat poll failed:', await response.text());
+        return [];
+    }
+    return response.json();
+};
+
 export const askCampusAI = async (payload: { messageText: string, classId: string, messageId: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {
         method: 'POST',
