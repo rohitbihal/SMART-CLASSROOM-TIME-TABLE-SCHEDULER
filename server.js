@@ -1096,8 +1096,8 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
         ];
         
         const newFaculty = [
-            { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Algorithms', 'Data Structures', 'AI'], email: 'rajesh.kumar@university.edu', contactNumber: '9876543210', maxWorkload: 10 },
-            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems', 'OOPS'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 12 },
+            { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Algorithms', 'Data Structures', 'AI'], email: 'rajesh.kumar@university.edu', contactNumber: '9876543210', maxWorkload: 12 },
+            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems', 'OOPS'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 14 },
             { id: 'f3', name: 'Dr. Amit Singh', employeeId: 'T003', designation: 'Assistant Professor', department: 'ECE', specialization: ['VLSI', 'Signal Processing'], email: 'amit.singh@university.edu', contactNumber: '9876543212', maxWorkload: 14 },
             { id: 'f4', name: 'Dr. Sneha Reddy', employeeId: 'T004', designation: 'Professor', department: 'ME', specialization: ['Thermodynamics', 'Fluid Mechanics'], email: 'sneha.reddy@university.edu', contactNumber: '9876543213', maxWorkload: 11 },
             { id: 'f5', name: 'Mr. Vikram Verma', employeeId: 'T005', designation: 'Lecturer', department: 'CSE', specialization: ['Web Development', 'Java'], email: 'vikram.verma@university.edu', contactNumber: '9876543214', maxWorkload: 16 },

@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+// FIX: Removed the reference to "vite/client" as it was causing a type definition error. The manual definitions below provide the necessary types for `import.meta.env`.
 
 // FIX: Manually define ImportMeta and ImportMetaEnv to resolve issues
 // where `vite/client` types are not being picked up. This makes properties
