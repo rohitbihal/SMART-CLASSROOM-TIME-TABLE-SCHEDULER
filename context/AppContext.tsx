@@ -43,8 +43,8 @@ interface AppContextType {
     calendarEvents: CalendarEvent[];
 
     // Data Handlers
-    handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', data: any) => Promise<any>;
-    handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', id: string) => Promise<void>;
+    handleSaveEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events' | 'syllabus-progress', data: any) => Promise<any>;
+    handleDeleteEntity: (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events' | 'syllabus-progress', id: string) => Promise<void>;
     handleUpdateConstraints: (newConstraints: Constraints) => Promise<void>;
     handleUpdateFacultyAvailability: (facultyId: string, unavailability: { day: string, timeSlot: string }[]) => Promise<void>;
     handleUpdateTeacherAvailability: (facultyId: string, availability: { [day: string]: string[] }) => Promise<void>;
@@ -76,7 +76,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// FIX: Made children optional to handle cases where it might not be provided, preventing a TypeScript error.
 export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(() => { try { const u = sessionStorage.getItem('user'); return u ? JSON.parse(u) : null; } catch { return null; } });
     const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('token'));
@@ -109,10 +108,9 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (isBackground = false) => {
         if (!token) { setAppState('ready'); return; }
-        // Don't set loading for background polls
-        if (appState !== 'ready') {
+        if (!isBackground) {
             setAppState('loading');
         }
         try {
@@ -146,11 +144,11 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         } finally {
             setAppState('ready');
         }
-    }, [token, appState]);
+    }, [token]);
 
     useEffect(() => {
-        fetchData();
-    }, [token]); // Run only when token changes initially
+        fetchData(false);
+    }, [token]); 
 
     const login = (loggedInUser: User, authToken: string) => {
         sessionStorage.setItem('user', JSON.stringify(loggedInUser));
@@ -170,6 +168,7 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const lastMessageTimestamp = useRef(0);
     const lastMeetingTimestamp = useRef(0);
     const lastNotificationTimestamp = useRef(0);
+    const lastCalendarEventTimestamp = useRef(0);
 
 
     useEffect(() => {
@@ -198,6 +197,15 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
             }
         }
     }, [appNotifications]);
+
+    useEffect(() => {
+        if (calendarEvents.length > 0) {
+            const maxTimestamp = Math.max(...calendarEvents.map(e => e.updatedAt ? new Date(e.updatedAt).getTime() : 0));
+            if (maxTimestamp > lastCalendarEventTimestamp.current) {
+                lastCalendarEventTimestamp.current = maxTimestamp;
+            }
+        }
+    }, [calendarEvents]);
 
 
     useEffect(() => {
@@ -240,6 +248,16 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
                         return prev;
                     });
                 }
+                
+                // Calendar Event updates
+                const newEvents = await api.fetchCalendarEventUpdates(lastCalendarEventTimestamp.current);
+                if (newEvents.length > 0) {
+                    setCalendarEvents(prev => {
+                        const eventMap = new Map(prev.map(e => [e.id, e]));
+                        newEvents.forEach(e => eventMap.set(e.id, e));
+                        return Array.from(eventMap.values()).sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+                    });
+                }
 
             } catch (error) {
                 // Polling errors are logged by the API service, so we don't need to throw here
@@ -253,11 +271,10 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         };
     }, [token]);
     
-    // NEW: General data poller for non-admin users to get timetable updates etc.
     useEffect(() => {
         if (user && user.role !== 'admin' && token) {
             const intervalId = setInterval(() => {
-                fetchData();
+                fetchData(true);
             }, 30000); // Poll every 30 seconds
 
             return () => clearInterval(intervalId);
@@ -265,17 +282,17 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     }, [user, token, fetchData]);
 
 
-    const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', data: any) => {
+    const handleSaveEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events' | 'syllabus-progress', data: any) => {
         const savedItem = await api.saveEntity(type, data);
-        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions, meetings: setMeetings, 'app-notifications': setAppNotifications, 'calendar-events': setCalendarEvents };
+        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions, meetings: setMeetings, 'app-notifications': setAppNotifications, 'calendar-events': setCalendarEvents, 'syllabus-progress': setSyllabusProgress };
         const setter = setterMap[type];
         setter(prev => !data.id ? [...prev, savedItem] : prev.map(item => item.id === savedItem.id ? savedItem : item));
         return savedItem;
     }, []);
 
-    const handleDeleteEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events', id: string) => {
+    const handleDeleteEntity = useCallback(async (type: 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events' | 'syllabus-progress', id: string) => {
         await api.deleteEntity(type, id);
-        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions, meetings: setMeetings, 'app-notifications': setAppNotifications, 'calendar-events': setCalendarEvents };
+        const setterMap = { class: setClasses, faculty: setFaculty, subject: setSubjects, room: setRooms, student: setStudents, institution: setInstitutions, meetings: setMeetings, 'app-notifications': setAppNotifications, 'calendar-events': setCalendarEvents, 'syllabus-progress': setSyllabusProgress };
         const setter = setterMap[type];
         setter(prev => prev.filter(item => item.id !== id));
     }, []);
@@ -443,7 +460,7 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
 
     const handleResetData = useCallback(async () => {
         await api.resetAllData();
-        await fetchData();
+        await fetchData(false);
     }, [fetchData]);
     
     const handleSaveUser = useCallback(async (userData: any) => {
@@ -463,23 +480,20 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
 
     const handleUniversalImport = useCallback(async (fileData: string, mimeType: string) => {
         await api.universalImport(fileData, mimeType);
-        await fetchData(); // Re-fetch all data to sync client state
+        await fetchData(false); 
     }, [fetchData]);
 
 
     // NEW Handlers
     const handleCreateMeeting = useCallback(async (meeting: Omit<Meeting, 'id' | 'attendance'>) => {
-        // FIX: Cast the result from the API to the full `Meeting` type. The API returns the complete object with an ID.
         const newMeeting = await api.saveEntity('meetings', meeting) as Meeting;
         setMeetings(prev => [...prev, newMeeting]);
     }, []);
     const handleCreateCalendarEvent = useCallback(async (event: Omit<CalendarEvent, 'id'>) => {
-        // FIX: Cast the result from the API to the full `CalendarEvent` type. The API returns the complete object with an ID.
         const newEvent = await api.saveEntity('calendar-events', event) as CalendarEvent;
         setCalendarEvents(prev => [...prev, newEvent]);
     }, []);
     const handleSendNotification = useCallback(async (notification: Omit<AppNotification, 'id' | 'sentDate' | 'status'>) => {
-        // FIX: Cast the result from the API to the full `AppNotification` type. The API returns the complete object with an ID.
         const newNotification = await api.saveEntity('app-notifications', { ...notification, sentDate: new Date().toISOString(), status: 'Sent' }) as AppNotification;
         setAppNotifications(prev => [...prev, newNotification]);
     }, []);

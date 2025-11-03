@@ -201,7 +201,6 @@ const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique:
 const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String }, { timestamps: true });
 const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed], attendance: [mongoose.Schema.Types.Mixed] }, { timestamps: true });
 
-// FIX: Corrected the schema for recipients. It is an object containing a 'type' string and an 'ids' array, not a string itself.
 const appNotificationSchema = new mongoose.Schema({
     id: { type: String, unique: true },
     title: String,
@@ -333,6 +332,7 @@ app.use('/api/institution', createCrudRoutes(Institution, 'institution'));
 app.use('/api/meetings', createCrudRoutes(Meeting, 'meeting'));
 app.use('/api/app-notifications', createCrudRoutes(AppNotification, 'app notification'));
 app.use('/api/calendar-events', createCrudRoutes(CalendarEvent, 'calendar event'));
+app.use('/api/syllabus-progress', createCrudRoutes(SyllabusProgress, 'syllabus progress'));
 
 
 // Teacher Availability Route
@@ -602,6 +602,18 @@ app.get('/api/updates/notifications', authMiddleware, async (req, res) => {
     }
 });
 
+// NEW: Endpoint for real-time calendar event updates
+app.get('/api/updates/calendar-events', authMiddleware, async (req, res) => {
+    try {
+        const since = req.query.since ? new Date(parseInt(req.query.since, 10)) : new Date(0);
+        const newEvents = await CalendarEvent.find({ updatedAt: { $gt: since } }).sort({ updatedAt: 1 });
+        res.json(newEvents);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching calendar updates', error: error.message });
+    }
+});
+
+
 // Endpoint for human-to-human chat messages (fixes the main bug)
 app.post('/api/chat/message', authMiddleware, [
     body('channel').isString().notEmpty(),
@@ -814,7 +826,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       - **Subject Relevance Rule:** Each subject has a "forClass" property. You MUST schedule a subject ONLY for the class name specified in its "forClass" property.
       - Schedule exactly 'hoursPerWeek' sessions for each subject.
       - Lab subjects MUST be assigned to 'Laboratory' type rooms. Theory subjects to 'Classroom'.
-      - Fixed/Pinned Classes: These are pre-scheduled and non-negotiable. They MUST be placed exactly as specified. This means the specified class, its assigned faculty for the subject, and its specified room (if any) are all occupied during that time slot and cannot be used for any other session. Data: ${JSON.stringify(resolvedFixedClasses)}.
+      - **Fixed/Pinned Classes:** These are pre-scheduled and ABSOLUTELY NON-NEGOTIABLE. They MUST be placed exactly as specified. This means the specified class, its assigned faculty for the subject, and its specified room (if any) are all occupied during that time slot and cannot be used for any other session. This is the highest priority constraint. Data: ${JSON.stringify(resolvedFixedClasses)}.
       - Faculty Unavailability: This faculty is unavailable at these specific times: ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, day: u.day, time: u.timeSlot }))))}
       - Max Concurrent Classes per Department: Do not schedule more than the specified number of classes simultaneously for any given department: ${JSON.stringify(constraints.maxConcurrentClassesPerDept || {})}
 
@@ -822,7 +834,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
 
       - Fulfilling all hard constraints is your most important task. If a perfect schedule satisfying all soft goals is not possible, create a valid schedule that meets all hard rules, even if it's not ideal.
       - Distribute subjects for a class throughout the week. A 4-hour subject should ideally be on 3-4 different days, not just 1 or 2.
-      - Schedule Distribution: For each class/section, aim to schedule a balanced number of lectures each day. If a day has 8 available slots, try to schedule at least 4 lectures for each class to ensure a full academic day.
+      - **Schedule Distribution:** For each class/section, aim to schedule a balanced number of lectures each day. If a day has 8 available slots, you MUST try to schedule at least 4 lectures for each class to ensure a full academic day and avoid empty periods.
       - Prioritize compact schedules: Fill morning slots first and minimize gaps in a section's schedule, especially at the start or end of the day.
       - Max Consecutive Classes (Global): Try not to schedule more than ${constraints.maxConsecutiveClasses} classes in a row for any section.
       - Faculty Preferences:
@@ -1144,7 +1156,6 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { name: 'Object Oriented Programming', codePrefix: 'CS', type: 'oops' },
         ];
         
-        // Use random assignment per user request.
         const getRandomFacultyId = (type) => {
             const specialists = facultyPool[type];
             if (!specialists || specialists.length === 0) return null;
@@ -1174,14 +1185,14 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
         const teacherProfileForUser = facultyPool.dsa[0]; // Dr. Kenji Tanaka
         
         const newStudentsData = [];
-        newClassesData.forEach(cls => {
+        for (const cls of newClassesData) {
             for (let i = 1; i <= 5; i++) {
                 const studentId = newId();
                 const studentName = `${cls.name} Student ${i}`;
                 const studentEmail = `${cls.name.replace(' ', '').toLowerCase()}.${i}@university.edu`;
                 newStudentsData.push({ id: studentId, name: studentName, classId: cls.id, roll: String(i), email: studentEmail });
             }
-        });
+        }
         
         newFacultyData.push(adminProfile);
 

@@ -1,8 +1,4 @@
-
-
-
-// FIX: Add ReassignmentSuggestion to imports and remove duplicate StudentQuery
-import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification, StudentQuery, ReassignmentPayload, ReassignmentSuggestion } from '../types';
+import { isApiError, ErrorResponse, User, PaginatedResponse, Student, Class, Faculty, Subject, Room, Constraints, TimetableEntry, Attendance, ChatMessage, AttendanceRecord, Institution, TeacherQuery, StudentAttendance, Exam, StudentDashboardNotification, SmartTool, SyllabusProgress, Meeting, CalendarEvent, AppNotification, StudentQuery, ReassignmentPayload } from '../types';
 import { logger } from './logger';
 
 const API_BASE_URL = '/api';
@@ -89,7 +85,7 @@ export const getPaginatedUsers = async (role: 'teacher' | 'student', page: numbe
 }
 
 // --- DATA MUTATION ---
-type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events';
+type EntityType = 'class' | 'faculty' | 'subject' | 'room' | 'student' | 'institution' | 'meetings' | 'app-notifications' | 'calendar-events' | 'syllabus-progress';
 export const saveEntity = async <T>(type: EntityType, data: T & { id?: string }): Promise<T> => {
     const isAdding = !data.id;
     const url = isAdding ? `${API_BASE_URL}/${type}` : `${API_BASE_URL}/${type}/${data.id}`;
@@ -200,6 +196,16 @@ export const fetchNotificationUpdates = async (since: number): Promise<AppNotifi
     }
     return response.json();
 };
+
+export const fetchCalendarEventUpdates = async (since: number): Promise<CalendarEvent[]> => {
+    const response = await fetchWithAuth(`${API_BASE_URL}/updates/calendar-events?since=${since}`);
+    if (!response.ok) {
+        console.error('Calendar poll failed:', await response.text());
+        return [];
+    }
+    return response.json();
+};
+
 
 export const askCampusAI = async (payload: { messageText: string, classId: string, messageId: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {

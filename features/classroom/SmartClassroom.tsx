@@ -25,7 +25,6 @@ export interface SmartClassroomProps {
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', isLoading = false }: { isOpen: boolean; onClose: () => void; onConfirm: () => void; title: string; message: string; confirmText?: string; isLoading?: boolean; }) => {
     if (!isOpen) return null;
     return (
-        // FIX: Wrapped content inside Modal
         <Modal isOpen={isOpen} onClose={onClose} title={title}>
             <div>
                 <div className="flex items-start gap-4">
@@ -211,7 +210,6 @@ export const StudentManagementTab = () => {
                 isLoading={isLoading}
                 confirmText={`Delete ${selectedStudents.length} Student(s)`}
             />
-            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard
                 title="Student Management"
                 actions={(
@@ -332,14 +330,12 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="bg-red-100 text-red-700 p-2 rounded">{error}</div>}
-            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Role" htmlFor="userRole">
                 <SelectInput id="userRole" name="role" value={formData.role} onChange={handleChange} disabled={isLoading}>
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
                 </SelectInput>
             </FormField>
-            {/* FIX: Wrapped SelectInput inside FormField */}
             <FormField label="Link to Profile" htmlFor="userProfileId">
                 <SelectInput id="userProfileId" name="profileId" value={formData.profileId} onChange={handleChange} required disabled={isLoading}>
                     <option value="" disabled>Select a profile...</option>
@@ -348,11 +344,9 @@ const UserForm = ({ user, onSave, onCancel, faculty, students, allUsers, isLoadi
                     ))}
                 </SelectInput>
             </FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label="Username (Email)" htmlFor="userUsername">
                 <TextInput id="userUsername" name="username" type="email" value={formData.username} onChange={handleChange} placeholder="user@example.com" required disabled={isLoading} />
             </FormField>
-            {/* FIX: Wrapped TextInput inside FormField */}
             <FormField label={isEditing ? "New Password (optional)" : "Password"} htmlFor="userPassword">
                 <TextInput id="userPassword" name="password" type="password" value={formData.password} onChange={handleChange} placeholder={isEditing ? "Leave blank to keep current password" : "••••••••"} required={!isEditing} disabled={isLoading} />
             </FormField>
@@ -492,7 +486,6 @@ export const UserManagementTab = () => {
 
     return (
         <>
-            {/* FIX: Wrapped content inside SectionCard */}
             <SectionCard
                 title="User Accounts"
                 actions={<button onClick={() => setEditingUser({ role: userType })} disabled={isLoading} className="action-btn-primary disabled:opacity-50"><AddIcon />Add {userType === 'teacher' ? 'Teacher' : 'Student'}</button>}
@@ -545,7 +538,6 @@ export const UserManagementTab = () => {
                     </div>
                 </div>
             </SectionCard>
-            {/* FIX: Wrapped content inside Modal */}
             <Modal isOpen={!!editingUser} onClose={() => !isSaving && setEditingUser(null)} title={editingUser?._id ? "Edit User" : "Add New User"}>
                 {editingUser && <UserForm user={editingUser} onSave={handleSave} onCancel={() => setEditingUser(null)} faculty={faculty} students={students} allUsers={users} isLoading={isSaving} />}
             </Modal>
@@ -566,7 +558,6 @@ export const UserManagementTab = () => {
                 isLoading={isDeleting}
                 confirmText={`Delete ${selectedUsers.length} Account(s)`}
             />
-            {/* FIX: Wrapped content inside Modal */}
             <Modal isOpen={!!userToReset} onClose={() => !isLoading && setUserToReset(null)} title="Generate New Credentials">
                 {userToReset && (
                     <div>
@@ -783,7 +774,6 @@ export const AttendanceManagementTab = () => {
     }, [currentRecords, studentsInClass]);
 
     return (
-        // FIX: Wrapped content inside SectionCard
         <SectionCard title="Attendance Tracking">
             <div>
                 <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b dark:border-slate-700">
@@ -927,7 +917,6 @@ export const ChatbotControlTab = () => {
         <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 flex flex-col gap-6">
-                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Chatbot & Chatbox Settings">
                         <div>
                             <div>
@@ -961,7 +950,6 @@ export const ChatbotControlTab = () => {
                     </SectionCard>
                 </div>
                 <div className="lg:col-span-2">
-                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Admin Announcements">
                         <div>
                             <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -990,7 +978,6 @@ export const ChatbotControlTab = () => {
                     </SectionCard>
                 </div>
                 <div className="lg:col-span-3">
-                    {/* FIX: Wrapped content inside SectionCard */}
                     <SectionCard title="Campus AI Testbed">
                         <div>
                              <p className="text-sm text-text-secondary mb-4">Test the AI's responses by asking questions as if you were a student. Select a student profile to provide context for the query.</p>
@@ -1029,7 +1016,6 @@ const useSmartClassroomLayout = () => {
 };
 
 
-// FIX: Made children optional to handle cases where it might not be provided, preventing a TypeScript error.
 const SmartClassroomLayout = (props: SmartClassroomProps & { children?: React.ReactNode }) => {
     const { feedback, setFeedback } = useSmartClassroomLayout();
     const location = useLocation();

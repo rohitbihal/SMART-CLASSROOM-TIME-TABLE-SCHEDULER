@@ -36,7 +36,7 @@ const TeacherAttendancePage = () => {
             // If there are no classes, clear the selection
             setSelectedClassId('');
         }
-    }, [teacherClasses]);
+    }, [teacherClasses, selectedClassId]);
 
 
     useEffect(() => {

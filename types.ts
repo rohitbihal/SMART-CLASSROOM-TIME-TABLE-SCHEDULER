@@ -389,6 +389,9 @@ export interface CalendarEvent {
     participants?: string[];
     allDay?: boolean;
     color?: string;
+    // FIX: Added createdAt and updatedAt to match the server schema, resolving a polling error in AppContext.
+    createdAt?: string;
+    updatedAt?: string;
 }
 export interface Meeting {
     id: string;
