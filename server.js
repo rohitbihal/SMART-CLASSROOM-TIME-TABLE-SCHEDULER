@@ -844,13 +844,13 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
                 - Faculty workload ('maxWorkload' in lectures per week) must not be exceeded.
                 - Subject Type vs. Room Type: 'Lab' subjects must be in 'Laboratory' rooms. 'Theory' subjects in 'Classroom' or 'Seminar Hall'. 'Tutorial' in 'Tutorial Room' or 'Classroom'.
                 - A class/section cannot have more than 8 lectures scheduled on any single day.
-                - For every class/section on every working day, you MUST schedule at least 4 lectures. If this is impossible, list the reason in 'unscheduledSessions'.
                 - Fixed Classes (must be scheduled at this exact time): ${JSON.stringify(constraints.fixedClasses || [])}
                 - Faculty Unavailability: Do not schedule a faculty member if they are marked as unavailable. ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: p.facultyId, day: u.day, time: u.timeSlot }))) || [])}
                 - Equipment: If a subject requires specific equipment, it must be scheduled in a room with that equipment.
                 - Custom Hard Constraints: ${JSON.stringify((constraints.customConstraints || []).filter(c => c.type === 'Hard').map(c => c.description))}
 
             2.  Soft Constraints (Try to follow these as much as possible):
+                - Try to schedule at least 4 lectures for every class/section on every working day. If this is not possible, schedule as many as you can.
                 - Try to schedule no more than ${constraints.maxConsecutiveClasses} consecutive classes for any section without a break.
                 - Try to avoid scheduling more than one lecture for the same subject on the same day for a class, but it is allowed if necessary to complete the weekly hours.
                 - Faculty Preferences (Preferred days, morning/afternoon preference): ${JSON.stringify(constraints.facultyPreferences || [])}
@@ -859,7 +859,8 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
                 - Travel Time: If a faculty member has back-to-back classes in different blocks, consider it a soft conflict. Travel time between blocks is approx ${(constraints.advancedConstraints?.travelTimeMinutes || 10)} minutes.
                 - Custom Soft Constraints: ${JSON.stringify((constraints.customConstraints || []).filter(c => c.type === 'Soft').map(c => c.description))}
 
-            If a class cannot be scheduled, add it to the 'unscheduledSessions' array with a clear reason (e.g., "No available room with capacity", "Faculty workload exceeded", "Conflict with fixed class").
+            If a subject cannot be scheduled to meet its weekly hours, add it to the 'unscheduledSessions' array with a clear reason (e.g., "No available room with capacity", "Faculty workload exceeded").
+            Also, if a class/section does not meet the soft constraint of 4 lectures on a specific day, add an entry to 'unscheduledSessions' like { "className": "[Class Name]", "subject": "Daily Minimum Shortfall", "reason": "Could not schedule minimum 4 lectures on [Day]. Only X were scheduled." }.
 
             Generate the timetable now.
             `;
