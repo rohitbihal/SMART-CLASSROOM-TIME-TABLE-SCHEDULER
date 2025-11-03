@@ -507,7 +507,7 @@ const generateStudentQAPrompt = (question, student, studentClass, timetable, sub
 
 const generateTeacherQAPrompt = (question, teacher, subjects) => {
     return `You are a helpful AI assistant for university teachers. Your name is Campus AI.
-    You are answering a question from a teacher. Your capabilities include finding educational resources from the web, helping draft lesson plans, explaining complex topics, and providing ideas for assignments.
+    Your capabilities include finding educational resources from the web, helping draft lesson plans, explaining complex topics, and providing ideas for assignments.
 
     Teacher Name: ${teacher.name}
     Teacher Department: ${teacher.department}
@@ -769,59 +769,22 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
         
-        // Define the response schema
-        const timetableEntrySchema = {
-            type: Type.OBJECT,
-            properties: {
-                className: { type: Type.STRING },
-                subject: { type: Type.STRING },
-                faculty: { type: Type.STRING },
-                room: { type: Type.STRING },
-                day: { type: Type.STRING },
-                time: { type: Type.STRING },
-                type: { type: Type.STRING },
-                classType: { type: Type.STRING },
-            },
-            required: ["className", "subject", "faculty", "room", "day", "time", "type", "classType"]
-        };
-
-        const unscheduledSessionSchema = {
-            type: Type.OBJECT,
-            properties: {
-                className: { type: Type.STRING },
-                subject: { type: Type.STRING },
-                reason: { type: Type.STRING },
-            },
-            required: ["className", "subject", "reason"]
-        };
-
-        const generationResultSchema = {
-            type: Type.OBJECT,
-            properties: {
-                timetable: {
-                    type: Type.ARRAY,
-                    items: timetableEntrySchema
-                },
-                unscheduledSessions: {
-                    type: Type.ARRAY,
-                    items: unscheduledSessionSchema
-                }
-            },
-            required: ["timetable", "unscheduledSessions"]
-        };
-        
-        const response = await ai.models.generateContent({
+        const responseStream = await ai.models.generateContentStream({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                responseSchema: generationResultSchema
             }
         });
 
-        const timetableData = JSON.parse(response.text);
+        res.setHeader('Content-Type', 'application/json');
 
-        res.json(timetableData);
+        for await (const chunk of responseStream) {
+            if (chunk.text) {
+                res.write(chunk.text);
+            }
+        }
+        res.end();
 
     } catch (error) {
         console.error("Error generating timetable with Gemini:", error);
@@ -874,6 +837,107 @@ app.post('/api/suggest-reassignment', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error("Error getting AI re-assignment suggestions:", error);
         res.status(500).json({ message: 'Failed to get AI suggestions.', details: error.message });
+    }
+});
+
+// NEW: Endpoint for Universal AI Import
+app.post('/api/import/universal', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (!process.env.API_KEY) {
+        return res.status(500).json({ message: 'AI features are not configured.' });
+    }
+
+    try {
+        const { fileData, mimeType } = req.body;
+        if (!fileData || !mimeType) {
+            return res.status(400).json({ message: 'File data and MIME type are required.' });
+        }
+
+        // Assuming the content is text-based (like CSV).
+        // Decoding from data URL: `data:[<mediatype>][;base64],<data>`
+        const base64Data = fileData.split(',')[1];
+        const fileContent = Buffer.from(base64Data, 'base64').toString('utf8');
+
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
+        const prompt = `
+            You are an intelligent data extraction tool for a university scheduling system.
+            Your task is to analyze the content of a file and extract structured data for classes, faculty, subjects, and rooms.
+            The file content is likely a CSV or similarly structured text.
+
+            File Content:
+            ---
+            ${fileContent}
+            ---
+
+            Your output MUST be a single JSON object with four keys: "classes", "faculty", "subjects", and "rooms".
+            Each key must contain an array of objects. Infer missing fields with reasonable defaults.
+            - classes: [{ name, branch, year, section, studentCount, block }]
+            - faculty: [{ name, employeeId, designation, department, specialization: [], email, contactNumber, maxWorkload }]
+            - subjects: [{ name, code, department, semester, credits, type, hoursPerWeek, forClass, assignedFacultyName }] (Use faculty name, not ID)
+            - rooms: [{ number, building, type, capacity, block }]
+
+            Extract as much information as possible. Be robust. If a section of the file is empty or unparseable, return an empty array for that key.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+
+        const extractedData = JSON.parse(response.text);
+
+        // --- Data Insertion Logic ---
+        // We will upsert to avoid duplicates.
+        if (extractedData.faculty && extractedData.faculty.length > 0) {
+            const facultyOps = extractedData.faculty.map(f => ({
+                updateOne: {
+                    filter: { email: f.email },
+                    update: { $set: f, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } },
+                    upsert: true
+                }
+            }));
+            await Faculty.bulkWrite(facultyOps);
+        }
+
+        // Fetch all faculty to create a name -> ID map
+        const allFaculty = await Faculty.find({});
+        const facultyNameMap = new Map(allFaculty.map(f => [f.name, f.id]));
+        
+        if (extractedData.rooms && extractedData.rooms.length > 0) {
+            const roomOps = extractedData.rooms.map(r => ({
+                updateOne: { filter: { number: r.number }, update: { $set: r, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } }, upsert: true }
+            }));
+            await Room.bulkWrite(roomOps);
+        }
+
+        if (extractedData.classes && extractedData.classes.length > 0) {
+            const classOps = extractedData.classes.map(c => ({
+                updateOne: { filter: { name: c.name }, update: { $set: c, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } }, upsert: true }
+            }));
+            await Class.bulkWrite(classOps);
+        }
+
+        if (extractedData.subjects && extractedData.subjects.length > 0) {
+            const subjectOps = extractedData.subjects.map(s => {
+                const facultyId = facultyNameMap.get(s.assignedFacultyName);
+                const subjectData = { ...s, assignedFacultyId: facultyId };
+                delete subjectData.assignedFacultyName;
+                return {
+                    updateOne: { filter: { code: s.code }, update: { $set: subjectData, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } }, upsert: true }
+                };
+            });
+            await Subject.bulkWrite(subjectOps);
+        }
+
+        res.json({ message: 'Data imported successfully!' });
+
+    } catch (error) {
+        console.error("Error during universal import:", error);
+        res.status(500).json({ message: 'Failed to import data.', details: error.message });
     }
 });
 

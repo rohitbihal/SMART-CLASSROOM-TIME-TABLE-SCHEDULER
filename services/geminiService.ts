@@ -44,7 +44,22 @@ export const generateTimetable = async (
         throw new Error(`The server encountered an issue: ${errorMsg}`);
     }
 
-    const generationResult = await response.json();
+    // Handle streaming response to avoid timeouts
+    const reader = response.body?.getReader();
+    if (!reader) {
+        throw new Error("Failed to get response body reader.");
+    }
+    const decoder = new TextDecoder();
+    let resultJson = '';
+    
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        resultJson += decoder.decode(value, { stream: true });
+    }
+    
+    // Once streaming is complete, parse the full JSON string
+    const generationResult = JSON.parse(resultJson);
     
     if (!generationResult || !Array.isArray(generationResult.timetable) || !Array.isArray(generationResult.unscheduledSessions)) {
       console.error("Backend returned invalid format for generation result:", generationResult);
