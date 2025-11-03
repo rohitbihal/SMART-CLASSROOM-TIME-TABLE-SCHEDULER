@@ -339,6 +339,8 @@ app.use('/api/meetings', createCrudRoutes(Meeting, 'meeting'));
 app.use('/api/app-notifications', createCrudRoutes(AppNotification, 'app notification'));
 app.use('/api/calendar-events', createCrudRoutes(CalendarEvent, 'calendar event'));
 app.use('/api/syllabus-progress', createCrudRoutes(SyllabusProgress, 'syllabus progress'));
+app.use('/api/exams', createCrudRoutes(Exam, 'exam'));
+app.use('/api/student-notifications', createCrudRoutes(StudentDashboardNotification, 'student notification'));
 
 
 // Teacher Availability Route
@@ -405,7 +407,7 @@ app.post('/api/teacher/requests', authMiddleware, async (req, res) => {
     }
 });
 
-app.put('/api/teacher/queries/:id', authMiddleware, async (req, res) => {
+app.put('/api/teacher/requests/:id', authMiddleware, async (req, res) => {
     if (req.user.role !== 'admin') {
         return res.status(403).json({ message: 'Forbidden' });
     }
@@ -822,9 +824,10 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
 
         const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints, timeSlots) => {
             return `
-            You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable based on the provided data and constraints.
-            
-            Output a JSON object with two keys: "timetable" (an array of scheduled classes) and "unscheduledSessions" (an array of classes that could not be scheduled with a reason).
+            You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable.
+            Your output MUST be a JSON object with two keys: "timetable" (an array of scheduled classes) and "unscheduledSessions" (an array of classes that could not be scheduled with a reason).
+
+            Your primary goal is to schedule all subjects for their required 'hoursPerWeek'. This is the most important rule.
 
             DATA:
             - Classes: ${JSON.stringify(classes.map(({ id, name, studentCount, block }) => ({ id, name, studentCount, block })))}
@@ -835,32 +838,32 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
             - Time Slots: ${JSON.stringify(timeSlots)}
 
             CONSTRAINTS:
-            1.  Hard Constraints (Must be followed):
+            1.  Hard Constraints (Must be followed AT ALL TIMES):
                 - A faculty member cannot teach more than one class at the same time.
                 - A class cannot have more than one subject scheduled at the same time.
                 - A room cannot be occupied by more than one class at the same time.
                 - The number of students in a class must not exceed the capacity of the room.
-                - Schedule each subject for the total number of 'hoursPerWeek'. Each slot is one hour.
-                - Faculty workload ('maxWorkload' in lectures per week) must not be exceeded.
-                - Subject Type vs. Room Type: 'Lab' subjects must be in 'Laboratory' rooms. 'Theory' subjects in 'Classroom' or 'Seminar Hall'. 'Tutorial' in 'Tutorial Room' or 'Classroom'.
+                - Schedule each subject for its total 'hoursPerWeek'. Each slot is one hour.
+                - Faculty total weekly workload ('maxWorkload') must not be exceeded.
+                - Subject Type vs. Room Type: 'Lab' subjects in 'Laboratory' rooms. 'Theory' subjects in 'Classroom' or 'Seminar Hall'. 'Tutorial' in 'Tutorial Room' or 'Classroom'.
                 - A class/section cannot have more than 8 lectures scheduled on any single day.
                 - Fixed Classes (must be scheduled at this exact time): ${JSON.stringify(constraints.fixedClasses || [])}
                 - Faculty Unavailability: Do not schedule a faculty member if they are marked as unavailable. ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: p.facultyId, day: u.day, time: u.timeSlot }))) || [])}
-                - Equipment: If a subject requires specific equipment, it must be scheduled in a room with that equipment.
+                - Equipment: If a subject has specific equipment needs, it must be in a room that has it.
                 - Custom Hard Constraints: ${JSON.stringify((constraints.customConstraints || []).filter(c => c.type === 'Hard').map(c => c.description))}
 
-            2.  Soft Constraints (Try to follow these as much as possible):
-                - Try to schedule at least 4 lectures for every class/section on every working day. If this is not possible, schedule as many as you can.
+            2.  Soft Constraints (Preferences to follow if possible, but less important than Hard Constraints):
+                - As a secondary goal, try to distribute lectures evenly across the week, aiming for about 4 lectures per day per class if possible, but do not fail to schedule a lecture just because this goal cannot be met.
                 - Try to schedule no more than ${constraints.maxConsecutiveClasses} consecutive classes for any section without a break.
-                - Try to avoid scheduling more than one lecture for the same subject on the same day for a class, but it is allowed if necessary to complete the weekly hours.
+                - Avoid scheduling the same subject for the same class twice on the same day if possible.
                 - Faculty Preferences (Preferred days, morning/afternoon preference): ${JSON.stringify(constraints.facultyPreferences || [])}
                 - Prioritize keeping consecutive classes for the same section in the same room.
-                - Assign a consistent "home room" for each section's theory classes where possible.
-                - Travel Time: If a faculty member has back-to-back classes in different blocks, consider it a soft conflict. Travel time between blocks is approx ${(constraints.advancedConstraints?.travelTimeMinutes || 10)} minutes.
                 - Custom Soft Constraints: ${JSON.stringify((constraints.customConstraints || []).filter(c => c.type === 'Soft').map(c => c.description))}
 
-            If a subject cannot be scheduled to meet its weekly hours, add it to the 'unscheduledSessions' array with a clear reason (e.g., "No available room with capacity", "Faculty workload exceeded").
-            Also, if a class/section does not meet the soft constraint of 4 lectures on a specific day, add an entry to 'unscheduledSessions' like { "className": "[Class Name]", "subject": "Daily Minimum Shortfall", "reason": "Could not schedule minimum 4 lectures on [Day]. Only X were scheduled." }.
+            FAILURE REPORTING:
+            - Your main objective is to fill the 'timetable' array.
+            - For any subject that you cannot fully schedule for its required weekly hours due to an unavoidable HARD constraint conflict, you MUST add an entry to the 'unscheduledSessions' array explaining the conflict.
+            - Do not add entries to 'unscheduledSessions' for failing to meet soft constraints. Just schedule the lecture anyway.
 
             Generate the timetable now.
             `;
