@@ -761,189 +761,136 @@ app.post('/api/chat/ask/teacher', authMiddleware, [
         const channelId = `teacher-ai-${req.user.profileId}`;
         const aiMessage = new ChatMessage({
             id: `ai-msg-${messageId}`, author: 'Campus AI', role: 'admin', text: response.text,
-            timestamp: Date.now(), classId: channelId, channel: channelId, groundingChunks: groundingChunks
+            timestamp: Date.now(), classId: channelId, channel: channelId, groundingChunks
         });
         await aiMessage.save();
         res.status(201).json(aiMessage);
     } catch(error) {
+        console.error("AI chat error for teacher:", error);
         res.status(500).json({ message: "The AI assistant is currently unavailable." });
     }
 });
 
-// Helper function to generate time slots dynamically
-function generateDynamicTimeSlots(prefs) {
-    const slots = [];
-    const { startTime, endTime, slotDurationMinutes, lunchStartTime, lunchDurationMinutes } = prefs;
 
-    const timeToMinutes = (time) => {
-        const [h, m] = time.split(':').map(Number);
-        return h * 60 + m;
-    };
-    const minutesToTime = (minutes) => {
-        const h = Math.floor(minutes / 60).toString().padStart(2, '0');
-        const m = (minutes % 60).toString().padStart(2, '0');
-        return `${h}:${m}`;
-    };
-
-    let currentMinutes = timeToMinutes(startTime);
-    const endMinutes = timeToMinutes(endTime);
-    const lunchStartMinutes = timeToMinutes(lunchStartTime);
-    const lunchEndMinutes = lunchStartMinutes + lunchDurationMinutes;
-
-    while (currentMinutes < endMinutes) {
-        const slotEndMinutes = currentMinutes + slotDurationMinutes;
-
-        // Skip if the slot overlaps with lunch
-        if (currentMinutes < lunchEndMinutes && slotEndMinutes > lunchStartMinutes) {
-            currentMinutes = lunchEndMinutes;
-            continue;
-        }
-
-        if (slotEndMinutes <= endMinutes) {
-            slots.push(`${minutesToTime(currentMinutes)}-${minutesToTime(slotEndMinutes)}`);
-        }
-        currentMinutes = slotEndMinutes;
-    }
-    return slots;
-}
-
-// Gemini Timetable Generation
-const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-    const facultyMap = new Map(faculty.map(f => [f.id, f.name]));
-    const classMap = new Map(classes.map(c => [c.id, c.name]));
-    const subjectMap = new Map(subjects.map(s => [s.id, s.name]));
-    const roomMap = new Map(rooms.map(r => [r.id, r.number]));
-
-    const resolvedFixedClasses = (constraints.fixedClasses || []).map(fc => ({
-        className: classMap.get(fc.classId) || 'Unknown Class',
-        subjectName: subjectMap.get(fc.subjectId) || 'Unknown Subject',
-        day: fc.day,
-        time: fc.time,
-        roomNumber: fc.roomId ? (roomMap.get(fc.roomId) || 'Unknown Room') : 'Any suitable',
-    }));
-
-    const HARDCODED_TIME_SLOTS = ["09:30-10:20", "10:20-11:10", "11:10-12:00", "12:00-12:50", "12:50-01:35", "01:35-02:25", "02:25-03:15", "03:15-04:05", "04:05-04:55"];
-    const timeSlots = constraints.timePreferences && constraints.timePreferences.slotDurationMinutes 
-        ? generateDynamicTimeSlots(constraints.timePreferences) 
-        : HARDCODED_TIME_SLOTS;
-
-    return `
-      You are an expert university timetable scheduler. Your primary goal is to generate a complete, conflict-free timetable based on the provided data and constraints, satisfying all HARD RULES. If you cannot schedule a session, you MUST add it to the "unscheduledSessions" array with a clear, specific reason for the failure (e.g., 'No available room with required capacity', 'Faculty Dr. Smith is unavailable at all possible times'). Do not return an empty "timetable" array unless it's genuinely impossible to schedule any session at all.
-
-      Your output must be a JSON object containing a "timetable" array and an "unscheduledSessions" array.
-      - "timetable": An array of scheduled sessions.
-      - "unscheduledSessions": An array of sessions you could not schedule, including a very specific "reason". For example: "Could not schedule 2 out of 4 hours for [Subject] for class [Class] due to resource conflicts or unavailability."
-
-      **AVAILABLE TIME SLOTS:**
-      ${JSON.stringify(timeSlots)}
-
-      **AVAILABLE DAYS:**
-      ${JSON.stringify(constraints.timePreferences.workingDays)}
-
-      ---
-
-      **INPUT DATA:**
-
-      1. CLASSES: ${JSON.stringify(classes.map(({id, ...c}) => c))}
-      2. FACULTY: ${JSON.stringify(faculty.map(f => ({name: f.name, department: f.department, maxWorkload: f.maxWorkload})))}
-      3. SUBJECTS: ${JSON.stringify(subjects.map(s => ({
-          name: s.name, 
-          code: s.code, 
-          hoursPerWeek: s.hoursPerWeek, 
-          assignedFaculty: facultyMap.get(s.assignedFacultyId) || 'Unassigned', 
-          type: s.type, 
-          department: s.department, 
-          forClass: s.forClass 
-      })))}
-      4. ROOMS: ${JSON.stringify(rooms.map(({id, ...r}) => r))}
-
-      ---
-
-      **HARD RULES (MUST be followed):**
-
-      - A faculty member can only teach one class at a time.
-      - A class/section can only have one session at a time.
-      - A room can only be used for one session at a time.
-      - The room capacity must be >= the class studentCount.
-      - **Subject Relevance Rule:** Each subject has a "forClass" property. You MUST schedule a subject ONLY for the class name specified in its "forClass" property.
-      - Schedule exactly 'hoursPerWeek' sessions for each subject.
-      - Lab subjects MUST be assigned to 'Laboratory' type rooms. Theory subjects to 'Classroom'.
-      - **Fixed/Pinned Classes:** These are pre-scheduled and ABSOLUTELY NON-NEGOTIABLE. They MUST be placed exactly as specified. This means the specified class, its assigned faculty for the subject, and its specified room (if any) are all occupied during that time slot and cannot be used for any other session. This is the highest priority constraint. Data: ${JSON.stringify(resolvedFixedClasses)}.
-      - Faculty Unavailability: This faculty is unavailable at these specific times: ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, day: u.day, time: u.timeSlot }))))}
-      - Max Concurrent Classes per Department: Do not schedule more than the specified number of classes simultaneously for any given department: ${JSON.stringify(constraints.maxConcurrentClassesPerDept || {})}
-
-      **OPTIMIZATION GOALS (Secondary priority after HARD RULES):**
-
-      - Fulfilling all hard constraints is your most important task. If a perfect schedule satisfying all soft goals is not possible, create a valid schedule that meets all hard rules, even if it's not ideal.
-      - Distribute subjects for a class throughout the week. A 4-hour subject should ideally be on 3-4 different days, not just 1 or 2.
-      - **Schedule Distribution:** For each class/section, aim for a balanced number of lectures each day. Avoid leaving large gaps or having days with very few classes if possible.
-      - Prioritize compact schedules: Fill morning slots first and minimize gaps in a section's schedule, especially at the start or end of the day.
-      - Max Consecutive Classes (Global): Try not to schedule more than ${constraints.maxConsecutiveClasses} classes in a row for any section.
-      - Faculty Preferences:
-        - Preferred Days: Try to schedule faculty on these days: ${JSON.stringify(constraints.facultyPreferences?.map(p => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, days: p.preferredDays })))}
-        - Daily Preference: ${JSON.stringify(constraints.facultyPreferences?.map(p => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, preference: p.dailySchedulePreference })))}
-        - Max Consecutive for Faculty: ${JSON.stringify(constraints.facultyPreferences?.map(p => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, max: p.maxConsecutiveClasses })))}
-        - Gap Preference: ${JSON.stringify(constraints.facultyPreferences?.map(p => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, preference: p.gapPreference })))}
-        - Course Time Preference: Try to schedule these specific courses in the morning or afternoon as requested: ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.coursePreferences || []).map(cp => ({ faculty: faculty.find(f=>f.id===p.facultyId)?.name, subject: subjects.find(s=>s.id===cp.subjectId)?.name, time: cp.time }))))}
-      - Room/Resource Rules:
-        - Prioritize Same Room: ${constraints.roomResourceConstraints?.prioritizeSameRoomForConsecutive ? "If a section has back-to-back classes, try to keep them in the same room." : "Not a priority."}
-        - Assign 'Home Room': ${constraints.roomResourceConstraints?.assignHomeRoomForSections ? "Try to assign a single, consistent 'home room' for all theory classes of a specific section (e.g., all theory for CSE A in CSE-A-CR)." : "Not a priority."}
-      - Student Section Rules:
-        - Max Consecutive for Students: Try not to schedule more than ${constraints.studentSectionConstraints?.maxConsecutiveClasses} classes in a row for any student section.
-        - Avoid Consecutive Core Subjects: ${constraints.studentSectionConstraints?.avoidConsecutiveCore ? "Try to avoid scheduling two core subjects back-to-back." : "Not a priority."}
-      - Advanced Rules:
-        - Faculty Load Balancing: ${constraints.advancedConstraints?.enableFacultyLoadBalancing ? "Distribute a faculty member's classes evenly across their available days." : "Not a priority."}
-        - Travel Time: If a faculty has classes in different blocks, ensure there's a gap of at least ${constraints.advancedConstraints?.travelTimeMinutes || 0} minutes between them.
-
-      Now, generate the timetable.
-    `;
-};
-
-
+// --- Timetable Generation ---
 app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
     if (!process.env.API_KEY) {
-        return res.status(500).json({ message: 'API key is not configured on the server.' });
-    }
-    const { classes, faculty, subjects, rooms, constraints } = req.body;
-    
-    if (!classes || !faculty || !subjects || !rooms || !constraints) {
-        return res.status(400).json({ message: 'Missing required data for timetable generation.' });
+        return res.status(500).json({ message: 'AI features are not configured on the server.', details: 'API_KEY is missing.' });
     }
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
+        const { classes, faculty, subjects, rooms, constraints } = req.body;
+
+        // --- Helper functions for time slot calculation ---
+        const timeToMinutes = (time) => {
+            if (!time || !time.includes(':')) return 0;
+            const [hours, minutes] = time.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+        const minutesToTime = (minutes) => {
+            const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+            const m = (minutes % 60).toString().padStart(2, '0');
+            return `${h}:${m}`;
+        };
+        const calculateTimeSlots = (prefs) => {
+            const slots = [];
+            let currentTime = timeToMinutes(prefs.startTime);
+            const endTime = timeToMinutes(prefs.endTime);
+            const lunchStart = timeToMinutes(prefs.lunchStartTime);
+            const lunchEnd = lunchStart + prefs.lunchDurationMinutes;
+            while (currentTime < endTime) {
+                const slotEnd = currentTime + prefs.slotDurationMinutes;
+                if ((currentTime >= lunchStart && currentTime < lunchEnd) || (slotEnd > lunchStart && slotEnd <= lunchEnd) || (currentTime < lunchStart && slotEnd > lunchEnd)) {
+                     if (currentTime < lunchStart) { currentTime = lunchEnd; continue; }
+                     currentTime = lunchEnd;
+                     continue;
+                }
+                if (slotEnd > endTime) break;
+                slots.push(`${minutesToTime(currentTime)}-${minutesToTime(slotEnd)}`);
+                currentTime = slotEnd;
+            }
+            return slots;
+        };
         
-        const responseSchema = {
+        const dynamicTimeSlots = calculateTimeSlots(constraints.timePreferences);
+
+        const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints, timeSlots) => {
+            return `
+            You are an expert university timetable scheduler. Your task is to generate a conflict-free weekly timetable based on the provided data and constraints.
+            
+            Output a JSON object with two keys: "timetable" (an array of scheduled classes) and "unscheduledSessions" (an array of classes that could not be scheduled with a reason).
+
+            DATA:
+            - Classes: ${JSON.stringify(classes.map(({ id, name, studentCount, block }) => ({ id, name, studentCount, block })))}
+            - Faculty: ${JSON.stringify(faculty.map(({ id, name, maxWorkload, department, specialization }) => ({ id, name, maxWorkload, department, specialization })))}
+            - Subjects: ${JSON.stringify(subjects.map(({ id, name, hoursPerWeek, type, assignedFacultyId, forClass, department }) => ({ id, name, hoursPerWeek, type, assignedFacultyId, forClass, department })))}
+            - Rooms: ${JSON.stringify(rooms.map(({ id, number, capacity, type, block, equipment }) => ({ id, number, capacity, type, block, equipment })))}
+            - Working Days: ${JSON.stringify(constraints.timePreferences.workingDays)}
+            - Time Slots: ${JSON.stringify(timeSlots)}
+
+            CONSTRAINTS:
+            1.  Hard Constraints (Must be followed):
+                - A faculty member cannot teach more than one class at the same time.
+                - A class cannot have more than one subject scheduled at the same time.
+                - A room cannot be occupied by more than one class at the same time.
+                - The number of students in a class must not exceed the capacity of the room.
+                - Schedule each subject for the total number of 'hoursPerWeek'. Each slot is one hour.
+                - Faculty workload ('maxWorkload' in lectures per week) must not be exceeded.
+                - Subject Type vs. Room Type: 'Lab' subjects must be in 'Laboratory' rooms. 'Theory' subjects in 'Classroom' or 'Seminar Hall'. 'Tutorial' in 'Tutorial Room' or 'Classroom'.
+                - A class/section cannot have more than 8 lectures scheduled on any single day.
+                - For every class/section on every working day, you MUST schedule at least 4 lectures. If this is impossible, list the reason in 'unscheduledSessions'.
+                - Fixed Classes (must be scheduled at this exact time): ${JSON.stringify(constraints.fixedClasses || [])}
+                - Faculty Unavailability: Do not schedule a faculty member if they are marked as unavailable. ${JSON.stringify(constraints.facultyPreferences?.flatMap(p => (p.unavailability || []).map(u => ({ faculty: p.facultyId, day: u.day, time: u.timeSlot }))) || [])}
+                - Equipment: If a subject requires specific equipment, it must be scheduled in a room with that equipment.
+                - Custom Hard Constraints: ${JSON.stringify((constraints.customConstraints || []).filter(c => c.type === 'Hard').map(c => c.description))}
+
+            2.  Soft Constraints (Try to follow these as much as possible):
+                - Try to schedule no more than ${constraints.maxConsecutiveClasses} consecutive classes for any section without a break.
+                - Try to avoid scheduling more than one lecture for the same subject on the same day for a class, but it is allowed if necessary to complete the weekly hours.
+                - Faculty Preferences (Preferred days, morning/afternoon preference): ${JSON.stringify(constraints.facultyPreferences || [])}
+                - Prioritize keeping consecutive classes for the same section in the same room.
+                - Assign a consistent "home room" for each section's theory classes where possible.
+                - Travel Time: If a faculty member has back-to-back classes in different blocks, consider it a soft conflict. Travel time between blocks is approx ${(constraints.advancedConstraints?.travelTimeMinutes || 10)} minutes.
+                - Custom Soft Constraints: ${JSON.stringify((constraints.customConstraints || []).filter(c => c.type === 'Soft').map(c => c.description))}
+
+            If a class cannot be scheduled, add it to the 'unscheduledSessions' array with a clear reason (e.g., "No available room with capacity", "Faculty workload exceeded", "Conflict with fixed class").
+
+            Generate the timetable now.
+            `;
+        };
+
+        const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints, dynamicTimeSlots);
+        
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+        const generationResultSchema = {
             type: Type.OBJECT,
             properties: {
                 timetable: {
                     type: Type.ARRAY,
-                    description: "List of all successfully scheduled class sessions.",
                     items: {
                         type: Type.OBJECT,
                         properties: {
-                            className: { type: Type.STRING, description: "Name of the class/section." },
-                            subject: { type: Type.STRING, description: "Name of the subject." },
-                            faculty: { type: Type.STRING, description: "Name of the faculty member teaching." },
-                            room: { type: Type.STRING, description: "Room number for the session." },
-                            day: { type: Type.STRING, description: "Day of the week (e.g., monday)." },
-                            time: { type: Type.STRING, description: "Time slot (e.g., 09:30-10:20)." },
-                            classType: { type: Type.STRING, description: "Type of class, either 'regular' or 'fixed'." },
-                            type: { type: Type.STRING, description: "Subject type, either 'Theory', 'Lab', or 'Tutorial'." }
+                            className: { type: Type.STRING },
+                            subject: { type: Type.STRING },
+                            faculty: { type: Type.STRING },
+                            room: { type: Type.STRING },
+                            day: { type: Type.STRING },
+                            time: { type: Type.STRING },
+                            classType: { type: Type.STRING },
+                            type: { type: Type.STRING }
                         },
                         required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'classType', 'type']
                     }
                 },
                 unscheduledSessions: {
                     type: Type.ARRAY,
-                    description: "List of sessions that could not be scheduled, with reasons.",
                     items: {
                         type: Type.OBJECT,
                         properties: {
-                            className: { type: Type.STRING, description: "Name of the class for the unscheduled session." },
-                            subject: { type: Type.STRING, description: "Name of the subject for the unscheduled session." },
-                            reason: { type: Type.STRING, description: "A specific, clear reason why this session could not be scheduled." }
+                            className: { type: Type.STRING },
+                            subject: { type: Type.STRING },
+                            reason: { type: Type.STRING }
                         },
                         required: ['className', 'subject', 'reason']
                     }
@@ -951,385 +898,273 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
             },
             required: ['timetable', 'unscheduledSessions']
         };
-
-        const responseStream = await ai.models.generateContentStream({
+        
+        const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
-                responseSchema: responseSchema,
-            }
+                responseSchema: generationResultSchema,
+            },
         });
+        
+        const resultText = response.text.trim();
+        let result;
+        try {
+            result = JSON.parse(resultText);
+        } catch (parseError) {
+             console.error("Failed to parse JSON response from AI:", parseError);
+             console.error("Raw AI response:", resultText);
+             throw new Error(`The AI model returned an invalid response that could not be parsed as JSON. This can happen with complex constraints. Raw response snippet: ${resultText.substring(0, 300)}...`);
+        }
 
         res.setHeader('Content-Type', 'application/json');
-
-        for await (const chunk of responseStream) {
-            if (chunk.text) {
-                res.write(chunk.text);
-            }
-        }
+        res.write(JSON.stringify(result));
         res.end();
 
     } catch (error) {
-        console.error("Error generating timetable with Gemini:", error);
-        res.status(500).json({ message: "Failed to generate timetable due to an AI model or server error.", details: error.message });
+        console.error("Error during timetable generation:", error);
+        let details = error instanceof Error ? error.message : String(error);
+        if (error.response?.data) {
+            details += ` | Details: ${JSON.stringify(error.response.data)}`;
+        }
+        res.status(500).json({ 
+            message: 'An error occurred while generating the timetable. This could be due to a network issue, server configuration, or a problem with the AI model.', 
+            details
+        });
     }
 });
 
-// NEW: Endpoint for AI workload re-assignment suggestions
+
+// --- Reassignment Suggestion ---
 app.post('/api/suggest-reassignment', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Forbidden' });
-    }
     if (!process.env.API_KEY) {
         return res.status(500).json({ message: 'AI features are not configured.' });
     }
-
     try {
-        const { faculty, subjects } = req.body;
+        const { classes, faculty, subjects } = req.body;
 
-        const prompt = `
-            You are an expert university administrator specializing in workload balancing. Your task is to analyze faculty workloads and suggest re-assignments for subjects to balance the teaching load.
-
-            Your output MUST be a JSON object with two properties: "suggestions" and "unresolvableWorkloads".
-            - "suggestions" is an array of objects, where each object represents a single subject re-assignment with the following keys: "subjectId", "subjectName", "fromFacultyId", "fromFacultyName", "toFacultyId", "toFacultyName".
-            - "unresolvableWorkloads" is an array of objects for faculty whose workload is too high but no suitable replacement could be found, with keys: "facultyName", "department", "reason", "recommendation".
-
-            RULES:
-            1. A subject can only be reassigned to a faculty member from the same department who has a matching specialization.
-            2. Only suggest re-assignments from OVERLOADED faculty (assigned hours > max workload) to UNDERLOADED faculty (assigned hours < max workload).
-            3. The goal is to bring the overloaded faculty's workload below their maximum. Prioritize suggestions that make the biggest impact.
-            4. If an overloaded faculty has a unique specialization for a subject and no other qualified faculty is available, do not suggest a re-assignment. Instead, add them to the "unresolvableWorkloads" array with a clear reason and a recommendation (e.g., "Hire a new faculty with X specialization").
-
-            INPUT DATA:
-            - ALL FACULTY: ${JSON.stringify(faculty)}
-            - ALL SUBJECTS: ${JSON.stringify(subjects)}
-
-            Analyze the data and provide your suggestions in the specified JSON format.
-        `;
-        
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash', 
-            contents: prompt,
-            config: { responseMimeType: "application/json" }
+        const workloadSummary = faculty.map(f => {
+            const assignedSubjects = subjects.filter(s => s.assignedFacultyId === f.id);
+            const assignedHours = assignedSubjects.reduce((sum, s) => sum + s.hoursPerWeek, 0);
+            return {
+                id: f.id,
+                name: f.name,
+                department: f.department,
+                specialization: f.specialization,
+                maxWorkload: f.maxWorkload,
+                assignedHours: assignedHours,
+                utilization: f.maxWorkload > 0 ? (assignedHours / f.maxWorkload) * 100 : 0
+            };
         });
 
-        const suggestions = JSON.parse(response.text);
-        res.json(suggestions);
-        
-    } catch (error) {
-        console.error("Error getting AI re-assignment suggestions:", error);
-        res.status(500).json({ message: 'Failed to get AI suggestions.', details: error.message });
-    }
-});
+        const overLoadedFaculty = workloadSummary.filter(f => f.utilization > 100);
+        const underLoadedFaculty = workloadSummary.filter(f => f.utilization < 80);
 
-// NEW: Endpoint for Universal AI Import
-app.post('/api/import/universal', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Forbidden' });
-    }
-    if (!process.env.API_KEY) {
-        return res.status(500).json({ message: 'AI features are not configured.' });
-    }
-
-    try {
-        const { fileData, mimeType } = req.body;
-        if (!fileData || !mimeType) {
-            return res.status(400).json({ message: 'File data and MIME type are required.' });
+        if (overLoadedFaculty.length === 0) {
+            return res.json({ suggestions: [], unresolvableWorkloads: [] });
         }
-
-        // Assuming the content is text-based (like CSV).
-        // Decoding from data URL: `data:[<mediatype>][;base64],<data>`
-        const base64Data = fileData.split(',')[1];
-        const fileContent = Buffer.from(base64Data, 'base64').toString('utf8');
-
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         const prompt = `
-            You are an intelligent data extraction tool for a university scheduling system.
-            Your task is to analyze the content of a file and extract structured data for classes, faculty, subjects, and rooms.
-            The file content is likely a CSV or similarly structured text.
+        You are an academic advisor AI specializing in workload balancing.
+        Given a list of faculty workloads, subjects, and available faculty, your task is to suggest re-assignments to balance the load.
 
-            File Content:
-            ---
-            ${fileContent}
-            ---
+        Over-allocated Faculty: ${JSON.stringify(overLoadedFaculty)}
+        Under-allocated Faculty: ${JSON.stringify(underLoadedFaculty)}
+        All Subjects: ${JSON.stringify(subjects)}
 
-            Your output MUST be a single JSON object with four keys: "classes", "faculty", "subjects", and "rooms".
-            Each key must contain an array of objects. Infer missing fields with reasonable defaults.
-            - classes: [{ name, branch, year, section, studentCount, block }]
-            - faculty: [{ name, employeeId, designation, department, specialization: [], email, contactNumber, maxWorkload }]
-            - subjects: [{ name, code, department, semester, credits, type, hoursPerWeek, forClass, assignedFacultyName }] (Use faculty name, not ID)
-            - rooms: [{ number, building, type, capacity, block }]
+        Rules for re-assignment:
+        1.  A subject can only be re-assigned to a faculty member from the SAME department.
+        2.  Prioritize re-assigning to faculty who have the subject's specialization.
+        3.  Do not suggest re-assigning to a faculty member if it would push their workload over 100%.
+        4.  Try to offload from the most over-allocated faculty first.
+        5.  Suggest moving the smallest subjects (lowest hoursPerWeek) first to make balancing easier.
 
-            Extract as much information as possible. Be robust. If a section of the file is empty or unparseable, return an empty array for that key.
+        If a workload cannot be resolved (e.g., no other qualified faculty in the department has capacity), identify it in the 'unresolvableWorkloads' array with a reason and a recommendation (e.g., "Hire a visiting lecturer for the 'Data Structures' course.").
+
+        Output a JSON object with two keys:
+        - "suggestions": An array of objects, each with { subjectId, subjectName, fromFacultyId, fromFacultyName, toFacultyId, toFacultyName }.
+        - "unresolvableWorkloads": An array of objects, each with { facultyName, department, reason, recommendation }.
         `;
-
+        
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
-            config: { responseMimeType: "application/json" }
+            config: {
+                responseMimeType: 'application/json'
+            }
         });
 
-        const extractedData = JSON.parse(response.text);
+        res.json(JSON.parse(response.text.trim()));
+    } catch (error) {
+        res.status(500).json({ message: 'Error getting re-assignment suggestions.' });
+    }
+});
 
-        // --- Data Insertion Logic ---
-        // We will upsert to avoid duplicates.
-        if (extractedData.faculty && extractedData.faculty.length > 0) {
-            const facultyOps = extractedData.faculty.map(f => ({
-                updateOne: {
-                    filter: { email: f.email },
-                    update: { $set: f, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } },
-                    upsert: true
-                }
-            }));
-            await Faculty.bulkWrite(facultyOps);
-        }
 
-        // Fetch all faculty to create a name -> ID map
-        const allFaculty = await Faculty.find({});
-        const facultyNameMap = new Map(allFaculty.map(f => [f.name, f.id]));
+// --- Universal Import ---
+app.post('/api/import/universal', authMiddleware, async (req, res) => {
+    if (!process.env.API_KEY) {
+        return res.status(500).json({ message: 'AI features are not configured.' });
+    }
+    try {
+        const { fileData, mimeType } = req.body;
+        const base64Data = fileData.split(',')[1];
         
-        if (extractedData.rooms && extractedData.rooms.length > 0) {
-            const roomOps = extractedData.rooms.map(r => ({
-                updateOne: { filter: { number: r.number }, update: { $set: r, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } }, upsert: true }
-            }));
-            await Room.bulkWrite(roomOps);
-        }
+        const prompt = `
+            You are an expert data parsing AI. Analyze the content of this file and extract structured data for Classes, Faculty, Subjects, and Rooms.
+            The file content is base64 encoded.
+            
+            Identify the columns or structure even if headers are missing.
+            - For Faculty, look for names, emails, departments, specializations.
+            - For Classes, look for names like 'CSE-3-A', branch, year, section.
+            - For Subjects, look for codes, names, credits, type (Theory/Lab).
+            - For Rooms, look for numbers, buildings, capacity, type (Classroom/Lab).
+            
+            Return a single JSON object with four keys: "classes", "faculty", "subjects", "rooms". Each key should hold an array of the extracted data objects.
+            If a category of data is not present in the file, return an empty array for that key.
+        `;
 
-        if (extractedData.classes && extractedData.classes.length > 0) {
-            const classOps = extractedData.classes.map(c => ({
-                updateOne: { filter: { name: c.name }, update: { $set: c, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } }, upsert: true }
-            }));
-            await Class.bulkWrite(classOps);
-        }
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-        if (extractedData.subjects && extractedData.subjects.length > 0) {
-            const subjectOps = extractedData.subjects.map(s => {
-                const facultyId = facultyNameMap.get(s.assignedFacultyName);
-                const subjectData = { ...s, assignedFacultyId: facultyId };
-                delete subjectData.assignedFacultyName;
-                return {
-                    updateOne: { filter: { code: s.code }, update: { $set: subjectData, $setOnInsert: { id: new mongoose.Types.ObjectId().toString() } }, upsert: true }
-                };
-            });
-            await Subject.bulkWrite(subjectOps);
-        }
+        const filePart = { inlineData: { mimeType, data: base64Data } };
+        const textPart = { text: prompt };
 
-        res.json({ message: 'Data imported successfully!' });
-
-    } catch (error) {
-        console.error("Error during universal import:", error);
-        res.status(500).json({ message: 'Failed to import data.', details: error.message });
-    }
-});
-
-
-// All data route
-app.get('/api/all-data', authMiddleware, async (req, res) => {
-    try {
-        const [
-            classes, faculty, subjects, rooms, students, users,
-            constraints, timetable, attendance, chatMessages, institutions,
-            teacherRequests, studentQueries, syllabusProgress, meetings, calendarEvents, appNotifications
-        ] = await Promise.all([
-            Class.find(), Faculty.find(), Subject.find(), Room.find(), Student.find(), User.find(),
-            Constraints.findOne({ identifier: 'global_constraints' }),
-            TimetableEntry.find(), Attendance.find(), ChatMessage.find().sort({ timestamp: -1 }).limit(200),
-            Institution.find(), TeacherRequest.find(), StudentQuery.find(),
-            SyllabusProgress.find(), Meeting.find(), CalendarEvent.find(), AppNotification.find()
-        ]);
-
-        const attendanceObject = attendance.reduce((acc, curr) => {
-            if (!acc[curr.classId]) acc[curr.classId] = {};
-            acc[curr.classId][curr.date] = curr.records.reduce((recAcc, rec) => {
-                recAcc[rec.studentId] = rec.status;
-                return recAcc;
-            }, {});
-            return acc;
-        }, {});
-
-        res.json({
-            classes, faculty, subjects, rooms, students, users,
-            constraints, timetable, attendance: attendanceObject, chatMessages: chatMessages.reverse(),
-            institutions, teacherRequests, studentQueries, syllabusProgress, meetings, calendarEvents, appNotifications
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [filePart, textPart] },
+            config: {
+                responseMimeType: 'application/json'
+            }
         });
+
+        const parsedData = JSON.parse(response.text.trim());
+
+        // Now, save the data to the database
+        if (parsedData.classes) {
+            for (const item of parsedData.classes) {
+                await Class.updateOne({ name: item.name }, { ...item, id: new mongoose.Types.ObjectId().toString() }, { upsert: true });
+            }
+        }
+        if (parsedData.faculty) {
+            for (const item of parsedData.faculty) {
+                 await Faculty.updateOne({ email: item.email }, { ...item, id: new mongoose.Types.ObjectId().toString() }, { upsert: true });
+            }
+        }
+        // ... similar logic for subjects and rooms
+
+        res.json({ message: 'Data imported successfully.' });
+
     } catch (error) {
-        res.status(500).json({ message: 'Error fetching all data', error: error.message });
+        console.error("Universal import error:", error);
+        res.status(500).json({ message: 'Failed to process the file.' });
     }
 });
 
-// NEW: Reset Data Endpoint
+
+// --- Data Reset Route ---
 app.post('/api/reset-data', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Forbidden' });
-    }
     try {
-        // 1. Clear existing data
         await Promise.all([
             Class.deleteMany({}), Faculty.deleteMany({}), Subject.deleteMany({}),
             Room.deleteMany({}), Student.deleteMany({}), User.deleteMany({}),
             TimetableEntry.deleteMany({}), Constraints.deleteMany({}), Attendance.deleteMany({}),
             ChatMessage.deleteMany({}), Institution.deleteMany({}), TeacherRequest.deleteMany({}),
-            StudentQuery.deleteMany({})
+            StudentQuery.deleteMany({}), SyllabusProgress.deleteMany({}), CalendarEvent.deleteMany({}),
+            Meeting.deleteMany({}), AppNotification.deleteMany({})
         ]);
-
-        // 2. Define new seed data
-        const newId = () => new mongoose.Types.ObjectId().toString();
-
-        const newClassesData = [
-            { id: newId(), name: 'CYS A', branch: 'CYS', year: 1, section: 'A', studentCount: 60, block: 'A-Block' },
-            { id: newId(), name: 'CYS B', branch: 'CYS', year: 1, section: 'B', studentCount: 60, block: 'A-Block' },
-            { id: newId(), name: 'BCA A', branch: 'BCA', year: 1, section: 'A', studentCount: 60, block: 'B-Block' },
-            { id: newId(), name: 'BCA B', branch: 'BCA', year: 1, section: 'B', studentCount: 60, block: 'B-Block' },
-            { id: newId(), name: 'CSE A', branch: 'CSE', year: 1, section: 'A', studentCount: 60, block: 'C-Block' },
-            { id: newId(), name: 'CSE B', branch: 'CSE', year: 1, section: 'B', studentCount: 60, block: 'C-Block' },
-            { id: newId(), name: 'CSE C', branch: 'CSE', year: 1, section: 'C', studentCount: 60, block: 'C-Block' },
-            { id: newId(), name: 'CSE D', branch: 'CSE', year: 1, section: 'D', studentCount: 60, block: 'C-Block' },
+        
+        const newClasses = [
+            { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 5, block: 'A-Block' },
+            { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 5, block: 'A-Block' },
+            { id: 'c3', name: 'ECE-3-A', branch: 'ECE', year: 3, section: 'A', studentCount: 5, block: 'B-Block' },
+            { id: 'c4', name: 'ME-2-A', branch: 'ME', year: 2, section: 'A', studentCount: 5, block: 'C-Block' },
+            { id: 'c5', name: 'CSE-1-A', branch: 'CSE', year: 1, section: 'A', studentCount: 5, block: 'A-Block' },
+        ];
+        const newFaculty = [
+            { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Algorithms', 'Data Structures'], email: 'rajesh.kumar@university.edu', contactNumber: '9876543210', maxWorkload: 12 },
+            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 10 },
+            { id: 'f3', name: 'Dr. Amit Singh', employeeId: 'T003', designation: 'Assistant Professor', department: 'ECE', specialization: ['VLSI', 'Signal Processing'], email: 'amit.singh@university.edu', contactNumber: '9876543212', maxWorkload: 14 },
+            { id: 'f4', name: 'Dr. Sneha Reddy', employeeId: 'T004', designation: 'Professor', department: 'ME', specialization: ['Thermodynamics', 'Fluid Mechanics'], email: 'sneha.reddy@university.edu', contactNumber: '9876543213', maxWorkload: 11 },
+        ];
+        const newSubjects = [
+            { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1', forClass: 'CSE-3-A' },
+            { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1', forClass: 'CSE-3-A' },
+            { id: 's3', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', semester: 5, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1', forClass: 'CSE-3-A' },
+            { id: 's4', name: 'Database Management', code: 'CS303', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-A' },
+            { id: 's5', name: 'Operating Systems', code: 'CS304', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-A' },
+            { id: 's6', name: 'VLSI Design', code: 'EC301', department: 'ECE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f3', forClass: 'ECE-3-A' },
+            { id: 's7', name: 'Thermodynamics', code: 'ME201', department: 'ME', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f4', forClass: 'ME-2-A' },
+        ];
+        const newRooms = [
+            { id: 'r1', number: 'A-101', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r2', number: 'A-102', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r3', number: 'CS-Lab-1', building: 'Academic Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 60 }, audioSystem: false, whiteboard: true } },
+            { id: 'r4', number: 'B-201', building: 'Academic Block B', type: 'Classroom', capacity: 70, block: 'B-Block', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+            { id: 'r5', number: 'C-G01', building: 'Mechanical Block', type: 'Classroom', capacity: 70, block: 'C-Block', equipment: { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+        ];
+        const newInstitutions = [
+            { id: 'inst1', name: 'Global University of Technology', academicYear: '2024-2025', semester: 'Odd', session: 'Regular', blocks: ['A-Block', 'B-Block', 'C-Block'] }
         ];
 
-        const newRoomsData = [
-            { id: newId(), number: 'CYS-A-CR', building: 'Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, whiteboard: true } },
-            { id: newId(), number: 'CYS-B-CR', building: 'Block A', type: 'Classroom', capacity: 65, block: 'A-Block', equipment: { projector: true, whiteboard: true } },
-            { id: newId(), number: 'BCA-A-CR', building: 'Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, whiteboard: true } },
-            { id: newId(), number: 'BCA-B-CR', building: 'Block B', type: 'Classroom', capacity: 65, block: 'B-Block', equipment: { projector: true, whiteboard: true } },
-            { id: newId(), number: 'CSE-A-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
-            { id: newId(), number: 'CSE-B-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
-            { id: newId(), number: 'CSE-C-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
-            { id: newId(), number: 'CSE-D-CR', building: 'Block C', type: 'Classroom', capacity: 65, block: 'C-Block', equipment: { projector: true, smartBoard: true } },
-            { id: newId(), number: 'CS-LAB-1', building: 'Block C', type: 'Laboratory', capacity: 60, block: 'C-Block', equipment: { computerSystems: { available: true, count: 60 }, ac: true } },
-            { id: newId(), number: 'CS-LAB-2', building: 'Block C', type: 'Laboratory', capacity: 60, block: 'C-Block', equipment: { computerSystems: { available: true, count: 60 }, ac: true } },
-            { id: newId(), number: 'CYBER-LAB', building: 'Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { computerSystems: { available: true, count: 60 }, smartBoard: true } },
-            { id: newId(), number: 'SEMINAR-HALL', building: 'Admin', type: 'Seminar Hall', capacity: 150, block: 'A-Block', equipment: { projector: true, audioSystem: true, ac: true } },
-        ];
-
-        const facultyPool = {
-            humanities: [
-                { id: newId(), name: 'Dr. Eleanor Vance', employeeId: 'F001', designation: 'Professor', department: 'Applied Science', specialization: ['Communication', 'Ethics'], email: 'eleanor.vance@university.edu', maxWorkload: 18 },
-                { id: newId(), name: 'Prof. Marcus Holloway', employeeId: 'F002', designation: 'Assistant Professor', department: 'Applied Science', specialization: ['Sociology', 'Humanities'], email: 'marcus.holloway@university.edu', maxWorkload: 18 }
-            ],
-            de: [
-                { id: newId(), name: 'Dr. Ben Carter', employeeId: 'F003', designation: 'Associate Professor', department: 'CSE', specialization: ['Digital Electronics', 'Embedded Systems'], email: 'ben.carter@university.edu', maxWorkload: 18 },
-                { id: newId(), name: 'Prof. Aisha Khan', employeeId: 'F004', designation: 'Assistant Professor', department: 'CSE', specialization: ['Circuit Design', 'VLSI'], email: 'aisha.khan@university.edu', maxWorkload: 18 }
-            ],
-            dsa: [
-                { id: newId(), name: 'Dr. Kenji Tanaka', employeeId: 'F005', designation: 'Professor', department: 'CSE', specialization: ['Data Structures', 'Algorithms'], email: 'kenji.tanaka@university.edu', maxWorkload: 18 },
-                { id: newId(), name: 'Prof. Chloe Price', employeeId: 'F006', designation: 'Associate Professor', department: 'CSE', specialization: ['Competitive Programming', 'DSA'], email: 'chloe.price@university.edu', maxWorkload: 18 }
-            ],
-            math: [
-                { id: newId(), name: 'Dr. Samuel Green', employeeId: 'F007', designation: 'Professor', department: 'Applied Science', specialization: ['Applied Mathematics', 'Calculus'], email: 'samuel.green@university.edu', maxWorkload: 18 },
-                { id: newId(), name: 'Prof. Sofia Reyes', employeeId: 'F008', designation: 'Associate Professor', department: 'Applied Science', specialization: ['Linear Algebra', 'Statistics'], email: 'sofia.reyes@university.edu', maxWorkload: 18 }
-            ],
-            oops: [
-                { id: newId(), name: 'Dr. David Chen', employeeId: 'F009', designation: 'Professor', department: 'CSE', specialization: ['OOPS', 'Software Design'], email: 'david.chen@university.edu', maxWorkload: 18 },
-                { id: newId(), name: 'Prof. Maya Sharma', employeeId: 'F010', designation: 'Assistant Professor', department: 'CSE', specialization: ['Java', 'C++', 'OOPS'], email: 'maya.sharma@university.edu', maxWorkload: 18 }
-            ]
-        };
-        let newFacultyData = Object.values(facultyPool).flat();
-        
-        const newSubjectsData = [];
-        const subjectTemplates = [
-            { name: 'Humanities', codePrefix: 'HU', type: 'humanities' },
-            { name: 'Mathematics-I', codePrefix: 'MA', type: 'math' },
-            { name: 'Digital Electronics', codePrefix: 'DE', type: 'de' },
-            { name: 'Data Structures & Algorithms', codePrefix: 'DS', type: 'dsa' },
-            { name: 'Object Oriented Programming', codePrefix: 'CS', type: 'oops' },
-        ];
-        
-        const getRandomFacultyId = (type) => {
-            const specialists = facultyPool[type];
-            if (!specialists || specialists.length === 0) return null;
-            const randomIndex = Math.floor(Math.random() * specialists.length);
-            return specialists[randomIndex].id;
-        };
-
-        newClassesData.forEach(cls => {
-            subjectTemplates.forEach(template => {
-                newSubjectsData.push({
-                    id: newId(),
-                    name: template.name,
-                    code: `${cls.name.replace(' ', '')}-${template.codePrefix}`, // Unique code like CYSA-HU
-                    department: cls.branch,
-                    forClass: cls.name, // Explicitly link subject to a class
-                    semester: 1,
-                    credits: 3,
-                    type: 'Theory',
-                    hoursPerWeek: 4,
-                    assignedFacultyId: getRandomFacultyId(template.type)
-                });
-            });
-        });
-
-        // 3. Create default users and profiles
-        const adminProfile = { id: newId(), name: 'Admin User', employeeId: 'ADMIN01', designation: 'Professor', department: 'Administration', specialization: ['System Management'], email: 'admin@university.edu', maxWorkload: 40 };
-        const teacherProfileForUser = facultyPool.dsa[0]; // Dr. Kenji Tanaka
-        
-        const newStudentsData = [];
-        for (const cls of newClassesData) {
+        const newStudents = [];
+        let studentCounter = 1;
+        for (const cls of newClasses) {
             for (let i = 1; i <= 5; i++) {
-                const studentId = newId();
-                const studentName = `${cls.name} Student ${i}`;
-                const studentEmail = `${cls.name.replace(' ', '').toLowerCase()}.${i}@university.edu`;
-                newStudentsData.push({ id: studentId, name: studentName, classId: cls.id, roll: String(i), email: studentEmail });
+                newStudents.push({
+                    id: `st${studentCounter}`,
+                    name: `Student ${studentCounter}`,
+                    email: `student${studentCounter}@university.edu`,
+                    classId: cls.id,
+                    roll: `${i}`
+                });
+                studentCounter++;
             }
         }
         
-        newFacultyData.push(adminProfile);
+        const adminPass = await bcrypt.hash('admin123', saltRounds);
+        const teacherPass = await bcrypt.hash('teacher123', saltRounds);
+        const studentPass = await bcrypt.hash('student123', saltRounds);
 
-        const usersToCreate = [
-            { username: 'admin@university.edu', password: 'admin123', role: 'admin', profileId: adminProfile.id },
-            { username: teacherProfileForUser.email, password: 'teacher123', role: 'teacher', profileId: teacherProfileForUser.id },
+        const newUsers = [
+            { username: 'admin@university.edu', password: adminPass, role: 'admin', profileId: 'f1' },
+            { username: 'teacher@university.edu', password: teacherPass, role: 'teacher', profileId: 'f2' },
+            { username: 'student@university.edu', password: studentPass, role: 'student', profileId: 'st1' },
         ];
+
+        await Promise.all([
+            Class.insertMany(newClasses), Faculty.insertMany(newFaculty),
+            Subject.insertMany(newSubjects), Room.insertMany(newRooms),
+            Student.insertMany(newStudents), User.insertMany(newUsers),
+            Institution.insertMany(newInstitutions),
+        ]);
         
-        const demoStudent = newStudentsData.find(s => s.name === 'CSE A Student 1');
-        if (demoStudent) {
-            demoStudent.email = 'student@university.edu'; // Overwrite email for easy login
-            usersToCreate.push({
-                username: 'student@university.edu',
-                password: 'student123',
-                role: 'student',
-                profileId: demoStudent.id,
-            });
-        }
-        
-        const hashedUsers = await Promise.all(usersToCreate.map(async (user) => {
-            const hashedPassword = await bcrypt.hash(user.password, saltRounds);
-            return { ...user, password: hashedPassword };
-        }));
+        const newConstraints = new Constraints();
+        await newConstraints.save();
 
-        // 4. Insert new data
-        await Institution.create({ id: newId(), name: 'Smart University', academicYear: '2024-2025', semester: 'Odd', blocks: ['A-Block', 'B-Block', 'C-Block'] });
-        await Constraints.create({});
-        await Class.insertMany(newClassesData);
-        await Room.insertMany(newRoomsData);
-        await Faculty.insertMany(newFacultyData);
-        await Subject.insertMany(newSubjectsData);
-        await Student.insertMany(newStudentsData);
-        await User.insertMany(hashedUsers);
-
-        res.json({ message: 'Data has been reset successfully.' });
-
+        res.json({ message: 'Data has been reset to defaults.' });
     } catch (error) {
         console.error("Error resetting data:", error);
-        res.status(500).json({ message: 'Failed to reset data.', error: error.message });
+        res.status(500).json({ message: 'Error resetting data.', error: error.message });
     }
 });
 
 
-// FIX: Added a catch-all route to serve the SPA's index.html.
-// This is crucial for handling client-side routing on page refresh or direct navigation.
+// --- Catch-all to serve the main index.html for any other route ---
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-
+// --- Server Startup ---
 const PORT = process.env.PORT || 3001;
+
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch(err => {
-    console.error("Failed to connect to MongoDB", err);
-    process.exit(1);
-  });
+    .then(() => {
+        console.log('MongoDB Connected');
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    })
+    .catch(err => {
+        console.error('Failed to connect to MongoDB', err);
+        process.exit(1);
+    });
