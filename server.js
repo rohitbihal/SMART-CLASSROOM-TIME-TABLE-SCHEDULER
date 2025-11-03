@@ -1094,6 +1094,10 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { id: 'f8', name: 'Dr. Meera Desai', employeeId: 'T008', designation: 'Professor', department: 'CSE', specialization: ['AI', 'Machine Learning'], email: 'meera.desai@university.edu', contactNumber: '9876543217', maxWorkload: 9 },
             { id: 'f9', name: 'Mr. Sanjay Rao', employeeId: 'T009', designation: 'Lecturer', department: 'ECE', specialization: ['Embedded Systems', 'IoT'], email: 'sanjay.rao@university.edu', contactNumber: '9876543218', maxWorkload: 15 },
             { id: 'f10', name: 'Ms. Kavita Joshi', employeeId: 'T010', designation: 'Assistant Professor', department: 'Humanities', specialization: ['Ethics', 'Professional Communication'], email: 'kavita.joshi@university.edu', contactNumber: '9876543219', maxWorkload: 12 },
+            { id: 'f11', name: 'Dr. Suresh Gupta', employeeId: 'T011', designation: 'Associate Professor', department: 'CSE', specialization: ['Computer Networks', 'Cybersecurity'], email: 'suresh.gupta@university.edu', contactNumber: '9876543220', maxWorkload: 12 },
+            { id: 'f12', name: 'Ms. Rina Singh', employeeId: 'T012', designation: 'Assistant Professor', department: 'CSE', specialization: ['Compiler Design', 'Theory of Computation'], email: 'rina.singh@university.edu', contactNumber: '9876543221', maxWorkload: 14 },
+            { id: 'f13', name: 'Dr. Anil Kumar', employeeId: 'T013', designation: 'Professor', department: 'ECE', specialization: ['Digital Communication', 'Wireless Networks'], email: 'anil.kumar@university.edu', contactNumber: '9876543222', maxWorkload: 10 },
+            { id: 'f14', name: 'Mr. Rajesh Menon', employeeId: 'T014', designation: 'Lecturer', department: 'ME', specialization: ['Manufacturing Processes', 'CAD/CAM'], email: 'rajesh.menon@university.edu', contactNumber: '9876543223', maxWorkload: 16 },
         ];
         
         const newClasses = [
@@ -1168,6 +1172,8 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             { username: 'amit.singh@university.edu', password: await bcrypt.hash('teacher456', 10), role: 'teacher', profileId: 'f3' },
             { username: 'vikram.verma@university.edu', password: await bcrypt.hash('teacher789', 10), role: 'teacher', profileId: 'f5' },
             { username: 'student21@university.edu', password: await bcrypt.hash('student456', 10), role: 'student', profileId: 'st21' }, // Student CSE-3-B-1
+            { username: 'suresh.gupta@university.edu', password: await bcrypt.hash('teacher111', 10), role: 'teacher', profileId: 'f11' },
+            { username: 'rina.singh@university.edu', password: await bcrypt.hash('teacher222', 10), role: 'teacher', profileId: 'f12' },
         ];
 
         const newTimetable = [

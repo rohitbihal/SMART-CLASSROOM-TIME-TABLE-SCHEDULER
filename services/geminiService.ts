@@ -42,24 +42,9 @@ export const generateTimetable = async (
         }
         throw new Error(`The server encountered an issue: ${errorDetails}`);
     }
-
-    // Handle streaming response to avoid timeouts
-    const reader = response.body?.getReader();
-    if (!reader) {
-        throw new Error("Failed to get response body reader.");
-    }
-    const decoder = new TextDecoder();
-    let resultJson = '';
-    
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        resultJson += decoder.decode(value, { stream: true });
-    }
     
     try {
-        // Once streaming is complete, parse the full JSON string
-        const generationResult = JSON.parse(resultJson);
+        const generationResult = await response.json();
         
         if (!generationResult || !Array.isArray(generationResult.timetable) || !Array.isArray(generationResult.unscheduledSessions)) {
           console.error("Backend returned invalid format for generation result:", generationResult);
@@ -68,9 +53,10 @@ export const generateTimetable = async (
         
         return generationResult;
     } catch (parseError) {
-        console.error("Failed to parse JSON response from AI:", parseError);
-        console.error("Raw AI response:", resultJson);
-        throw new Error(`The AI model returned an invalid response that could not be parsed as JSON. This can happen with complex constraints. Raw response snippet: ${resultJson.substring(0, 300)}...`);
+        console.error("Failed to parse JSON response from server:", parseError);
+        // Note: Can't read response.text() after response.json() fails, so can't log raw text here.
+        const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+        throw new Error(`The server's response could not be parsed as JSON. This may be due to a server-side error. Details: ${errorMessage}`);
     }
     
   } catch (error) {

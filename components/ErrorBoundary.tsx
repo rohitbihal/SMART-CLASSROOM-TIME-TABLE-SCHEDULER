@@ -12,14 +12,13 @@ interface State {
 
 // FIX: Changed to extend named import `Component` from React to resolve a type error where `this.props` was not being recognized.
 export class ErrorBoundary extends Component<Props, State> {
-  // FIX: Re-added constructor. The error indicates `this.props` is not available, and calling `super(props)` in a constructor is the standard way to initialize it.
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: undefined,
-    };
-  }
+  // FIX: Replaced the constructor with a class property for state initialization.
+  // This is a more modern and cleaner approach that resolves the TypeScript errors
+  // related to `this.state` and `this.props` not being found on the component instance.
+  public state: State = {
+    hasError: false,
+    error: undefined,
+  };
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
