@@ -232,7 +232,8 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
                     setMeetings(prev => {
                         const meetingMap = new Map(prev.map(m => [m.id, m]));
                         newMeetings.forEach(m => meetingMap.set(m.id, m));
-                        return Array.from(meetingMap.values()).sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+                        // FIX: Added explicit types for sort callback parameters to resolve 'property does not exist on type unknown' error.
+                        return Array.from(meetingMap.values()).sort((a: Meeting, b: Meeting) => new Date(a.start).getTime() - new Date(b.start).getTime());
                     });
                 }
 
@@ -255,7 +256,8 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
                     setCalendarEvents(prev => {
                         const eventMap = new Map(prev.map(e => [e.id, e]));
                         newEvents.forEach(e => eventMap.set(e.id, e));
-                        return Array.from(eventMap.values()).sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+                        // FIX: Added explicit types for sort callback parameters to resolve 'property does not exist on type unknown' error.
+                        return Array.from(eventMap.values()).sort((a: CalendarEvent, b: CalendarEvent) => new Date(a.start).getTime() - new Date(b.start).getTime());
                     });
                 }
 

@@ -1075,46 +1075,63 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
             Meeting.deleteMany({}), AppNotification.deleteMany({})
         ]);
         
-        const newClasses = [
-            { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 5, block: 'A-Block' },
-            { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 5, block: 'A-Block' },
-            { id: 'c3', name: 'ECE-3-A', branch: 'ECE', year: 3, section: 'A', studentCount: 5, block: 'B-Block' },
-            { id: 'c4', name: 'ME-2-A', branch: 'ME', year: 2, section: 'A', studentCount: 5, block: 'C-Block' },
-            { id: 'c5', name: 'CSE-1-A', branch: 'CSE', year: 1, section: 'A', studentCount: 5, block: 'A-Block' },
+        const newInstitutions = [
+            { id: 'inst1', name: 'Global University of Technology', academicYear: '2024-2025', semester: 'Odd', session: 'Regular', blocks: ['A-Block (CSE)', 'B-Block (ECE)', 'C-Block (ME)', 'D-Block (Labs & Admin)'] }
         ];
+        
         const newFaculty = [
-            { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Algorithms', 'Data Structures'], email: 'rajesh.kumar@university.edu', contactNumber: '9876543210', maxWorkload: 12 },
-            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 10 },
+            { id: 'f1', name: 'Dr. Rajesh Kumar', employeeId: 'T001', designation: 'Professor', department: 'CSE', specialization: ['Algorithms', 'Data Structures', 'AI'], email: 'rajesh.kumar@university.edu', contactNumber: '9876543210', maxWorkload: 10 },
+            { id: 'f2', name: 'Dr. Priya Sharma', employeeId: 'T002', designation: 'Associate Professor', department: 'CSE', specialization: ['Databases', 'Operating Systems'], email: 'priya.sharma@university.edu', contactNumber: '9876543211', maxWorkload: 12 },
             { id: 'f3', name: 'Dr. Amit Singh', employeeId: 'T003', designation: 'Assistant Professor', department: 'ECE', specialization: ['VLSI', 'Signal Processing'], email: 'amit.singh@university.edu', contactNumber: '9876543212', maxWorkload: 14 },
             { id: 'f4', name: 'Dr. Sneha Reddy', employeeId: 'T004', designation: 'Professor', department: 'ME', specialization: ['Thermodynamics', 'Fluid Mechanics'], email: 'sneha.reddy@university.edu', contactNumber: '9876543213', maxWorkload: 11 },
+            { id: 'f5', name: 'Mr. Vikram Verma', employeeId: 'T005', designation: 'Lecturer', department: 'CSE', specialization: ['Web Development', 'Java'], email: 'vikram.verma@university.edu', contactNumber: '9876543214', maxWorkload: 16 },
+            { id: 'f6', name: 'Dr. Anjali Gupta', employeeId: 'T006', designation: 'Associate Professor', department: 'ECE', specialization: ['Communication Systems', 'Microwaves'], email: 'anjali.gupta@university.edu', contactNumber: '9876543215', maxWorkload: 10 },
+            { id: 'f7', name: 'Mr. Rohan Patel', employeeId: 'T007', designation: 'Assistant Professor', department: 'ME', specialization: ['Machine Design', 'Robotics'], email: 'rohan.patel@university.edu', contactNumber: '9876543216', maxWorkload: 13 },
         ];
+        
+        const newClasses = [
+            { id: 'c1', name: 'CSE-3-A', branch: 'CSE', year: 3, section: 'A', studentCount: 10, block: 'A-Block (CSE)' },
+            { id: 'c2', name: 'CSE-3-B', branch: 'CSE', year: 3, section: 'B', studentCount: 10, block: 'A-Block (CSE)' },
+            { id: 'c3', name: 'ECE-3-A', branch: 'ECE', year: 3, section: 'A', studentCount: 10, block: 'B-Block (ECE)' },
+            { id: 'c4', name: 'ME-2-A', branch: 'ME', year: 2, section: 'A', studentCount: 10, block: 'C-Block (ME)' },
+            { id: 'c5', name: 'CSE-1-A', branch: 'CSE', year: 1, section: 'A', studentCount: 10, block: 'A-Block (CSE)' },
+        ];
+        
         const newSubjects = [
+            // CSE 3rd Year
             { id: 's1', name: 'Data Structures', code: 'CS301', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1', forClass: 'CSE-3-A' },
             { id: 's2', name: 'Algorithms', code: 'CS302', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f1', forClass: 'CSE-3-A' },
             { id: 's3', name: 'Data Structures Lab', code: 'CS301L', department: 'CSE', semester: 5, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f1', forClass: 'CSE-3-A' },
-            { id: 's4', name: 'Database Management', code: 'CS303', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-A' },
-            { id: 's5', name: 'Operating Systems', code: 'CS304', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-A' },
+            { id: 's4', name: 'Database Management', code: 'CS303', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-B' },
+            { id: 's5', name: 'Operating Systems', code: 'CS304', department: 'CSE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f2', forClass: 'CSE-3-B' },
+            { id: 's11', name: 'Web Development', code: 'CS305', department: 'CSE', semester: 5, credits: 3, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f5', forClass: 'CSE-3-A' },
+            { id: 's12', name: 'Web Development Lab', code: 'CS305L', department: 'CSE', semester: 5, credits: 2, type: 'Lab', hoursPerWeek: 2, assignedFacultyId: 'f5', forClass: 'CSE-3-A' },
+            // ECE 3rd Year
             { id: 's6', name: 'VLSI Design', code: 'EC301', department: 'ECE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f3', forClass: 'ECE-3-A' },
+            { id: 's13', name: 'Communication Systems', code: 'EC302', department: 'ECE', semester: 5, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f6', forClass: 'ECE-3-A' },
+            // ME 2nd Year
             { id: 's7', name: 'Thermodynamics', code: 'ME201', department: 'ME', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f4', forClass: 'ME-2-A' },
+            { id: 's14', name: 'Robotics', code: 'ME202', department: 'ME', semester: 3, credits: 4, type: 'Theory', hoursPerWeek: 3, assignedFacultyId: 'f7', forClass: 'ME-2-A' },
+            // CSE 1st Year
+            { id: 's15', name: 'Intro to Programming', code: 'CS101', department: 'CSE', semester: 1, credits: 4, type: 'Theory', hoursPerWeek: 4, assignedFacultyId: 'f5', forClass: 'CSE-1-A' },
         ];
+        
         const newRooms = [
-            { id: 'r1', number: 'A-101', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
-            { id: 'r2', number: 'A-102', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
-            { id: 'r3', number: 'CS-Lab-1', building: 'Academic Block A', type: 'Laboratory', capacity: 60, block: 'A-Block', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 60 }, audioSystem: false, whiteboard: true } },
-            { id: 'r4', number: 'B-201', building: 'Academic Block B', type: 'Classroom', capacity: 70, block: 'B-Block', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
-            { id: 'r5', number: 'C-G01', building: 'Mechanical Block', type: 'Classroom', capacity: 70, block: 'C-Block', equipment: { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+            { id: 'r1', number: 'A-101', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block (CSE)', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r2', number: 'A-102', building: 'Academic Block A', type: 'Classroom', capacity: 70, block: 'A-Block (CSE)', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
+            { id: 'r3', number: 'D-Lab-1 (CS)', building: 'Lab Block D', type: 'Laboratory', capacity: 60, block: 'D-Block (Labs & Admin)', equipment: { projector: true, smartBoard: false, ac: true, computerSystems: { available: true, count: 60 }, audioSystem: false, whiteboard: true } },
+            { id: 'r4', number: 'B-201', building: 'Academic Block B', type: 'Classroom', capacity: 70, block: 'B-Block (ECE)', equipment: { projector: true, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+            { id: 'r5', number: 'C-G01', building: 'Mechanical Block', type: 'Classroom', capacity: 70, block: 'C-Block (ME)', equipment: { projector: false, smartBoard: false, ac: false, computerSystems: { available: false, count: 0 }, audioSystem: false, whiteboard: true } },
+            { id: 'r6', number: 'D-Sem-Hall', building: 'Lab Block D', type: 'Seminar Hall', capacity: 150, block: 'D-Block (Labs & Admin)', equipment: { projector: true, smartBoard: true, ac: true, computerSystems: { available: false, count: 0 }, audioSystem: true, whiteboard: true } },
         ];
-        const newInstitutions = [
-            { id: 'inst1', name: 'Global University of Technology', academicYear: '2024-2025', semester: 'Odd', session: 'Regular', blocks: ['A-Block', 'B-Block', 'C-Block'] }
-        ];
-
+        
         const newStudents = [];
         let studentCounter = 1;
         for (const cls of newClasses) {
-            for (let i = 1; i <= 5; i++) {
+            for (let i = 1; i <= 10; i++) {
                 newStudents.push({
                     id: `st${studentCounter}`,
-                    name: `Student ${studentCounter}`,
+                    name: `Student ${cls.branch}-${cls.year}${cls.section}-${i}`,
                     email: `student${studentCounter}@university.edu`,
                     classId: cls.id,
                     roll: `${i}`
@@ -1130,14 +1147,102 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
         const newUsers = [
             { username: 'admin@university.edu', password: adminPass, role: 'admin', profileId: 'f1' },
             { username: 'teacher@university.edu', password: teacherPass, role: 'teacher', profileId: 'f2' },
+            { username: 'teacher2@university.edu', password: await bcrypt.hash('teacher456', 10), role: 'teacher', profileId: 'f3' },
             { username: 'student@university.edu', password: studentPass, role: 'student', profileId: 'st1' },
+            { username: 'student2@university.edu', password: await bcrypt.hash('student456', 10), role: 'student', profileId: 'st21' },
         ];
 
+        const newTimetable = [
+            // Monday
+            { day: 'monday', time: '09:30-10:20', subject: 'Data Structures', faculty: 'Dr. Rajesh Kumar', room: 'A-101', type: 'Theory', className: 'CSE-3-A', classType: 'regular' },
+            { day: 'monday', time: '09:30-10:20', subject: 'Database Management', faculty: 'Dr. Priya Sharma', room: 'A-102', type: 'Theory', className: 'CSE-3-B', classType: 'regular' },
+            { day: 'monday', time: '09:30-10:20', subject: 'VLSI Design', faculty: 'Dr. Amit Singh', room: 'B-201', type: 'Theory', className: 'ECE-3-A', classType: 'regular' },
+            
+            { day: 'monday', time: '10:20-11:10', subject: 'Algorithms', faculty: 'Dr. Rajesh Kumar', room: 'A-101', type: 'Theory', className: 'CSE-3-A', classType: 'regular' },
+            { day: 'monday', time: '10:20-11:10', subject: 'Operating Systems', faculty: 'Dr. Priya Sharma', room: 'A-102', type: 'Theory', className: 'CSE-3-B', classType: 'regular' },
+        
+            { day: 'monday', time: '11:10-12:00', subject: 'Web Development', faculty: 'Mr. Vikram Verma', room: 'A-101', type: 'Theory', className: 'CSE-3-A', classType: 'regular' },
+        
+            // Lunch Break 12:50-01:35
+        
+            { day: 'monday', time: '01:35-02:25', subject: 'Data Structures Lab', faculty: 'Dr. Rajesh Kumar', room: 'D-Lab-1 (CS)', type: 'Lab', className: 'CSE-3-A', classType: 'fixed' },
+            { day: 'monday', time: '02:25-03:15', subject: 'Data Structures Lab', faculty: 'Dr. Rajesh Kumar', room: 'D-Lab-1 (CS)', type: 'Lab', className: 'CSE-3-A', classType: 'fixed' },
+            { day: 'monday', time: '01:35-02:25', subject: 'Thermodynamics', faculty: 'Dr. Sneha Reddy', room: 'C-G01', type: 'Theory', className: 'ME-2-A', classType: 'regular' },
+            
+            // Tuesday
+            { day: 'tuesday', time: '09:30-10:20', subject: 'Database Management', faculty: 'Dr. Priya Sharma', room: 'A-102', type: 'Theory', className: 'CSE-3-A', classType: 'regular' },
+            { day: 'tuesday', time: '10:20-11:10', subject: 'Operating Systems', faculty: 'Dr. Priya Sharma', room: 'A-102', type: 'Theory', className: 'CSE-3-A', classType: 'regular' },
+            { day: 'tuesday', time: '09:30-10:20', subject: 'Communication Systems', faculty: 'Dr. Anjali Gupta', room: 'B-201', type: 'Theory', className: 'ECE-3-A', classType: 'regular' },
+            { day: 'tuesday', time: '11:10-12:00', subject: 'Web Development Lab', faculty: 'Mr. Vikram Verma', room: 'D-Lab-1 (CS)', type: 'Lab', className: 'CSE-3-A', classType: 'fixed' },
+            { day: 'tuesday', time: '12:00-12:50', subject: 'Web Development Lab', faculty: 'Mr. Vikram Verma', room: 'D-Lab-1 (CS)', type: 'Lab', className: 'CSE-3-A', classType: 'fixed' },
+        ];
+
+        const newAttendance = [
+            { classId: 'c1', date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0], records: [
+                { studentId: 'st1', status: 'present_locked' }, { studentId: 'st2', status: 'present_locked' },
+                { studentId: 'st3', status: 'absent_locked' }, { studentId: 'st4', status: 'present_locked' },
+                { studentId: 'st5', status: 'present_locked' }, { studentId: 'st6', status: 'present_locked' },
+                { studentId: 'st7', status: 'present_locked' }, { studentId: 'st8', status: 'absent_locked' },
+                { studentId: 'st9', status: 'present_locked' }, { studentId: 'st10', status: 'present_suggested' },
+            ]},
+            { classId: 'c1', date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString().split('T')[0], records: [
+                { studentId: 'st1', status: 'present' }, { studentId: 'st2', status: 'present' }, { studentId: 'st3', status: 'present' }, { studentId: 'st4', status: 'present' }, { studentId: 'st5', status: 'present' }, { studentId: 'st6', status: 'present' }, { studentId: 'st7', status: 'present' }, { studentId: 'st8', status: 'present' }, { studentId: 'st9', status: 'present' }, { studentId: 'st10', status: 'present' }
+            ]}
+        ];
+
+        const newChatMessages = [
+            { id: 'chat1', author: 'Admin (Dr. Rajesh Kumar)', authorId: 'f1', role: 'admin', text: 'Welcome to the new semester! Please check the updated timetable.', timestamp: Date.now() - 200000, classId: 'c1', channel: 'admin-chat-c1' },
+            { id: 'chat2', author: 'Dr. Priya Sharma', authorId: 'f2', role: 'teacher', text: 'Hello CSE-3-B, your first assignment for Database Management is now uploaded to the portal.', timestamp: Date.now() - 100000, channel: 'class-c2' },
+            { id: 'chat3', author: 'Student CSE-3-B-1', authorId: 'st11', role: 'student', text: 'Thank you, Ma\'am!', timestamp: Date.now() - 90000, channel: 'class-c2' },
+        ];
+
+        const newTeacherRequests = [
+            { id: 'tq1', facultyId: 'f7', queryType: 'Classroom Change', requestedChange: 'Request to move ME202 Robotics class from C-G01 to a room with a projector.', reason: 'The current room C-G01 does not have a projector, which is essential for demonstrating simulations.', status: 'Pending', priority: 'Urgent', submittedDate: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString() },
+            { id: 'tq2', facultyId: 'f4', queryType: 'Workload Review', requestedChange: 'My assigned workload is 13 hours, but my max workload is 11. Please review.', reason: 'Overload of classes.', status: 'Approved', adminResponse: 'Adjusted. One section of Thermodynamics has been reassigned.', submittedDate: new Date(new Date().setDate(new Date().getDate() - 5)).toISOString(), priority: 'Normal' },
+        ];
+
+        const newStudentQueries = [
+            { id: 'sq1', studentId: 'st21', queryType: 'Academic', subject: 'VLSI Design', details: 'I am unable to access the course materials for VLSI Design.', status: 'Resolved', adminResponse: 'Access has been granted. Please check now.', submittedDate: new Date(new Date().setDate(new Date().getDate() - 3)).toISOString() }
+        ];
+        
+        const newCalendarEvents = [
+            { id: 'ce1', eventType: 'Event', title: 'Tech Fest "Innovate 2024"', start: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString(), end: new Date(new Date().setDate(new Date().getDate() + 12)).toISOString(), description: 'Annual technology festival.', allDay: true, color: '#9333ea' },
+            { id: 'ce2', eventType: 'Holiday', title: 'Mid-term Break', start: new Date(new Date().setDate(new Date().getDate() + 20)).toISOString(), end: new Date(new Date().setDate(new Date().getDate() + 20)).toISOString(), allDay: true, color: '#f59e0b' },
+        ];
+        
+        const newMeetings = [
+            { id: 'm1', title: 'CSE Department Monthly Review', meetingType: 'Department', platform: 'Google Meet', meetingLink: 'https://meet.google.com/xyz-abc-pqr', start: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString(), end: new Date(new Date().setHours(new Date().getHours() + 1)).toISOString(), organizerId: 'f1', participants: [{ type: 'faculty', id: 'f1'}, { type: 'faculty', id: 'f2'}, { type: 'faculty', id: 'f5'}] }
+        ];
+        
+        const newAppNotifications = [
+            { id: 'an1', title: 'Campus Maintenance Alert', message: 'The water supply will be interrupted tomorrow from 10 AM to 12 PM for maintenance.', recipients: { type: 'Both' }, deliveryMethod: ['In-App'], notificationType: 'General', sentDate: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(), status: 'Sent' },
+            { id: 'an2', title: 'Special Lecture for CSE 3rd Year', message: 'A special lecture on "Quantum Computing" will be held in D-Sem-Hall on Friday at 3 PM.', recipients: { type: 'Specific', ids: ['c1', 'c2'] }, deliveryMethod: ['In-App', 'Email'], notificationType: 'Event', sentDate: new Date().toISOString(), status: 'Sent' }
+        ];
+        
+        const newSyllabusProgress = [
+            { id: 'sp1', subjectId: 's1', facultyId: 'f1', lectureNumber: 1, assignedTopic: 'Introduction to Data Structures', taughtTopic: 'Introduction to Data Structures', date: new Date().toISOString(), status: 'Completed', variance: false },
+            { id: 'sp2', subjectId: 's1', facultyId: 'f1', lectureNumber: 2, assignedTopic: 'Arrays and Pointers', taughtTopic: 'Arrays and Pointers', date: new Date().toISOString(), status: 'Completed', variance: false },
+            { id: 'sp3', subjectId: 's1', facultyId: 'f1', lectureNumber: 3, assignedTopic: 'Linked Lists', taughtTopic: 'Linked Lists', date: new Date().toISOString(), status: 'Pending', variance: false },
+        ];
+
+
         await Promise.all([
-            Class.insertMany(newClasses), Faculty.insertMany(newFaculty),
-            Subject.insertMany(newSubjects), Room.insertMany(newRooms),
-            Student.insertMany(newStudents), User.insertMany(newUsers),
             Institution.insertMany(newInstitutions),
+            Faculty.insertMany(newFaculty),
+            Class.insertMany(newClasses), 
+            Subject.insertMany(newSubjects), 
+            Room.insertMany(newRooms),
+            Student.insertMany(newStudents), 
+            User.insertMany(newUsers),
+            TimetableEntry.insertMany(newTimetable),
+            Attendance.insertMany(newAttendance),
+            ChatMessage.insertMany(newChatMessages),
+            TeacherRequest.insertMany(newTeacherRequests),
+            StudentQuery.insertMany(newStudentQueries),
+            CalendarEvent.insertMany(newCalendarEvents),
+            Meeting.insertMany(newMeetings),
+            AppNotification.insertMany(newAppNotifications),
+            SyllabusProgress.insertMany(newSyllabusProgress),
         ]);
         
         const newConstraints = new Constraints();
