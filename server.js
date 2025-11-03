@@ -770,6 +770,43 @@ app.post('/api/chat/ask/teacher', authMiddleware, [
     }
 });
 
+// Helper function to generate time slots dynamically
+function generateDynamicTimeSlots(prefs) {
+    const slots = [];
+    const { startTime, endTime, slotDurationMinutes, lunchStartTime, lunchDurationMinutes } = prefs;
+
+    const timeToMinutes = (time) => {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    };
+    const minutesToTime = (minutes) => {
+        const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+        const m = (minutes % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+    };
+
+    let currentMinutes = timeToMinutes(startTime);
+    const endMinutes = timeToMinutes(endTime);
+    const lunchStartMinutes = timeToMinutes(lunchStartTime);
+    const lunchEndMinutes = lunchStartMinutes + lunchDurationMinutes;
+
+    while (currentMinutes < endMinutes) {
+        const slotEndMinutes = currentMinutes + slotDurationMinutes;
+
+        // Skip if the slot overlaps with lunch
+        if (currentMinutes < lunchEndMinutes && slotEndMinutes > lunchStartMinutes) {
+            currentMinutes = lunchEndMinutes;
+            continue;
+        }
+
+        if (slotEndMinutes <= endMinutes) {
+            slots.push(`${minutesToTime(currentMinutes)}-${minutesToTime(slotEndMinutes)}`);
+        }
+        currentMinutes = slotEndMinutes;
+    }
+    return slots;
+}
+
 // Gemini Timetable Generation
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
     const facultyMap = new Map(faculty.map(f => [f.id, f.name]));
@@ -785,6 +822,11 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
         roomNumber: fc.roomId ? (roomMap.get(fc.roomId) || 'Unknown Room') : 'Any suitable',
     }));
 
+    const HARDCODED_TIME_SLOTS = ["09:30-10:20", "10:20-11:10", "11:10-12:00", "12:00-12:50", "12:50-01:35", "01:35-02:25", "02:25-03:15", "03:15-04:05", "04:05-04:55"];
+    const timeSlots = constraints.timePreferences && constraints.timePreferences.slotDurationMinutes 
+        ? generateDynamicTimeSlots(constraints.timePreferences) 
+        : HARDCODED_TIME_SLOTS;
+
     return `
       You are an expert university timetable scheduler. Your primary goal is to generate a complete, conflict-free timetable based on the provided data and constraints, satisfying all HARD RULES. If you cannot schedule a session, you MUST add it to the "unscheduledSessions" array with a clear, specific reason for the failure (e.g., 'No available room with required capacity', 'Faculty Dr. Smith is unavailable at all possible times'). Do not return an empty "timetable" array unless it's genuinely impossible to schedule any session at all.
 
@@ -793,7 +835,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
       - "unscheduledSessions": An array of sessions you could not schedule, including a very specific "reason". For example: "Could not schedule 2 out of 4 hours for [Subject] for class [Class] due to resource conflicts or unavailability."
 
       **AVAILABLE TIME SLOTS:**
-      ${JSON.stringify(constraints.timePreferences.slotDurationMinutes ? "You must determine slots based on start time, end time, and slot duration" : ["09:30-10:20", "10:20-11:10", "11:10-12:00", "12:00-12:50", "12:50-01:35", "01:35-02:25", "02:25-03:15", "03:15-04:05", "04:05-04:55"])}
+      ${JSON.stringify(timeSlots)}
 
       **AVAILABLE DAYS:**
       ${JSON.stringify(constraints.timePreferences.workingDays)}
@@ -834,7 +876,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
 
       - Fulfilling all hard constraints is your most important task. If a perfect schedule satisfying all soft goals is not possible, create a valid schedule that meets all hard rules, even if it's not ideal.
       - Distribute subjects for a class throughout the week. A 4-hour subject should ideally be on 3-4 different days, not just 1 or 2.
-      - **Schedule Distribution:** For each class/section, aim to schedule a balanced number of lectures each day. If a day has 8 available slots, you MUST try to schedule at least 4 lectures for each class to ensure a full academic day and avoid empty periods.
+      - **Schedule Distribution:** For each class/section, aim for a balanced number of lectures each day. Avoid leaving large gaps or having days with very few classes if possible.
       - Prioritize compact schedules: Fill morning slots first and minimize gaps in a section's schedule, especially at the start or end of the day.
       - Max Consecutive Classes (Global): Try not to schedule more than ${constraints.maxConsecutiveClasses} classes in a row for any section.
       - Faculty Preferences:
@@ -872,11 +914,50 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
         
+        const responseSchema = {
+            type: Type.OBJECT,
+            properties: {
+                timetable: {
+                    type: Type.ARRAY,
+                    description: "List of all successfully scheduled class sessions.",
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            className: { type: Type.STRING, description: "Name of the class/section." },
+                            subject: { type: Type.STRING, description: "Name of the subject." },
+                            faculty: { type: Type.STRING, description: "Name of the faculty member teaching." },
+                            room: { type: Type.STRING, description: "Room number for the session." },
+                            day: { type: Type.STRING, description: "Day of the week (e.g., monday)." },
+                            time: { type: Type.STRING, description: "Time slot (e.g., 09:30-10:20)." },
+                            classType: { type: Type.STRING, description: "Type of class, either 'regular' or 'fixed'." },
+                            type: { type: Type.STRING, description: "Subject type, either 'Theory', 'Lab', or 'Tutorial'." }
+                        },
+                        required: ['className', 'subject', 'faculty', 'room', 'day', 'time', 'classType', 'type']
+                    }
+                },
+                unscheduledSessions: {
+                    type: Type.ARRAY,
+                    description: "List of sessions that could not be scheduled, with reasons.",
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            className: { type: Type.STRING, description: "Name of the class for the unscheduled session." },
+                            subject: { type: Type.STRING, description: "Name of the subject for the unscheduled session." },
+                            reason: { type: Type.STRING, description: "A specific, clear reason why this session could not be scheduled." }
+                        },
+                        required: ['className', 'subject', 'reason']
+                    }
+                }
+            },
+            required: ['timetable', 'unscheduledSessions']
+        };
+
         const responseStream = await ai.models.generateContentStream({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
+                responseSchema: responseSchema,
             }
         });
 
