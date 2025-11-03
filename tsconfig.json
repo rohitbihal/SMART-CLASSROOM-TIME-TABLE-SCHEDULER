@@ -24,7 +24,8 @@
     "constants.ts",
     "components",
     "features",
-    "services"
+    "services",
+    "vite-env.d.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }],
   "exclude": ["node_modules", "server.js", "dist"]

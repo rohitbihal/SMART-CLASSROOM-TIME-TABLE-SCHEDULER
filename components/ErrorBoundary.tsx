@@ -42,8 +42,8 @@ export class ErrorBoundary extends Component<Props, State> {
                 >
                     Refresh Page
                 </button>
-                 {/* FIX: Cast `import.meta` to `any` to bypass TypeScript error for Vite env variables. */}
-                 {(import.meta as any).env.DEV && (
+                 {/* FIX: Removed `(import.meta as any)` cast now that vite-env.d.ts provides proper types. */}
+                 {import.meta.env.DEV && (
                     <details className="mt-6 text-left bg-bg-secondary p-4 rounded-lg border border-border-primary">
                         <summary className="font-semibold cursor-pointer">Error Details</summary>
                         <pre className="mt-2 text-sm whitespace-pre-wrap">

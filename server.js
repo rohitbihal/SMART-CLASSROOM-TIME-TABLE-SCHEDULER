@@ -157,9 +157,10 @@ const constraintsSchema = new mongoose.Schema({
 const attendanceSchema = new mongoose.Schema({
     classId: String,
     date: String,
+    time: String,
     records: [{ studentId: String, status: String, _id: false }]
 });
-attendanceSchema.index({ classId: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ classId: 1, date: 1, time: 1 }, { unique: true });
 const chatMessageSchema = new mongoose.Schema({
     id: { type: String, unique: true, required: true },
     author: String,
@@ -466,27 +467,44 @@ app.put('/api/student/queries/:id', authMiddleware, async (req, res) => {
 // NEW: Endpoint for saving attendance
 app.put('/api/attendance/class', authMiddleware, async (req, res) => {
     try {
-        const { classId, date, records } = req.body;
-        if (!classId || !date || !records) {
-            return res.status(400).json({ message: 'Class ID, date, and records are required.' });
+        const { classId, date, time, records } = req.body;
+        if (!classId || !date || !time || !records) {
+            return res.status(400).json({ message: 'Class ID, date, time slot, and records are required.' });
         }
         
-        // Security check: Allow admins or teachers assigned to that class
+        // Security check: Allow admins or the teacher assigned to that specific timetable slot.
         if (req.user.role !== 'admin') {
             const teacherId = req.user.profileId;
+            const teacher = await Faculty.findOne({ id: teacherId });
+            if (!teacher) return res.status(404).json({ message: 'Teacher profile not found.' });
+            
             const classInfo = await Class.findOne({ id: classId });
             if (!classInfo) return res.status(404).json({ message: 'Class not found.' });
 
-            const isAssigned = await Subject.findOne({ forClass: classInfo.name, assignedFacultyId: teacherId });
-            if (!isAssigned) {
-                return res.status(403).json({ message: 'Forbidden: You are not assigned to teach this class.' });
+            // Find the day of the week (e.g., 'monday', 'tuesday') from the date
+            const dayOfWeek = new Date(date).toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+            
+            const scheduleEntry = await TimetableEntry.findOne({
+                className: classInfo.name,
+                day: dayOfWeek,
+                time: time
+            });
+
+            if (!scheduleEntry) {
+                return res.status(404).json({ message: 'No class is scheduled for this class at this time slot.' });
+            }
+            
+            // Compare the scheduled faculty *name* with the logged-in teacher's *name*
+            // Note: A better long-term design is storing facultyId in TimetableEntry.
+            if (scheduleEntry.faculty !== teacher.name) {
+                 return res.status(403).json({ message: 'Forbidden: You are not the assigned faculty for this specific class session.' });
             }
         }
         
         const attendanceRecords = Object.entries(records).map(([studentId, status]) => ({ studentId, status }));
 
         await Attendance.updateOne(
-            { classId, date },
+            { classId, date, time },
             { $set: { records: attendanceRecords } },
             { upsert: true }
         );
@@ -576,48 +594,38 @@ const generateTeacherQAPrompt = (question, teacher, subjects) => {
     `;
 };
 
-// NEW: Endpoint for real-time chat polling
-app.get('/api/chat/updates', authMiddleware, async (req, res) => {
+// --- Consolidated Real-time Updates ---
+app.get('/api/updates/all', authMiddleware, async (req, res) => {
     try {
+        // 'since' is expected to be a numeric timestamp (like Date.now())
         const since = parseInt(req.query.since, 10) || 0;
-        // Fetch messages newer than the timestamp
-        const newMessages = await ChatMessage.find({ timestamp: { $gt: since } }).sort({ timestamp: 1 });
-        res.json(newMessages);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching chat updates', error: error.message });
-    }
-});
+        const sinceDate = new Date(since);
 
-// NEW: Endpoint for real-time meeting updates
-app.get('/api/updates/meetings', authMiddleware, async (req, res) => {
-    try {
-        const since = req.query.since ? new Date(parseInt(req.query.since, 10)) : new Date(0);
-        const newMeetings = await Meeting.find({ updatedAt: { $gt: since } }).sort({ updatedAt: 1 });
-        res.json(newMeetings);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching meeting updates', error: error.message });
-    }
-});
+        // Run all update queries in parallel
+        const [
+            newMessages,
+            newMeetings,
+            newNotifications,
+            newEvents
+        ] = await Promise.all([
+            // Chat uses a numeric timestamp
+            ChatMessage.find({ timestamp: { $gt: since } }).sort({ timestamp: 1 }),
+            // Others use Mongoose's ISODate timestamps
+            Meeting.find({ updatedAt: { $gt: sinceDate } }).sort({ updatedAt: 1 }),
+            AppNotification.find({ createdAt: { $gt: sinceDate } }).sort({ createdAt: 1 }),
+            CalendarEvent.find({ updatedAt: { $gt: sinceDate } }).sort({ updatedAt: 1 })
+        ]);
 
-// NEW: Endpoint for real-time notification updates
-app.get('/api/updates/notifications', authMiddleware, async (req, res) => {
-    try {
-        const since = req.query.since ? new Date(parseInt(req.query.since, 10)) : new Date(0);
-        const newNotifications = await AppNotification.find({ createdAt: { $gt: since } }).sort({ createdAt: 1 });
-        res.json(newNotifications);
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching notification updates', error: error.message });
-    }
-});
+        res.json({
+            chatMessages: newMessages,
+            meetings: newMeetings,
+            appNotifications: newNotifications,
+            calendarEvents: newEvents
+        });
 
-// NEW: Endpoint for real-time calendar event updates
-app.get('/api/updates/calendar-events', authMiddleware, async (req, res) => {
-    try {
-        const since = req.query.since ? new Date(parseInt(req.query.since, 10)) : new Date(0);
-        const newEvents = await CalendarEvent.find({ updatedAt: { $gt: since } }).sort({ updatedAt: 1 });
-        res.json(newEvents);
     } catch (error) {
-        res.status(500).json({ message: 'Error fetching calendar updates', error: error.message });
+        console.error("Error fetching consolidated updates:", error);
+        res.status(500).json({ message: 'Error fetching consolidated updates', error: error.message });
     }
 });
 
@@ -1238,9 +1246,9 @@ app.post('/api/reset-data', authMiddleware, async (req, res) => {
         ];
 
         const newAttendance = [
-            { classId: 'c1', date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0], records: Array.from({length: 20}, (_, i) => i + 1).map(i => ({ studentId: `st${i}`, status: i % 5 === 0 ? 'absent_locked' : 'present_locked' }))},
-            { classId: 'c2', date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0], records: Array.from({length: 20}, (_, i) => i + 21).map(i => ({ studentId: `st${i}`, status: 'present_suggested' }))},
-            { classId: 'c1', date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString().split('T')[0], records: Array.from({length: 20}, (_, i) => i + 1).map(i => ({ studentId: `st${i}`, status: 'present' }))}
+            { classId: 'c1', date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0], time: '09:30-10:20', records: Array.from({length: 20}, (_, i) => i + 1).map(i => ({ studentId: `st${i}`, status: i % 5 === 0 ? 'absent_locked' : 'present_locked' }))},
+            { classId: 'c2', date: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0], time: '09:30-10:20', records: Array.from({length: 20}, (_, i) => i + 21).map(i => ({ studentId: `st${i}`, status: 'present_suggested' }))},
+            { classId: 'c1', date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString().split('T')[0], time: '10:20-11:10', records: Array.from({length: 20}, (_, i) => i + 1).map(i => ({ studentId: `st${i}`, status: 'present' }))}
         ];
 
         const newChatMessages = [
