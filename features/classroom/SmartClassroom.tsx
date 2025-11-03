@@ -930,9 +930,9 @@ export const ChatbotControlTab = () => {
                                     </div>
                                     <label htmlFor="chatbox-toggle" className="flex items-center cursor-pointer">
                                         <div className="relative">
-                                            <input type="checkbox" id="chatbox-toggle" className="sr-only" checked={isChatEnabled} onChange={() => setIsChatEnabled(!isChatEnabled)} />
-                                            <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
-                                            <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                                            <input type="checkbox" id="chatbox-toggle" className="sr-only peer" checked={isChatEnabled} onChange={() => setIsChatEnabled(!isChatEnabled)} />
+                                            <div className="block bg-gray-400 dark:bg-gray-600 w-14 h-8 rounded-full peer-checked:bg-green-500 transition-colors"></div>
+                                            <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform transform peer-checked:translate-x-6"></div>
                                         </div>
                                     </label>
                                 </div>
