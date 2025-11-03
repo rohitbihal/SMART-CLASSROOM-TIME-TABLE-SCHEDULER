@@ -200,13 +200,16 @@ const syllabusProgressSchema = new mongoose.Schema({ id: { type: String, unique:
 const calendarEventSchema = new mongoose.Schema({ id: { type: String, unique: true }, eventType: String, title: String, start: String, end: String, description: String, allDay: Boolean, color: String });
 const meetingSchema = new mongoose.Schema({ id: { type: String, unique: true }, title: String, description: String, meetingType: String, platform: String, meetingLink: String, room: String, start: String, end: String, organizerId: String, participants: [mongoose.Schema.Types.Mixed] });
 
-// FIX: Completed the appNotificationSchema which was causing a syntax error.
+// FIX: Corrected the schema for recipients. It is an object containing a 'type' string and an 'ids' array, not a string itself.
 const appNotificationSchema = new mongoose.Schema({
     id: { type: String, unique: true },
     title: String,
     message: String,
     recipients: {
-        type: String,
+        type: { 
+            type: String,
+            enum: ['Students', 'Teachers', 'Both', 'Specific']
+        },
         ids: [String]
     },
     deliveryMethod: [String],
@@ -323,6 +326,37 @@ app.use('/api/room', createCrudRoutes(Room, 'room'));
 app.use('/api/student', createCrudRoutes(Student, 'student'));
 app.use('/api/institution', createCrudRoutes(Institution, 'institution'));
 
+// Teacher Availability Route
+app.put('/api/teacher/availability', authMiddleware, async (req, res) => {
+    // Only teachers can update their own availability, or an admin can update any.
+    if (req.user.role !== 'admin' && req.user.profileId !== req.body.facultyId) {
+        return res.status(403).json({ message: 'Forbidden: You can only update your own availability.' });
+    }
+
+    try {
+        const { facultyId, availability } = req.body;
+        if (!facultyId || availability === undefined) {
+            return res.status(400).json({ message: 'Faculty ID and availability data are required.' });
+        }
+        
+        const updatedFaculty = await Faculty.findOneAndUpdate(
+            { id: facultyId }, 
+            { availability: availability }, 
+            { new: true }
+        );
+
+        if (!updatedFaculty) {
+            return res.status(404).json({ message: 'Faculty not found.' });
+        }
+
+        res.json(updatedFaculty);
+
+    } catch (error) {
+        console.error("Error updating faculty availability:", error);
+        res.status(500).json({ message: 'Server error while updating availability.', error: error.message });
+    }
+});
+
 // ... other routes from server.js
 // Smart Tools Route
 const MOCK_SMART_TOOLS = [
@@ -336,6 +370,76 @@ const MOCK_SMART_TOOLS = [
 
 app.get('/api/tools', authMiddleware, (req, res) => {
     res.json(MOCK_SMART_TOOLS);
+});
+
+// NEW: Endpoint for submitting teacher requests
+app.post('/api/teacher/requests', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'teacher') {
+        return res.status(403).json({ message: 'Only teachers can submit requests.' });
+    }
+    try {
+        const newRequest = new TeacherRequest({
+            ...req.body,
+            id: new mongoose.Types.ObjectId().toString(),
+            facultyId: req.user.profileId,
+        });
+        await newRequest.save();
+        res.status(201).json(newRequest);
+    } catch (error) {
+        res.status(400).json({ message: 'Error submitting request', error: error.message });
+    }
+});
+
+// NEW: Endpoint for submitting student queries
+app.post('/api/student/queries', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'student') {
+        return res.status(403).json({ message: 'Only students can submit queries.' });
+    }
+    try {
+        const newQuery = new StudentQuery({
+            ...req.body,
+            id: new mongoose.Types.ObjectId().toString(),
+            studentId: req.user.profileId,
+        });
+        await newQuery.save();
+        res.status(201).json(newQuery);
+    } catch (error) {
+        res.status(400).json({ message: 'Error submitting query', error: error.message });
+    }
+});
+
+// NEW: Endpoint for saving attendance
+app.put('/api/attendance/class', authMiddleware, async (req, res) => {
+    try {
+        const { classId, date, records } = req.body;
+        if (!classId || !date || !records) {
+            return res.status(400).json({ message: 'Class ID, date, and records are required.' });
+        }
+        
+        // Security check: Allow admins or teachers assigned to that class
+        if (req.user.role !== 'admin') {
+            const teacherId = req.user.profileId;
+            const classInfo = await Class.findOne({ id: classId });
+            if (!classInfo) return res.status(404).json({ message: 'Class not found.' });
+
+            const isAssigned = await Subject.findOne({ forClass: classInfo.name, assignedFacultyId: teacherId });
+            if (!isAssigned) {
+                return res.status(403).json({ message: 'Forbidden: You are not assigned to teach this class.' });
+            }
+        }
+        
+        const attendanceRecords = Object.entries(records).map(([studentId, status]) => ({ studentId, status }));
+
+        await Attendance.updateOne(
+            { classId, date },
+            { $set: { records: attendanceRecords } },
+            { upsert: true }
+        );
+        res.status(200).json({ message: 'Attendance updated successfully.' });
+    } catch (error) {
+        console.error("Error saving attendance:", error);
+        res.status(500).json({ message: 'Server error while saving attendance.', error: error.message });
+    }
 });
 
 
@@ -575,37 +679,16 @@ app.post('/api/chat/ask/teacher', authMiddleware, [
 
 // Gemini Timetable Generation
 const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints) => {
-    // This prompt is highly structured to guide the AI towards a valid JSON output.
+    // This prompt is structured to guide the AI towards a valid timetable. The JSON format is enforced by the API config.
     return `
       You are an expert university timetable scheduler. Your primary goal is to generate a complete, conflict-free timetable based on the provided data and constraints, satisfying all HARD RULES.
 
-      **OUTPUT FORMAT:**
-      You MUST respond with ONLY a valid JSON object. Do not include any text, markdown, or explanations before or after the JSON.
-      The JSON object must have two keys: "timetable" and "unscheduledSessions".
-      - "timetable": An array of session objects.
-      - "unscheduledSessions": An array of objects for sessions you could not schedule, including a very specific "reason".
-
-      **SESSION OBJECT STRUCTURE:**
-      {
-        "className": "string",  // e.g., "CSE A"
-        "subject": "string",    // e.g., "Data Structures & Algorithms"
-        "faculty": "string",    // e.g., "Dr. Kenji Tanaka"
-        "room": "string",       // e.g., "CSE-A-CR"
-        "day": "string" (lowercase), // e.g., "monday"
-        "time": "string",       // e.g., "09:30-10:20"
-        "type": "string",       // "Theory", "Lab", or "Tutorial"
-        "classType": "string"   // "regular" for normal theory classes, "fixed" for labs/tutorials that often occur in blocks
-      }
-
-      **UNSCHEDULED SESSION OBJECT STRUCTURE:**
-      {
-        "className": "string",
-        "subject": "string",
-        "reason": "string" // BE VERY SPECIFIC. e.g., "Could not schedule 2 out of 4 hours for [Subject] for class [Class] due to resource conflicts or unavailability."
-      }
+      Your output must be a JSON object containing a "timetable" array and an "unscheduledSessions" array.
+      - "timetable": An array of scheduled sessions.
+      - "unscheduledSessions": An array of sessions you could not schedule, including a very specific "reason". For example: "Could not schedule 2 out of 4 hours for [Subject] for class [Class] due to resource conflicts or unavailability."
 
       **AVAILABLE TIME SLOTS:**
-      ${JSON.stringify(constraints.timePreferences.slotDurationMinutes ? "You must determine slots based on start time, end time, and slot duration" : TIME_SLOTS)}
+      ${JSON.stringify(constraints.timePreferences.slotDurationMinutes ? "You must determine slots based on start time, end time, and slot duration" : ["09:30-10:20", "10:20-11:10", "11:10-12:00", "12:00-12:50", "12:50-01:35", "01:35-02:25", "02:25-03:15", "03:15-04:05", "04:05-04:55"])}
 
       **AVAILABLE DAYS:**
       ${JSON.stringify(constraints.timePreferences.workingDays)}
@@ -656,7 +739,7 @@ const generateTimetablePrompt = (classes, faculty, subjects, rooms, constraints)
         - Faculty Load Balancing: ${constraints.advancedConstraints?.enableFacultyLoadBalancing ? "Distribute a faculty member's classes evenly across their available days." : "Not a priority."}
         - Travel Time: If a faculty has classes in different blocks, ensure there's a gap of at least ${constraints.advancedConstraints?.travelTimeMinutes || 0} minutes between them.
 
-      Now, generate the JSON output based on all the above.
+      Now, generate the timetable.
     `;
 };
 
@@ -675,19 +758,111 @@ app.post('/api/generate-timetable', authMiddleware, async (req, res) => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = generateTimetablePrompt(classes, faculty, subjects, rooms, constraints);
         
+        // Define the response schema
+        const timetableEntrySchema = {
+            type: Type.OBJECT,
+            properties: {
+                className: { type: Type.STRING },
+                subject: { type: Type.STRING },
+                faculty: { type: Type.STRING },
+                room: { type: Type.STRING },
+                day: { type: Type.STRING },
+                time: { type: Type.STRING },
+                type: { type: Type.STRING },
+                classType: { type: Type.STRING },
+            },
+            required: ["className", "subject", "faculty", "room", "day", "time", "type", "classType"]
+        };
+
+        const unscheduledSessionSchema = {
+            type: Type.OBJECT,
+            properties: {
+                className: { type: Type.STRING },
+                subject: { type: Type.STRING },
+                reason: { type: Type.STRING },
+            },
+            required: ["className", "subject", "reason"]
+        };
+
+        const generationResultSchema = {
+            type: Type.OBJECT,
+            properties: {
+                timetable: {
+                    type: Type.ARRAY,
+                    items: timetableEntrySchema
+                },
+                unscheduledSessions: {
+                    type: Type.ARRAY,
+                    items: unscheduledSessionSchema
+                }
+            },
+            required: ["timetable", "unscheduledSessions"]
+        };
+        
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-pro',
             contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: generationResultSchema
+            }
         });
 
-        const text = response.text.trim().replace(/```json/g, '').replace(/```/g, '');
-        const timetableData = JSON.parse(text);
+        const timetableData = JSON.parse(response.text);
 
         res.json(timetableData);
 
     } catch (error) {
         console.error("Error generating timetable with Gemini:", error);
         res.status(500).json({ message: "Failed to generate timetable due to an AI model or server error.", details: error.message });
+    }
+});
+
+// NEW: Endpoint for AI workload re-assignment suggestions
+app.post('/api/suggest-reassignment', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (!process.env.API_KEY) {
+        return res.status(500).json({ message: 'AI features are not configured.' });
+    }
+
+    try {
+        const { faculty, subjects } = req.body;
+
+        const prompt = `
+            You are an expert university administrator specializing in workload balancing. Your task is to analyze faculty workloads and suggest re-assignments for subjects to balance the teaching load.
+
+            Your output MUST be a JSON object with two properties: "suggestions" and "unresolvableWorkloads".
+            - "suggestions" is an array of objects, where each object represents a single subject re-assignment with the following keys: "subjectId", "subjectName", "fromFacultyId", "fromFacultyName", "toFacultyId", "toFacultyName".
+            - "unresolvableWorkloads" is an array of objects for faculty whose workload is too high but no suitable replacement could be found, with keys: "facultyName", "department", "reason", "recommendation".
+
+            RULES:
+            1. A subject can only be reassigned to a faculty member from the same department who has a matching specialization.
+            2. Only suggest re-assignments from OVERLOADED faculty (assigned hours > max workload) to UNDERLOADED faculty (assigned hours < max workload).
+            3. The goal is to bring the overloaded faculty's workload below their maximum. Prioritize suggestions that make the biggest impact.
+            4. If an overloaded faculty has a unique specialization for a subject and no other qualified faculty is available, do not suggest a re-assignment. Instead, add them to the "unresolvableWorkloads" array with a clear reason and a recommendation (e.g., "Hire a new faculty with X specialization").
+
+            INPUT DATA:
+            - ALL FACULTY: ${JSON.stringify(faculty)}
+            - ALL SUBJECTS: ${JSON.stringify(subjects)}
+
+            Analyze the data and provide your suggestions in the specified JSON format.
+        `;
+        
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash', 
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+
+        const suggestions = JSON.parse(response.text);
+        res.json(suggestions);
+        
+    } catch (error) {
+        console.error("Error getting AI re-assignment suggestions:", error);
+        res.status(500).json({ message: 'Failed to get AI suggestions.', details: error.message });
     }
 });
 

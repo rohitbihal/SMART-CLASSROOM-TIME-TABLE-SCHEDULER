@@ -575,7 +575,6 @@ export const MyProfileTab = () => {
     const userProfile = useMemo((): Faculty | Student | null => {
         if (!user.profileId) return null;
         if (user.role === 'admin') {
-            // FIX: Corrected the fallback admin profile to match the Faculty type definition completely.
             return faculty.find(f => f.id === user.profileId) || {
                 id: user.profileId,
                 name: user.username.split('@')[0],
