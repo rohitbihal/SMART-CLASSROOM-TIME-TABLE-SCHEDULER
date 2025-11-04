@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import { SendIcon } from '../../components/Icons';
 import { TeacherQuery } from '../../types';
 
-const RequestsPage = () => {
+const TeacherQueryPage = () => {
     const { user, subjects, teacherRequests, handleSubmitTeacherRequest } = useAppContext();
 
     // FIX: Added missing 'priority' field to initialState to align with the TeacherQuery type.
@@ -34,11 +34,11 @@ const RequestsPage = () => {
         setFeedback('');
         try {
             await handleSubmitTeacherRequest(formState);
-            setFeedback('Request submitted successfully!');
+            setFeedback('Query submitted successfully!');
             setFormState(initialState);
             setTimeout(() => setFeedback(''), 3000);
         } catch (error) {
-            setFeedback('Failed to submit request.');
+            setFeedback('Failed to submit query.');
         } finally {
             setIsLoading(false);
         }
@@ -54,10 +54,10 @@ const RequestsPage = () => {
 
     return (
         <div className="space-y-8">
-            <SectionCard title="Submit Request">
+            <SectionCard title="Submit Query">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <FormField label="Request Type" htmlFor="queryType">
+                        <FormField label="Query Type" htmlFor="queryType">
                             {/* FIX: Updated select options to match TeacherQuery type definition. */}
                             <SelectInput id="queryType" name="queryType" value={formState.queryType} onChange={handleChange}>
                                 <option value="Classroom Allotment">Classroom Allotment</option>
@@ -98,12 +98,12 @@ const RequestsPage = () => {
                          {feedback && <p className="text-sm font-semibold text-green-600 dark:text-green-400">{feedback}</p>}
                         <button type="submit" className="btn-primary flex items-center gap-2 w-48 justify-center" disabled={isLoading}>
                             <SendIcon />
-                            {isLoading ? 'Submitting...' : 'Submit Request'}
+                            {isLoading ? 'Submitting...' : 'Submit Query'}
                         </button>
                     </div>
                 </form>
             </SectionCard>
-            <SectionCard title="Request History">
+            <SectionCard title="Query History">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="text-left bg-bg-primary">
@@ -128,7 +128,7 @@ const RequestsPage = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={4} className="text-center p-8 text-text-secondary">No requests submitted yet.</td>
+                                    <td colSpan={4} className="text-center p-8 text-text-secondary">No queries submitted yet.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -139,4 +139,4 @@ const RequestsPage = () => {
     );
 };
 
-export default RequestsPage;
+export default TeacherQueryPage;

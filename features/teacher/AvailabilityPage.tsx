@@ -1,16 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SectionCard } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
-import { DAYS, TIME_SLOTS } from '../../constants';
+import { DAYS, calculateTimeSlots } from '../../constants';
 import { SaveIcon } from '../../components/Icons';
 
 const AvailabilityPage = () => {
-    const { user, faculty, handleUpdateTeacherAvailability } = useAppContext();
+    const { user, faculty, handleUpdateTeacherAvailability, constraints } = useAppContext();
     const teacherProfile = faculty.find(f => f.id === user?.profileId);
     
     const [availability, setAvailability] = useState<{ [day: string]: string[] }>({});
     const [isLoading, setIsLoading] = useState(false);
     const [feedback, setFeedback] = useState('');
+
+    const timeSlots = useMemo(() => {
+        if (!constraints?.timePreferences) return [];
+        return calculateTimeSlots(constraints.timePreferences);
+    }, [constraints]);
 
     useEffect(() => {
         if (teacherProfile?.availability) {
@@ -59,7 +64,7 @@ const AvailabilityPage = () => {
                     <div key={day} className="p-4 border border-border-primary rounded-lg bg-bg-secondary">
                         <h3 className="font-bold capitalize text-lg mb-3">{day}</h3>
                         <div className="space-y-2">
-                            {TIME_SLOTS.map(slot => (
+                            {timeSlots.map(slot => (
                                 <label key={slot} className="flex items-center gap-3 p-2 rounded-md hover:bg-bg-tertiary cursor-pointer">
                                     <input
                                         type="checkbox"

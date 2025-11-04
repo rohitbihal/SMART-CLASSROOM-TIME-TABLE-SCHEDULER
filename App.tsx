@@ -19,7 +19,7 @@ const TeacherAttendancePage = lazy(() => import('./features/teacher/TeacherAtten
 const IMSPageTeacher = lazy(() => import('./features/teacher/IMSPage'));
 const SmartToolsPage = lazy(() => import('./features/teacher/SmartToolsPage'));
 const AvailabilityPage = lazy(() => import('./features/teacher/AvailabilityPage'));
-const RequestsPage = lazy(() => import('./features/teacher/RequestsPage'));
+const TeacherQueryPage = lazy(() => import('./features/teacher/RequestsPage'));
 const NotificationsPageTeacher = lazy(() => import('./features/teacher/NotificationsPage'));
 const TeacherChatPage = lazy(() => import('./features/teacher/TeacherChatPage'));
 const TeacherChatboxPage = lazy(() => import('./features/teacher/TeacherChatboxPage'));
@@ -81,7 +81,7 @@ const Sidebar = React.memo(() => {
         { to: '/ims', icon: <IMSIcon className="h-5 w-5" />, label: 'IMS' },
         { to: '/smart-tools', icon: <SmartToolsIcon className="h-5 w-5" />, label: 'Smart Tools' },
         { to: '/availability', icon: <AvailabilityIcon className="h-5 w-5" />, label: 'Availability' },
-        { to: '/requests', icon: <RequestsIcon className="h-5 w-5" />, label: 'Requests' },
+        { to: '/queries', icon: <QueryIcon className="h-5 w-5" />, label: 'Queries' },
         { to: '/notifications', icon: <NotificationsIcon className="h-5 w-5" />, label: 'Notifications' },
         { to: '/chat', icon: <ChatIcon className="h-5 w-5" />, label: 'Campus AI' },
         { to: '/chatbox', icon: <UsersIcon className="h-5 w-5" />, label: 'Chatbox' },
@@ -231,7 +231,7 @@ const AuthenticatedApp = () => {
                              <Route path="ims" element={<IMSPageTeacher />} />
                              <Route path="smart-tools" element={<SmartToolsPage />} />
                              <Route path="availability" element={<AvailabilityPage />} />
-                             <Route path="requests" element={<RequestsPage />} />
+                             <Route path="queries" element={<TeacherQueryPage />} />
                              <Route path="notifications" element={<NotificationsPageTeacher />} />
                              <Route path="chat" element={<TeacherChatPage />} />
                              <Route path="chatbox" element={<TeacherChatboxPage />} />

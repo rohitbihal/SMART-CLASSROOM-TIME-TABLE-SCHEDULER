@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { DAYS, TIME_SLOTS } from '../../constants';
+import { DAYS, TIME_SLOTS, calculateTimeSlots } from '../../constants';
 import { TimetableEntry, Constraints } from '../../types';
 import { SchedulerIcon } from '../../components/Icons';
 
@@ -36,6 +36,14 @@ const TimetableCell: React.FC<{ entry: TimetableEntry; viewType: 'class' | 'facu
 
 
 const TimetableGrid = ({ timetable, role = 'student', constraints, viewType = 'class', title }: { timetable: TimetableEntry[], role?: 'student' | 'teacher', constraints: Constraints | null, viewType?: 'class' | 'faculty' | 'room' | 'student' | 'teacher', title?: string }) => {
+    
+    const timeSlots = useMemo(() => {
+        if (!constraints?.timePreferences) {
+            return TIME_SLOTS; // Fallback to constant if constraints aren't available
+        }
+        return calculateTimeSlots(constraints.timePreferences);
+    }, [constraints]);
+
     if (!timetable || timetable.length === 0) {
         return (
             <div className="bg-bg-secondary border-2 border-dashed border-border-primary p-8 rounded-xl text-center min-h-[500px] flex flex-col justify-center items-center">
@@ -46,19 +54,6 @@ const TimetableGrid = ({ timetable, role = 'student', constraints, viewType = 'c
         );
     }
 
-    const lunchSlot = useMemo(() => {
-        if (constraints?.timePreferences) {
-            const { lunchStartTime, lunchDurationMinutes } = constraints.timePreferences;
-            const [hours, minutes] = lunchStartTime.split(':').map(Number);
-            const startTotalMinutes = hours * 60 + minutes;
-            const endTotalMinutes = startTotalMinutes + lunchDurationMinutes;
-            const endHours = Math.floor(endTotalMinutes / 60).toString().padStart(2, '0');
-            const endMinutes = (endTotalMinutes % 60).toString().padStart(2, '0');
-            return `${lunchStartTime}-${endHours}:${endMinutes}`;
-        }
-        return '12:50-01:35';
-    }, [constraints]);
-    
     return (
         <div className="card-base p-0">
             {title && <h3 className="text-xl font-bold p-4 border-b border-border-primary">{title}</h3>}
@@ -71,17 +66,10 @@ const TimetableGrid = ({ timetable, role = 'student', constraints, viewType = 'c
                         </tr>
                     </thead>
                     <tbody>
-                        {TIME_SLOTS.map(time => (
+                        {timeSlots.map(time => (
                             <tr key={time}>
                                 <td className="p-3 border border-border-primary font-semibold whitespace-nowrap text-center">{time}</td>
                                 {DAYS.map(day => {
-                                    if (time === lunchSlot) {
-                                        return (
-                                            <td key={`${day}-lunch`} className="p-2 border border-border-primary text-center bg-bg-primary font-semibold text-text-secondary">
-                                                Lunch
-                                            </td>
-                                        );
-                                    }
                                     const entries = getEntriesForSlot(timetable, day, time);
                                     return (
                                         <td key={day} className="p-1.5 border border-border-primary align-top h-24">

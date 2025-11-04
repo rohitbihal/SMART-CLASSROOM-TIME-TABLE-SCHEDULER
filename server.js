@@ -597,30 +597,40 @@ const generateTeacherQAPrompt = (question, teacher, subjects) => {
 // --- Consolidated Real-time Updates ---
 app.get('/api/updates/all', authMiddleware, async (req, res) => {
     try {
-        // 'since' is expected to be a numeric timestamp (like Date.now())
-        const since = parseInt(req.query.since, 10) || 0;
-        const sinceDate = new Date(since);
+        const { 
+            since_chat = '0', 
+            since_meetings = '0', 
+            since_notifications = '0', 
+            since_events = '0',
+            since_syllabus = '0'
+        } = req.query;
 
-        // Run all update queries in parallel
+        const sinceChatTs = parseInt(since_chat, 10) || 0;
+        const sinceMeetingsDate = new Date(parseInt(since_meetings, 10) || 0);
+        const sinceNotificationsDate = new Date(parseInt(since_notifications, 10) || 0);
+        const sinceEventsDate = new Date(parseInt(since_events, 10) || 0);
+        const sinceSyllabusDate = new Date(parseInt(since_syllabus, 10) || 0);
+
         const [
             newMessages,
             newMeetings,
             newNotifications,
-            newEvents
+            newEvents,
+            newSyllabusProgress
         ] = await Promise.all([
-            // Chat uses a numeric timestamp
-            ChatMessage.find({ timestamp: { $gt: since } }).sort({ timestamp: 1 }),
-            // Others use Mongoose's ISODate timestamps
-            Meeting.find({ updatedAt: { $gt: sinceDate } }).sort({ updatedAt: 1 }),
-            AppNotification.find({ createdAt: { $gt: sinceDate } }).sort({ createdAt: 1 }),
-            CalendarEvent.find({ updatedAt: { $gt: sinceDate } }).sort({ updatedAt: 1 })
+            ChatMessage.find({ timestamp: { $gt: sinceChatTs } }).sort({ timestamp: 1 }),
+            Meeting.find({ updatedAt: { $gt: sinceMeetingsDate } }).sort({ updatedAt: 1 }),
+            AppNotification.find({ createdAt: { $gt: sinceNotificationsDate } }).sort({ createdAt: 1 }),
+            CalendarEvent.find({ updatedAt: { $gt: sinceEventsDate } }).sort({ updatedAt: 1 }),
+            SyllabusProgress.find({ updatedAt: { $gt: sinceSyllabusDate } }).sort({ updatedAt: 1 })
         ]);
 
         res.json({
             chatMessages: newMessages,
             meetings: newMeetings,
             appNotifications: newNotifications,
-            calendarEvents: newEvents
+            calendarEvents: newEvents,
+            syllabusProgress: newSyllabusProgress
         });
 
     } catch (error) {

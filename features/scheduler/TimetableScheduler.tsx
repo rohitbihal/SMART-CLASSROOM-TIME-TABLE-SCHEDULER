@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { AddIcon, ConstraintsIcon, DeleteIcon, DownloadIcon, EditIcon, GenerateIcon, LoadingIcon, SaveIcon, SetupIcon, ViewIcon, AvailabilityIcon, AnalyticsIcon, UploadIcon, PinIcon, ProjectorIcon, SmartBoardIcon, AcIcon, ComputerIcon, AudioIcon, WhiteboardIcon, QueryIcon, NotificationBellIcon, FilterIcon, ShieldIcon, ToggleOnIcon, ToggleOffIcon, CheckCircleIcon, ClockIcon, AssignmentIcon, SparklesIcon } from '../../components/Icons';
 import { SectionCard, Modal, FormField, TextInput, SelectInput, SearchInput, ErrorDisplay } from '../../components/common';
 import { FullScreenLoader } from '../../App';
-import { DAYS, TIME_SLOTS } from '../../constants';
+import { DAYS, calculateTimeSlots } from '../../constants';
 import { generateTimetable } from '../../services/geminiService';
 import * as api from '../../services/api';
 import TimetableGrid from '../dashboard/TimetableGrid';
@@ -584,6 +584,11 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
     const [selectedFacultyId, setSelectedFacultyId] = useState<string>('');
     const [isUnavailabilityModalOpen, setIsUnavailabilityModalOpen] = useState(false);
 
+    const timeSlots = useMemo(() => {
+        if (!constraints?.timePreferences) return [];
+        return calculateTimeSlots(constraints.timePreferences);
+    }, [constraints]);
+
     const currentPref = useMemo(() => {
         return constraints.facultyPreferences?.find(p => p.facultyId === selectedFacultyId) || { facultyId: selectedFacultyId };
     }, [selectedFacultyId, constraints.facultyPreferences]);
@@ -626,7 +631,7 @@ const FacultyPreferencesContent = ({ constraints, onConstraintsChange, faculty, 
                         </tr>
                     </thead>
                     <tbody>
-                        {TIME_SLOTS.map(time => (
+                        {timeSlots.map(time => (
                             <tr key={time}>
                                 <td className="p-2 border dark:border-slate-600 font-medium whitespace-nowrap">{time}</td>
                                 {DAYS.map(day => {
@@ -838,6 +843,11 @@ const FixedClassesContent = ({ constraints, onConstraintsChange, classes, subjec
     const classMap = useMemo(() => new Map(classes.map(c => [c.id, c.name])), [classes]);
     const subjectMap = useMemo(() => new Map(subjects.map(s => [s.id, s.name])), [subjects]);
     const roomMap = useMemo(() => new Map(rooms.map(r => [r.id, r.number])), [rooms]);
+    
+    const timeSlots = useMemo(() => {
+        if (!constraints?.timePreferences) return [];
+        return calculateTimeSlots(constraints.timePreferences);
+    }, [constraints]);
 
     const handleAdd = () => {
         if (!newFixedClass.classId || !newFixedClass.subjectId || !newFixedClass.day || !newFixedClass.time) {
@@ -868,7 +878,7 @@ const FixedClassesContent = ({ constraints, onConstraintsChange, classes, subjec
                     <SelectInput value={newFixedClass.classId} onChange={e => setNewFixedClass({...newFixedClass, classId: e.target.value})}><option value="">Select Class</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</SelectInput>
                     <SelectInput value={newFixedClass.subjectId} onChange={e => setNewFixedClass({...newFixedClass, subjectId: e.target.value})}><option value="">Select Subject</option>{subjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</SelectInput>
                     <SelectInput value={newFixedClass.day} onChange={e => setNewFixedClass({...newFixedClass, day: e.target.value})}><option value="">Select Day</option>{DAYS.map(d=><option key={d} value={d} className="capitalize">{d}</option>)}</SelectInput>
-                    <SelectInput value={newFixedClass.time} onChange={e => setNewFixedClass({...newFixedClass, time: e.target.value})}><option value="">Select Time</option>{TIME_SLOTS.map(t=><option key={t} value={t}>{t}</option>)}</SelectInput>
+                    <SelectInput value={newFixedClass.time} onChange={e => setNewFixedClass({...newFixedClass, time: e.target.value})}><option value="">Select Time</option>{timeSlots.map(t=><option key={t} value={t}>{t}</option>)}</SelectInput>
                     <button onClick={handleAdd} className="btn-primary flex items-center justify-center gap-2"><AddIcon/> Add Pin</button>
                 </div>
                 <div className="mt-4">
@@ -1226,7 +1236,7 @@ const GenerateTab = ({ onGenerate, onSave, generationResult, isLoading, error, o
 
 
 // NEW: ViewTab now contains analytics and availability viewer
-const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; }) => {
+const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms, constraints }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; }) => {
     const facultyWorkload = useMemo(() => {
         const assigned = faculty.map(f => {
             const assignedHours = subjects.filter(s => s.assignedFacultyId === f.id).reduce((sum, s) => sum + s.hoursPerWeek, 0);
@@ -1238,13 +1248,16 @@ const AnalyticsDashboard = ({ timetable, faculty, subjects, rooms }: { timetable
     }, [faculty, subjects, timetable]);
 
     const roomUtilization = useMemo(() => {
-        const totalSlots = DAYS.length * TIME_SLOTS.length;
+        // FIX: The use of `new TimePreferences()` is incorrect as `TimePreferences` is a type.
+        // Replaced with `constraints.timePreferences` and added a guard for safety.
+        if (!constraints?.timePreferences) return [];
+        const totalSlots = DAYS.length * calculateTimeSlots(constraints.timePreferences).length;
         return rooms.map(r => {
             const scheduledSlots = timetable.filter(t => t.room === r.number).length;
-            const utilization = (scheduledSlots / totalSlots) * 100;
+            const utilization = totalSlots > 0 ? (scheduledSlots / totalSlots) * 100 : 0;
             return { ...r, scheduledSlots, utilization };
         }).sort((a,b) => b.utilization - a.utilization);
-    }, [rooms, timetable]);
+    }, [rooms, timetable, constraints]);
 
     // NEW: Equipment Utilization calculation
     const equipmentUtilization = useMemo(() => {
@@ -1327,6 +1340,11 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
     const [selectedDay, setSelectedDay] = useState(DAYS[0]);
     const [selectedBlock, setSelectedBlock] = useState('all');
 
+    const timeSlots = useMemo(() => {
+        if (!constraints?.timePreferences) return [];
+        return calculateTimeSlots(constraints.timePreferences);
+    }, [constraints]);
+
     const filteredRooms = useMemo(() => rooms.filter(r => selectedBlock === 'all' || r.block === selectedBlock), [rooms, selectedBlock]);
     const scheduleMap = useMemo(() => {
         const map = new Map<string, string>(); // key: "roomNumber-day-time", value: "className"
@@ -1334,7 +1352,7 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
             const key = `${entry.room}-${entry.day}-${entry.time}`;
             map.set(key, entry.className);
         });
-        return map;
+        return scheduleMap;
     }, [timetable]);
 
     return (
@@ -1349,14 +1367,14 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
                         <thead>
                             <tr>
                                 <th className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 z-10">Room</th>
-                                {TIME_SLOTS.map(time => <th key={time} className="p-2 border dark:border-slate-700">{time}</th>)}
+                                {timeSlots.map(time => <th key={time} className="p-2 border dark:border-slate-700">{time}</th>)}
                             </tr>
                         </thead>
                         <tbody>
                             {filteredRooms.map(room => (
                                 <tr key={room.id}>
                                     <td className="sticky left-0 bg-bg-secondary p-2 border dark:border-slate-700 font-semibold z-10">{room.number}</td>
-                                    {TIME_SLOTS.map(time => {
+                                    {timeSlots.map(time => {
                                         const bookedClass = scheduleMap.get(`${room.number}-${selectedDay}-${time}`);
                                         return (
                                             <td key={time} className={`p-2 border dark:border-slate-700 text-center ${bookedClass ? 'bg-red-200 dark:bg-red-900/50' : 'bg-green-200 dark:bg-green-900/50'}`}>
@@ -1473,7 +1491,7 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
               constraints={constraints}
             />
             {generationResult && generationResult.unscheduledSessions && <UnscheduledSessionsReport sessions={generationResult.unscheduledSessions} />}
-            <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} />
+            <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} />
             <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
         </div>
     );

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { SectionCard, FormField, SelectInput, Modal, TextInput } from '../../components/common';
 import { useAppContext } from '../../context/AppContext';
 import { SyllabusProgress } from '../../types';
-import { EditIcon } from '../../components/Icons';
+import { EditIcon, AddIcon } from '../../components/Icons';
 
 const ProgressBar = ({ value, color = 'bg-blue-600' }: { value: number; color?: string }) => (
     <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5">
@@ -11,10 +11,10 @@ const ProgressBar = ({ value, color = 'bg-blue-600' }: { value: number; color?: 
 );
 
 const SyllabusUpdateModal = ({ progress, isOpen, onClose, onSave }: {
-    progress: SyllabusProgress | null;
+    progress: Partial<SyllabusProgress> | null;
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: SyllabusProgress) => void;
+    onSave: (data: Partial<SyllabusProgress>) => void;
 }) => {
     const [formData, setFormData] = useState(progress);
 
@@ -33,9 +33,11 @@ const SyllabusUpdateModal = ({ progress, isOpen, onClose, onSave }: {
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Update Lecture #${formData.lectureNumber}`}>
+        <Modal isOpen={isOpen} onClose={onClose} title={formData.id ? `Update Lecture #${formData.lectureNumber}`: 'Add New Lecture Topic'}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <p><span className="font-semibold">Assigned Topic:</span> {formData.assignedTopic}</p>
+                <FormField label="Assigned Topic" htmlFor="assignedTopic">
+                    <TextInput id="assignedTopic" name="assignedTopic" value={formData.assignedTopic} onChange={handleChange} required />
+                </FormField>
                 <FormField label="Taught Topic" htmlFor="taughtTopic">
                     <TextInput id="taughtTopic" name="taughtTopic" value={formData.taughtTopic} onChange={handleChange} required />
                 </FormField>
@@ -57,7 +59,7 @@ const SyllabusUpdateModal = ({ progress, isOpen, onClose, onSave }: {
 
 const IMSPage = () => {
     const { user, faculty, subjects, syllabusProgress, handleSaveEntity } = useAppContext();
-    const [editingProgress, setEditingProgress] = useState<SyllabusProgress | null>(null);
+    const [editingProgress, setEditingProgress] = useState<Partial<SyllabusProgress> | null>(null);
 
     const teacherProfile = faculty.find(f => f.id === user?.profileId);
     const teacherSubjects = subjects.filter(s => s.assignedFacultyId === teacherProfile?.id);
@@ -68,16 +70,38 @@ const IMSPage = () => {
         return 'text-text-secondary';
     };
 
-    const handleSaveProgress = async (data: SyllabusProgress) => {
+    const handleSaveProgress = async (data: Partial<SyllabusProgress>) => {
         try {
             // The variance logic should be on the backend, but we'll replicate it here for the UI update
-            const updatedData = { ...data, variance: data.assignedTopic !== data.taughtTopic };
-            await handleSaveEntity('syllabus-progress', updatedData);
+            const { id, ...dataToSave } = data;
+            const payload = {
+                ...dataToSave,
+                variance: data.assignedTopic !== data.taughtTopic
+            };
+
+            if (id) {
+                await handleSaveEntity('syllabus-progress', { ...payload, id });
+            } else {
+                await handleSaveEntity('syllabus-progress', payload);
+            }
             setEditingProgress(null);
         } catch (error) {
             console.error("Failed to save syllabus progress", error);
             // Optionally set an error state to show in the UI
         }
+    };
+    
+    const handleAddTopic = (subjectId: string, currentProgress: SyllabusProgress[]) => {
+        setEditingProgress({
+            subjectId,
+            facultyId: teacherProfile?.id,
+            lectureNumber: currentProgress.length + 1,
+            assignedTopic: '',
+            taughtTopic: '',
+            date: new Date().toISOString(),
+            status: 'Pending',
+            variance: false
+        });
     };
 
     return (
@@ -123,6 +147,9 @@ const IMSPage = () => {
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                                 <div className="flex justify-end mt-4">
+                                    <button onClick={() => handleAddTopic(subject.id, progress)} className="action-btn-primary"><AddIcon />Add Lecture Topic</button>
                                 </div>
                             </div>
                         );

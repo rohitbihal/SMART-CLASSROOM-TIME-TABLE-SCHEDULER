@@ -168,44 +168,28 @@ export const suggestReassignment = async (payload: { classes: Class[], faculty: 
     return response.json();
 };
 
-// --- CHAT API ---
-export const fetchChatUpdates = async (since: number): Promise<ChatMessage[]> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/chat/updates?since=${since}`);
+// --- CHAT & REAL-TIME API ---
+export const fetchAllUpdates = async (timestamps: { chat: number, meetings: number, notifications: number, events: number, syllabus: number }): Promise<{
+    chatMessages: ChatMessage[];
+    meetings: Meeting[];
+    appNotifications: AppNotification[];
+    calendarEvents: CalendarEvent[];
+    syllabusProgress: SyllabusProgress[];
+}> => {
+    const params = new URLSearchParams({
+        since_chat: String(timestamps.chat),
+        since_meetings: String(timestamps.meetings),
+        since_notifications: String(timestamps.notifications),
+        since_events: String(timestamps.events),
+        since_syllabus: String(timestamps.syllabus),
+    });
+    const response = await fetchWithAuth(`${API_BASE_URL}/updates/all?${params}`);
     if (!response.ok) {
-        // Don't throw for polling errors to avoid interrupting the user experience. Just log it.
-        console.error('Chat poll failed:', await response.text());
-        return [];
+        console.error('Polling failed:', await response.text());
+        return { chatMessages: [], meetings: [], appNotifications: [], calendarEvents: [], syllabusProgress: [] };
     }
     return response.json();
 };
-
-export const fetchMeetingUpdates = async (since: number): Promise<Meeting[]> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/updates/meetings?since=${since}`);
-    if (!response.ok) {
-        console.error('Meeting poll failed:', await response.text());
-        return [];
-    }
-    return response.json();
-};
-
-export const fetchNotificationUpdates = async (since: number): Promise<AppNotification[]> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/updates/notifications?since=${since}`);
-    if (!response.ok) {
-        console.error('Notification poll failed:', await response.text());
-        return [];
-    }
-    return response.json();
-};
-
-export const fetchCalendarEventUpdates = async (since: number): Promise<CalendarEvent[]> => {
-    const response = await fetchWithAuth(`${API_BASE_URL}/updates/calendar-events?since=${since}`);
-    if (!response.ok) {
-        console.error('Calendar poll failed:', await response.text());
-        return [];
-    }
-    return response.json();
-};
-
 
 export const askCampusAI = async (payload: { messageText: string, classId: string, messageId: string }): Promise<ChatMessage> => {
     const response = await fetchWithAuth(`${API_BASE_URL}/chat/ask`, {

@@ -169,6 +169,7 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     const lastMeetingTimestamp = useRef(0);
     const lastNotificationTimestamp = useRef(0);
     const lastCalendarEventTimestamp = useRef(0);
+    const lastSyllabusTimestamp = useRef(0);
 
 
     useEffect(() => {
@@ -207,62 +208,74 @@ export const AppProvider = ({ children }: { children?: React.ReactNode }) => {
         }
     }, [calendarEvents]);
 
+    useEffect(() => {
+        if (syllabusProgress.length > 0) {
+            const maxTimestamp = Math.max(...syllabusProgress.map(e => e.updatedAt ? new Date(e.updatedAt).getTime() : 0));
+            if (maxTimestamp > lastSyllabusTimestamp.current) {
+                lastSyllabusTimestamp.current = maxTimestamp;
+            }
+        }
+    }, [syllabusProgress]);
+
 
     useEffect(() => {
         if (!token) return;
 
         const poll = async () => {
             try {
-                // Chat updates
-                const newMessages = await api.fetchChatUpdates(lastMessageTimestamp.current);
-                if (newMessages.length > 0) {
+                const updates = await api.fetchAllUpdates({
+                    chat: lastMessageTimestamp.current,
+                    meetings: lastMeetingTimestamp.current,
+                    notifications: lastNotificationTimestamp.current,
+                    events: lastCalendarEventTimestamp.current,
+                    syllabus: lastSyllabusTimestamp.current,
+                });
+
+                if (updates.chatMessages && updates.chatMessages.length > 0) {
                     setChatMessages(prev => {
                         const existingIds = new Set(prev.map(m => m.id));
-                        const uniqueNewMessages = newMessages.filter(m => !existingIds.has(m.id));
-                        if (uniqueNewMessages.length > 0) {
-                            return [...prev, ...uniqueNewMessages].sort((a, b) => a.timestamp - b.timestamp);
-                        }
-                        return prev;
+                        const uniqueNewMessages = updates.chatMessages.filter(m => !existingIds.has(m.id));
+                        return uniqueNewMessages.length > 0 ? [...prev, ...uniqueNewMessages].sort((a, b) => a.timestamp - b.timestamp) : prev;
                     });
                 }
                 
-                // Meeting updates
-                const newMeetings = await api.fetchMeetingUpdates(lastMeetingTimestamp.current);
-                if (newMeetings.length > 0) {
+                if (updates.meetings && updates.meetings.length > 0) {
                     setMeetings(prev => {
                         const meetingMap = new Map(prev.map(m => [m.id, m]));
-                        newMeetings.forEach(m => meetingMap.set(m.id, m));
-                        // FIX: Added explicit types for sort callback parameters to resolve 'property does not exist on type unknown' error.
+                        updates.meetings.forEach(m => meetingMap.set(m.id, m));
+                        // FIX: Explicitly type parameters to resolve property access error on 'unknown' type.
                         return Array.from(meetingMap.values()).sort((a: Meeting, b: Meeting) => new Date(a.start).getTime() - new Date(b.start).getTime());
                     });
                 }
 
-                // Notification updates
-                const newNotifications = await api.fetchNotificationUpdates(lastNotificationTimestamp.current);
-                if (newNotifications.length > 0) {
+                if (updates.appNotifications && updates.appNotifications.length > 0) {
                     setAppNotifications(prev => {
                         const notifIds = new Set(prev.map(n => n.id));
-                        const uniqueNew = newNotifications.filter(n => !notifIds.has(n.id));
-                         if (uniqueNew.length > 0) {
-                            return [...prev, ...uniqueNew].sort((a,b) => new Date(b.sentDate).getTime() - new Date(a.sentDate).getTime());
-                        }
-                        return prev;
+                        const uniqueNew = updates.appNotifications.filter(n => !notifIds.has(n.id));
+                        return uniqueNew.length > 0 ? [...prev, ...uniqueNew].sort((a,b) => new Date(b.sentDate).getTime() - new Date(a.sentDate).getTime()) : prev;
                     });
                 }
                 
-                // Calendar Event updates
-                const newEvents = await api.fetchCalendarEventUpdates(lastCalendarEventTimestamp.current);
-                if (newEvents.length > 0) {
+                if (updates.calendarEvents && updates.calendarEvents.length > 0) {
                     setCalendarEvents(prev => {
                         const eventMap = new Map(prev.map(e => [e.id, e]));
-                        newEvents.forEach(e => eventMap.set(e.id, e));
-                        // FIX: Added explicit types for sort callback parameters to resolve 'property does not exist on type unknown' error.
+                        updates.calendarEvents.forEach(e => eventMap.set(e.id, e));
+                        // FIX: Explicitly type parameters to resolve property access error on 'unknown' type.
                         return Array.from(eventMap.values()).sort((a: CalendarEvent, b: CalendarEvent) => new Date(a.start).getTime() - new Date(b.start).getTime());
                     });
                 }
 
+                if (updates.syllabusProgress && updates.syllabusProgress.length > 0) {
+                    setSyllabusProgress(prev => {
+                        const progressMap = new Map(prev.map(p => [p.id, p]));
+                        updates.syllabusProgress.forEach(p => progressMap.set(p.id, p));
+                        // FIX: Explicitly type parameters to resolve property access error on 'unknown' type.
+                        return Array.from(progressMap.values()).sort((a: SyllabusProgress, b: SyllabusProgress) => (a.lectureNumber || 0) - (b.lectureNumber || 0));
+                    });
+                }
+
             } catch (error) {
-                // Polling errors are logged by the API service, so we don't need to throw here
+                 logger.error(error as Error, { context: 'polling' });
             }
         };
 

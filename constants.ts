@@ -1,6 +1,6 @@
 
 
-import { TimetableEntry } from './types';
+import { TimetableEntry, TimePreferences } from './types';
 
 // === From constants.ts ===
 export const TIME_SLOTS = [
@@ -29,3 +29,53 @@ export const MOCK_TEACHER_TIMETABLE: TimetableEntry[] = [
     // FIX: Changed type to 'Theory' to match type definition.
     { day: 'monday', time: '11:10-12:00', subject: 'Algorithms', className: 'CSE-3-A', room: 'CS-101', type: 'Theory', faculty: 'Dr. Rajesh Kumar', classType: 'regular' },
 ];
+
+
+export const calculateTimeSlots = (prefs: TimePreferences): string[] => {
+    if (!prefs || !prefs.startTime || !prefs.endTime) return [];
+    
+    const timeToMinutes = (time: string): number => {
+        if (!time || !time.includes(':')) return 0;
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+    };
+
+    const minutesToTime = (minutes: number): string => {
+        const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+        const m = (minutes % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+    };
+
+    const slots: string[] = [];
+    let currentTime = timeToMinutes(prefs.startTime);
+    const endTime = timeToMinutes(prefs.endTime);
+    const lunchStart = timeToMinutes(prefs.lunchStartTime);
+    const lunchEnd = lunchStart + prefs.lunchDurationMinutes;
+
+    while (currentTime < endTime) {
+        const slotEnd = currentTime + prefs.slotDurationMinutes;
+
+        // Check if the proposed slot overlaps with lunch
+        const startsDuringLunch = currentTime >= lunchStart && currentTime < lunchEnd;
+        const endsDuringLunch = slotEnd > lunchStart && slotEnd <= lunchEnd;
+        const spansOverLunch = currentTime < lunchStart && slotEnd > lunchEnd;
+
+        if (startsDuringLunch || endsDuringLunch || spansOverLunch) {
+            // If the current time is before lunch, jump to the end of lunch
+            if (currentTime < lunchStart) {
+                currentTime = lunchEnd;
+            } else { // If the current time is already in lunch, jump to the end
+                currentTime = lunchEnd;
+            }
+            continue; 
+        }
+
+        if (slotEnd > endTime) {
+            break; // Don't add slots that go past the end time
+        }
+        
+        slots.push(`${minutesToTime(currentTime)}-${minutesToTime(slotEnd)}`);
+        currentTime = slotEnd;
+    }
+    return slots;
+};
