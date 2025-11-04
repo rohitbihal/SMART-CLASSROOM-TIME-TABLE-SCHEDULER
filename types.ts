@@ -378,6 +378,9 @@ export interface SyllabusProgress {
     date: string;
     status: 'Completed' | 'Pending' | 'Deferred';
     variance: boolean;
+// FIX: Add `createdAt` and `updatedAt` to match the server schema, resolving a polling error.
+    createdAt?: string;
+    updatedAt?: string;
 }
 export interface CalendarEvent {
     id: string;

@@ -1352,7 +1352,7 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
             const key = `${entry.room}-${entry.day}-${entry.time}`;
             map.set(key, entry.className);
         });
-        return scheduleMap;
+        return map;
     }, [timetable]);
 
     return (
