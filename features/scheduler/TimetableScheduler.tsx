@@ -1391,7 +1391,7 @@ const RoomAvailabilityViewer = ({ timetable, rooms, constraints, blocks }: { tim
         </SectionCard>
     );
 };
-const TimetableViewer = ({ timetable, classes, faculty, rooms, constraints }: { timetable: TimetableEntry[]; classes: Class[]; faculty: Faculty[]; rooms: Room[]; constraints: Constraints | null; }) => {
+const TimetableViewer = ({ timetable, classes, faculty, rooms, constraints, actions }: { timetable: TimetableEntry[]; classes: Class[]; faculty: Faculty[]; rooms: Room[]; constraints: Constraints | null; actions?: React.ReactNode; }) => {
   const [viewMode, setViewMode] = useState<'master' | 'class' | 'faculty' | 'room'>('master');
   const [selectedId, setSelectedId] = useState<string>('');
 
@@ -1437,7 +1437,7 @@ const TimetableViewer = ({ timetable, classes, faculty, rooms, constraints }: { 
   };
 
   return (
-    <SectionCard title="Timetable Viewer">
+    <SectionCard title="Timetable Viewer" actions={actions}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <FormField label="View By" htmlFor="view-mode">
           <SelectInput id="view-mode" value={viewMode} onChange={e => setViewMode(e.target.value as any)}>
@@ -1472,7 +1472,7 @@ const TimetableViewer = ({ timetable, classes, faculty, rooms, constraints }: { 
   );
 };
 
-const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks, generationResult, classes }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; generationResult: GenerationResult | null; classes: Class[] }) => {
+const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlocks, generationResult, classes, onRegenerate, isGenerating, onSaveTimetable }: { timetable: TimetableEntry[]; faculty: Faculty[]; subjects: Subject[]; rooms: Room[]; constraints: Constraints | null; activeBlocks: string[]; generationResult: GenerationResult | null; classes: Class[]; onRegenerate: () => void; isGenerating: boolean; onSaveTimetable: () => void; }) => {
     if (!constraints) {
         return (
             <div className="flex items-center justify-center p-8 text-text-secondary">
@@ -1481,18 +1481,33 @@ const ViewTab = ({ timetable, faculty, subjects, rooms, constraints, activeBlock
             </div>
         );
     }
+    
+    const displayedTimetable = useMemo(() => {
+        return generationResult?.timetable && generationResult.timetable.length > 0 
+            ? generationResult.timetable 
+            : timetable;
+    }, [generationResult, timetable]);
+    
     return (
         <div className="space-y-6">
             <TimetableViewer 
-              timetable={timetable} 
+              timetable={displayedTimetable} 
               classes={classes}
               faculty={faculty}
               rooms={rooms}
               constraints={constraints}
+              actions={
+                <div className="flex gap-2">
+                    <button onClick={onSaveTimetable} disabled={!generationResult || generationResult.timetable.length === 0} className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold px-3 py-1.5 rounded-md disabled:opacity-50"><SaveIcon />Publish Changes</button>
+                    <button onClick={onRegenerate} disabled={isGenerating} className="btn-primary flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isGenerating ? <><LoadingIcon className="h-5 w-5" /> Regenerating...</> : <><GenerateIcon /> Regenerate</>}
+                    </button>
+                </div>
+              }
             />
-            {generationResult && generationResult.unscheduledSessions && <UnscheduledSessionsReport sessions={generationResult.unscheduledSessions} />}
-            <AnalyticsDashboard timetable={timetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} />
-            <RoomAvailabilityViewer timetable={timetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
+            <UnscheduledSessionsReport sessions={generationResult?.unscheduledSessions || []} />
+            <AnalyticsDashboard timetable={displayedTimetable} faculty={faculty} subjects={subjects} rooms={rooms} constraints={constraints} />
+            <RoomAvailabilityViewer timetable={displayedTimetable} rooms={rooms} constraints={constraints} blocks={activeBlocks} />
         </div>
     );
 };
@@ -1590,8 +1605,8 @@ const AssignmentsTab = ({ subjects, faculty, classes, onSaveEntity }: { subjects
 
     const downloadAssignments = () => {
         const headers = ["Subject Code", "Subject", "Faculty", "Class"];
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + headers.join(",") + "\n"
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(",") + "\n" 
             + filteredAssignments.map(e => [e.subjectCode, e.subjectName, e.facultyName, e.className].join(",")).join("\n");
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI(csvContent));
@@ -1825,8 +1840,11 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
         }
     }, [classes, faculty, subjects, rooms, constraints, token]);
 
-    const handleSaveTimetable = useCallback(async () => {
-        if (!generationResult?.timetable) return;
+    const handleSaveAndPublish = useCallback(async () => {
+        if (!generationResult?.timetable) {
+            alert("No timetable has been generated to publish.");
+            return;
+        }
         try {
             await onSaveTimetable(generationResult.timetable);
             alert("Timetable saved and published successfully!");
@@ -1863,11 +1881,22 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
                 return <ConstraintsTab {...props} />;
             case 'generate': 
                 if (!constraints) return loadingIndicator;
-                return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveTimetable} generationResult={generationResult} isLoading={isGenerating} error={generationError} onClear={() => setGenerationResult(null)} constraints={constraints} />;
+                return <GenerateTab onGenerate={handleGenerate} onSave={handleSaveAndPublish} generationResult={generationResult} isLoading={isGenerating} error={generationError} onClear={() => setGenerationResult(null)} constraints={constraints} />;
             case 'view': 
                 if (!constraints) return loadingIndicator;
-                // FIX: Pass activeBlocks and generationResult props to the ViewTab component.
-                return <ViewTab {...props} activeBlocks={activeBlocks} generationResult={generationResult} />;
+                return <ViewTab 
+                    timetable={props.timetable}
+                    faculty={props.faculty}
+                    subjects={props.subjects}
+                    rooms={props.rooms}
+                    constraints={props.constraints}
+                    classes={props.classes}
+                    activeBlocks={activeBlocks}
+                    generationResult={generationResult}
+                    onRegenerate={handleGenerate}
+                    isGenerating={isGenerating}
+                    onSaveTimetable={handleSaveAndPublish}
+                />;
             default: return null;
         }
     };

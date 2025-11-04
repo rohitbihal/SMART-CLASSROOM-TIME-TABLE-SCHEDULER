@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { logger } from '../services/logger';
 
 interface Props {
@@ -10,9 +10,8 @@ interface State {
   error?: Error;
 }
 
-// FIX: Changed to extend named import `Component` from React to resolve a type error where `this.props` was not being recognized.
-// FIX: Changed to extend React.Component directly to ensure proper type resolution for `this.props`.
-export class ErrorBoundary extends Component<Props, State> {
+// FIX: Changed from extending a named `Component` import to `React.Component` to resolve a type error where `this.props` was not being recognized.
+export class ErrorBoundary extends React.Component<Props, State> {
   // FIX: Replaced the constructor with a state class property. This is a more modern syntax and resolves the type errors where `this.state` was not being recognized.
   state: State = {
     hasError: false,
