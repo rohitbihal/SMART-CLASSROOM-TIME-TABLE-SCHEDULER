@@ -1699,7 +1699,7 @@ const TimetableScheduler = (props: TimetableSchedulerProps) => {
     const [pageError, setPageError] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationError, setGenerationError] = useState<string | null>(null);
-    const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+    const [generationResult, setGenerationResult] = useState<GenerationResult | null>(timetable.length > 0 ? { timetable, unscheduledSessions: [] } : null);
     const [selectedItems, setSelectedItems] = useState<{ [key in EntityType]: string[] }>({ class: [], faculty: [], subject: [], room: [], institution: [] });
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
